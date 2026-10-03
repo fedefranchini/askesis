@@ -69,7 +69,7 @@ di questa fase.
 | Area | Fonte | Tipo | Identificativo | ID verificato |
 |---|---|---|---|---|
 | Screening pre-esercizio | Riebe et al., 2015 — ACSM preparticipation screening | position | [10.1249/MSS.0000000000000664](https://doi.org/10.1249/mss.0000000000000664) | ✅ Crossref |
-| Screening pre-esercizio | Warburton et al., 2013 — PAR-Q+ / ePARmed-X+ (Can Fam Physician) | strumento | [PMID 23486800](https://pubmed.ncbi.nlm.nih.gov/23486800/) | ✅ PubMed (senza DOI) |
+| Screening pre-esercizio | Bredin et al., 2013 — PAR-Q+ / ePARmed-X+ (Can Fam Physician) | strumento | [PMID 23486800](https://pubmed.ncbi.nlm.nih.gov/23486800/) | ✅ PubMed (senza DOI) |
 | Energia, ritmo di dimagrimento | Thomas et al., 2016 — ACSM/AND/DC Nutrition and Athletic Performance | position | [10.1249/MSS.0000000000000852](https://doi.org/10.1249/MSS.0000000000000852) | ✅ PubMed |
 | Energia, ritmo di dimagrimento | Aragon et al., 2017 — ISSN: diets and body composition | position | [10.1186/s12970-017-0174-y](https://doi.org/10.1186/s12970-017-0174-y) | ✅ Crossref |
 | Energia, ritmo di dimagrimento | Helms, Aragon & Fitschen, 2014 — natural bodybuilding contest prep | review | [10.1186/1550-2783-11-20](https://doi.org/10.1186/1550-2783-11-20) | ✅ Crossref |
@@ -92,7 +92,7 @@ di questa fase.
 | Concurrent | Wilson et al., 2012 — interference meta-analysis | MA | [10.1519/JSC.0b013e31823a3e2d](https://doi.org/10.1519/jsc.0b013e31823a3e2d) | ✅ Crossref |
 | Corsa: intensità | Seiler, 2010 — training intensity distribution | review | [10.1123/ijspp.5.3.276](https://doi.org/10.1123/ijspp.5.3.276) | ✅ Crossref |
 | Corsa: talk-test | Persinger et al., 2004 — consistency of the talk test (MSSE) | studio | [PMID 15354048](https://pubmed.ncbi.nlm.nih.gov/15354048/) | ✅ PubMed (senza DOI) |
-| Corsa: talk-test | Reed et al., 2014 — the talk test (Curr Opin Cardiol) | review | [10.1097/HCO.0000000000000097](https://doi.org/10.1097/HCO.0000000000000097) | ✅ PubMed |
+| Corsa: talk-test | Reed & Pipe, 2014 — the talk test (Curr Opin Cardiol) | review | [10.1097/HCO.0000000000000097](https://doi.org/10.1097/HCO.0000000000000097) | ✅ PubMed |
 | Carico | Foster et al., 2001 — session-RPE | studio | [10.1519/00124278-200102000-00019](https://doi.org/10.1519/00124278-200102000-00019) | ✅ Crossref |
 | Carico | Impellizzeri et al., 2020 — ACWR pitfalls | critica metodologica | [10.1123/ijspp.2019-0864](https://doi.org/10.1123/ijspp.2019-0864) | ✅ Crossref |
 | Safety: REDs | Mountjoy et al., 2023 — IOC consensus on REDs | consensus | [10.1136/bjsports-2023-106994](https://doi.org/10.1136/bjsports-2023-106994) | ✅ PubMed |

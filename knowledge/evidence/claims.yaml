@@ -1,0 +1,314 @@
+# Evidence KB — claim (conoscenza generale; riassunti con parole proprie; nessun dato dell'atleta)
+#
+# certainty (preliminare, ispirata a GRADE, valutata sugli abstract): high | moderate | low | very_low
+# basis: evidence | expert_opinion
+# status: verified_full_text | verified_abstract | unverified
+# population_scope: descrive SOLO dominio/popolazione degli studi. L'applicabilità a un atleta specifico è nei file privati.
+schema_version: "0.1"
+last_reviewed: "2026-10-03"
+claims:
+
+  # ---------- Screening ----------
+  - id: screen.acsm_model
+    domain: [safety, screening]
+    claim: >-
+      Lo screening pre-esercizio ACSM si basa su tre fattori: livello di attività attuale, segni/sintomi o
+      malattia cardiovascolare/metabolica/renale nota, intensità desiderata. Il profilo dei fattori di rischio
+      non è più parte dello screening.
+    sources: [riebe2015]
+    basis: evidence
+    certainty: moderate
+    status: verified_abstract
+  - id: screen.parq_plus
+    domain: [safety, screening]
+    claim: "Il PAR-Q+ è uno strumento di stratificazione del rischio e di nulla osta all'attività fisica."
+    sources: [bredin2013]
+    basis: evidence
+    certainty: low
+    status: verified_abstract
+    limitations: "contenuto non letto (abstract assente in PubMed)"
+
+  # ---------- Energia e ritmo di dimagrimento ----------
+  - id: energy.deficit_drives_fat_loss
+    domain: [nutrition, fat_loss]
+    claim: "La perdita di grasso è guidata da un deficit calorico sostenuto; molti approcci dietetici diversi possono essere ugualmente efficaci."
+    sources: [aragon2017]
+    basis: evidence
+    certainty: high
+    status: verified_full_text
+  - id: energy.rate_lean_vs_higher_fat
+    domain: [nutrition, fat_loss]
+    claim: >-
+      Più è alta la massa grassa di partenza, più il deficit può essere aggressivo; nei soggetti più magri
+      ritmi di perdita più lenti preservano meglio la massa magra.
+    sources: [aragon2017]
+    basis: evidence
+    certainty: moderate
+    status: verified_full_text
+  - id: energy.rate_0_5_to_1_pct
+    domain: [nutrition, fat_loss]
+    claim: "Per massimizzare la ritenzione muscolare viene raccomandata una perdita di circa 0,5–1% del peso corporeo a settimana."
+    sources: [helms2014]
+    basis: evidence
+    certainty: moderate
+    status: verified_full_text
+    population_scope: "natural bodybuilder magri in preparazione gara"
+    notes: "il full text indica che diete più lunghe (2–4+ mesi) a questo ritmo sembrano preferibili a diete brevi e aggressive, e che il rischio di perdere massa magra cresce man mano che si diventa più magri"
+  - id: energy.slow_vs_fast_rct
+    domain: [nutrition, fat_loss]
+    claim: >-
+      In un RCT su atleti con allenamento di forza, una perdita di ~0,7%/settimana ha aumentato la massa
+      magra, mentre ~1,4%/settimana (più rapida) l'ha lasciata invariata, a parità di perdita di peso totale.
+    sources: [garthe2011]
+    basis: evidence
+    certainty: low
+    status: verified_abstract
+    limitations: "n=24, 5–9 settimane, atleti d'élite"
+  - id: energy.dynamic_response
+    domain: [nutrition, modelling]
+    claim: >-
+      La risposta del peso a una variazione di intake è dinamica e lenta (spesa energetica che si adatta);
+      una regola statica kcal→kg sovrastima la perdita nel lungo periodo.
+    sources: [hall2011]
+    basis: evidence
+    certainty: moderate
+    status: verified_abstract
+  - id: energy.mifflin_ree
+    domain: [nutrition, energy_estimation]
+    claim: "L'equazione di Mifflin-St Jeor stima la spesa energetica a riposo da peso, altezza, età e sesso (R² ~0,71 nel campione di derivazione)."
+    sources: [mifflin1990]
+    basis: evidence
+    certainty: moderate
+    status: verified_abstract
+    population_scope: "adulti sani non atleti, normopeso e obesi; stima solo il metabolismo a riposo, non il dispendio totale"
+  - id: energy.activity_multiplier
+    domain: [nutrition, energy_estimation]
+    claim: "I moltiplicatori di attività applicati al metabolismo a riposo per stimare il TDEE sono convenzioni con errore individuale ampio."
+    sources: []
+    basis: expert_opinion
+    certainty: very_low
+    status: unverified
+    notes: "nessuna fonte verificata in KB"
+
+  # ---------- Proteine ----------
+  - id: protein.general_range
+    domain: [nutrition, protein]
+    claim: "Per costruire o mantenere massa muscolare, un intake di 1,4–2,0 g/kg/die è sufficiente per la maggior parte delle persone che si allenano."
+    sources: [jager2017]
+    basis: evidence
+    certainty: moderate
+    status: verified_full_text
+  - id: protein.breakpoint_1_6
+    domain: [nutrition, protein]
+    claim: >-
+      Oltre ~1,62 g/kg/die di proteine totali non si osservano ulteriori guadagni di massa magra con
+      l'allenamento di forza (IC 95% del breakpoint 1,03–2,20 g/kg/die); gli autori suggeriscono ~2,2 g/kg/die
+      per chi vuole massimizzare i guadagni.
+    sources: [morton2018]
+    basis: evidence
+    certainty: moderate
+    status: verified_full_text
+    limitations: "breakpoint non statisticamente significativo (p=0,079); solo partecipanti a fabbisogno energetico pieno o superiore: non informa direttamente sul deficit"
+  - id: protein.hypocaloric_higher
+    domain: [nutrition, protein, fat_loss]
+    claim: "In deficit calorico, soggetti allenati con la forza possono aver bisogno di intake più alti (2,3–3,1 g/kg) per massimizzare la ritenzione della massa magra."
+    sources: [jager2017, aragon2017, helms2014]
+    basis: evidence
+    certainty: low
+    status: verified_full_text
+    population_scope: "soggetti magri allenati con la forza, in deficit calorico"
+    limitations: "il range deriva da una revisione sistematica di Helms et al. su atleti magri ed è espresso per kg di massa magra (FFM/LBM); aragon2017 lo specifica, jager2017 lo riporta come g/kg/die senza specificare la base. Per soggetti non magri la base FFM è quella originale"
+  - id: protein.distribution
+    domain: [nutrition, protein]
+    claim: "Dosi di ~0,25 g/kg (o 20–40 g) di proteine di qualità, distribuite ogni 3–4 ore, sono una raccomandazione generale; il timing ha effetto minore."
+    sources: [jager2017, helms2014]
+    basis: evidence
+    certainty: low
+    status: verified_abstract
+
+  # ---------- Allenamento con i pesi ----------
+  - id: rt.volume_dose_response
+    domain: [resistance_training, hypertrophy, strength]
+    claim: >-
+      Ipertrofia e forza aumentano con il volume settimanale di serie, con rendimenti decrescenti (più
+      marcati per la forza). Contare le serie indirette come 0,5 ("fractional") predice meglio gli adattamenti.
+    sources: [pelland2025, schoenfeld2017vol]
+    basis: evidence
+    certainty: moderate
+    status: verified_abstract
+  - id: rt.frequency
+    domain: [resistance_training, hypertrophy, strength]
+    claim: >-
+      A parità di volume, l'effetto della frequenza sull'ipertrofia è incerto (compatibile con effetto
+      trascurabile nella meta-regressione più ampia; una meta-analisi precedente favoriva 2 vs 1 volta/settimana);
+      sulla forza una frequenza più alta aiuta, con rendimenti decrescenti.
+    sources: [pelland2025, schoenfeld2016freq]
+    basis: evidence
+    certainty: low
+    status: verified_abstract
+    notes: "evidenza in parte contrastante: segnalare"
+  - id: rt.load
+    domain: [resistance_training, hypertrophy, strength]
+    claim: "L'ipertrofia è simile in un ampio spettro di carichi (con serie vicine al cedimento); la forza massimale (1RM) migliora di più con carichi alti."
+    sources: [schoenfeld2017load, acsm2009]
+    basis: evidence
+    certainty: moderate
+    status: verified_abstract
+  - id: rt.proximity_to_failure
+    domain: [resistance_training, hypertrophy, strength]
+    claim: >-
+      L'ipertrofia tende ad aumentare man mano che le serie terminano più vicino al cedimento, mentre la forza
+      è simile su un ampio range di RIR; arrivare al cedimento muscolare momentaneo non risulta superiore al
+      non arrivarci.
+    sources: [robinson2024, refalo2023]
+    basis: evidence
+    certainty: low
+    status: verified_abstract
+    limitations: "robinson2024 è esplorativa con RIR stimato (letta solo sull'abstract); refalo2023 (full text) segnala l'assenza di una definizione condivisa di cedimento; relazione probabilmente non lineare"
+  - id: rt.rir_scale
+    domain: [resistance_training, monitoring]
+    claim: "La scala RPE basata sulle ripetizioni in riserva (RIR) è uno strumento per regolare il carico serie per serie in base alle capacità del giorno."
+    sources: [helms2016rir]
+    basis: evidence
+    certainty: low
+    status: verified_abstract
+  - id: rt.progression_acsm
+    domain: [resistance_training, progression]
+    claim: >-
+      Progressione indicativa: aumentare il carico del 2–10% quando si riesce a eseguire 1–2 ripetizioni oltre
+      il target; esercizi multiarticolari prima dei monoarticolari; per l'ipertrofia enfasi su 6–12RM, per la
+      forza su carichi alti (1–6RM) con recuperi più lunghi.
+    sources: [acsm2009]
+    basis: evidence
+    certainty: moderate
+    status: verified_abstract
+    limitations: "position stand del 2009"
+  - id: rt.deload
+    domain: [resistance_training, recovery]
+    claim: >-
+      Il deload è definito per consenso come un periodo di stress ridotto per gestire fatica e migliorare la
+      preparazione; come e quando inserirlo poggia su opinione di coach esperti, non su dati sperimentali.
+    sources: [bell2023]
+    basis: expert_opinion
+    certainty: very_low
+    status: verified_abstract
+
+  # ---------- Concurrent training ----------
+  - id: concurrent.compatibility
+    domain: [concurrent, hypertrophy, strength]
+    claim: >-
+      Aggiungere allenamento aerobico alla forza non compromette ipertrofia né forza massimale; la forza
+      esplosiva può essere attenuata, soprattutto se le due modalità sono nella stessa sessione (meno se
+      separate da almeno 3 ore).
+    sources: [schumann2022]
+    basis: evidence
+    certainty: moderate
+    status: verified_full_text
+    population_scope: "adulti sani non allenati o attivi"
+    limitations: "qualità media degli studi moderata; nessun effetto di modalità (stessa sessione / stesso giorno / giorni diversi) su ipertrofia e forza massimale"
+  - id: concurrent.running_dose
+    domain: [concurrent]
+    claim: >-
+      Un'analisi più vecchia aveva associato interferenza maggiore alla corsa (vs bici) e a frequenza/durata
+      maggiori dell'aerobico; la meta-analisi aggiornata non trova differenze per modalità o frequenza.
+    sources: [wilson2012, schumann2022]
+    basis: evidence
+    certainty: low
+    status: verified_abstract
+    notes: "evidenza contrastante"
+
+  # ---------- Corsa ----------
+  - id: run.talk_test_vt
+    domain: [running, intensity]
+    claim: >-
+      Il talk test approssima la soglia ventilatoria: quando parlare diventa difficile l'intensità è vicina
+      alla soglia; quando non si parla comodamente è sopra. È valido, affidabile ed economico.
+    sources: [persinger2004, reed2014]
+    basis: evidence
+    certainty: low
+    status: verified_abstract
+    limitations: "persinger2004 n=16"
+  - id: run.intensity_distribution_elite
+    domain: [running, intensity]
+    claim: "Gli atleti di endurance d'élite svolgono circa l'80% delle sessioni a bassa intensità e ~20% ad alta intensità."
+    sources: [seiler2010]
+    basis: evidence
+    certainty: low
+    status: verified_abstract
+    population_scope: "atleti di endurance d'élite"
+  - id: load.acwr_not_supported
+    domain: [monitoring, injury]
+    claim: "Non c'è evidenza a supporto dell'uso dell'ACWR per gestire i carichi o ridurre il rischio di infortunio; la metrica è statisticamente problematica."
+    sources: [impellizzeri2020]
+    basis: evidence
+    certainty: moderate
+    status: verified_abstract
+  - id: load.srpe
+    domain: [monitoring]
+    claim: "Il session-RPE (RPE × durata) è un metodo per quantificare il carico di allenamento."
+    sources: [foster2001]
+    basis: evidence
+    certainty: low
+    status: unverified
+    notes: "identificativo verificato, contenuto non letto"
+
+  # ---------- Recovery e sonno ----------
+  - id: sleep.athletes_individualise
+    domain: [sleep]
+    claim: >-
+      Gli atleti hanno spesso sonno breve (<7 h) o frammentato; dormire abitualmente <7 h aumenta la
+      suscettibilità a infezioni respiratorie nella popolazione generale; le raccomandazioni andrebbero
+      individualizzate.
+    sources: [walsh2021]
+    basis: expert_opinion
+    certainty: low
+    status: verified_abstract
+  - id: sleep.adult_recommendation
+    domain: [sleep]
+    claim: "AASM/SRS hanno pubblicato una raccomandazione di consenso sulla quantità di sonno per adulti sani."
+    sources: [watson2015]
+    basis: expert_opinion
+    certainty: low
+    status: unverified
+    notes: "il numero di ore raccomandato non compare nell'abstract e il full text non è stato letto"
+  - id: hrv.individual_longitudinal
+    domain: [recovery, monitoring]
+    claim: "L'HRV va interpretata longitudinalmente sul singolo atleta, con medie su più giorni; aumenti e cali non hanno un significato univoco."
+    sources: [plews2013]
+    basis: evidence
+    certainty: low
+    status: verified_abstract
+    population_scope: "atleti di endurance d'élite"
+
+  # ---------- Safety ----------
+  - id: safety.reds
+    domain: [safety, nutrition]
+    claim: >-
+      La bassa disponibilità energetica (intake insufficiente rispetto alla spesa dell'esercizio) causa effetti
+      negativi su salute e performance in atleti di entrambi i sessi (REDs); esiste uno strumento clinico
+      (REDs CAT2) per la valutazione.
+    sources: [mountjoy2023]
+    basis: evidence
+    certainty: moderate
+    status: verified_abstract
+
+  # ---------- Integratori ----------
+  - id: supp.creatine
+    domain: [supplements]
+    claim: "La creatina migliora la performance ad alta intensità e gli adattamenti all'allenamento ed è sicura nel breve e lungo periodo in soggetti sani."
+    sources: [kreider2017, helms2014]
+    basis: evidence
+    certainty: high
+    status: verified_abstract
+    notes: "la dose di mantenimento tipica non è indicata nell'abstract (che cita 3 g/die solo come apporto abituale)"
+
+# Aree senza fonte verificata in KB (le scelte relative saranno etichettate expert_opinion / personal_preference):
+gaps:
+  - "passi giornalieri come leva per il dimagrimento"
+  - "criteri di uscita dalla fase di dimagrimento"
+  - "protocollo per le foto di progresso"
+  - "soglie numeriche di dolore/infortunio per la safety"
+  - "moltiplicatori di attività per il TDEE"
+  - "densità energetica per convertire variazioni di peso in kcal"
+  - "integratori diversi da creatina, proteine e caffeina (non valutati)"
+  - "durata raccomandata del sonno (numero di ore, watson2015 non letto)"

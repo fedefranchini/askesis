@@ -1,0 +1,261 @@
+# Evidence KB — fonti (conoscenza generale, nessun dato dell'atleta)
+#
+# verified: identificativo controllato su Crossref e/o PubMed (titolo, autori, anno, rivista corrispondenti).
+# read_level: full_text = letto il testo completo open access (PubMed Central); abstract = solo abstract su PubMed;
+#             id_only = solo identificativo verificato, contenuto non letto. Grading preliminare.
+# Mai testi integrali o PDF in questa cartella (copyright).
+schema_version: "0.1"
+last_reviewed: "2026-10-03"
+sources:
+  - id: riebe2015
+    citation: "Riebe D, et al. Updating ACSM's Recommendations for Exercise Preparticipation Health Screening. Med Sci Sports Exerc. 2015;47(11):2473-9."
+    type: position_stand
+    doi: 10.1249/MSS.0000000000000664
+    pmid: "26473759"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract
+  - id: bredin2013
+    citation: "Bredin SS, Gledhill N, Jamnik VK, Warburton DE. PAR-Q+ and ePARmed-X+: new risk stratification and physical activity clearance strategy for physicians and patients alike. Can Fam Physician. 2013;59(3):273-7."
+    type: screening_tool
+    doi: null
+    pmid: "23486800"
+    verified: {via: [pubmed], date: "2026-10-03"}
+    read_level: id_only   # PubMed non riporta abstract
+  - id: thomas2016
+    citation: "Thomas DT, Erdman KA, Burke LM. American College of Sports Medicine Joint Position Statement. Nutrition and Athletic Performance. Med Sci Sports Exerc. 2016;48(3):543-68."
+    type: position_stand
+    doi: 10.1249/MSS.0000000000000852
+    pmid: "26891166"
+    verified: {via: [pubmed], date: "2026-10-03"}
+    read_level: abstract   # l'abstract non contiene raccomandazioni numeriche
+  - id: aragon2017
+    citation: "Aragon AA, et al. International society of sports nutrition position stand: diets and body composition. J Int Soc Sports Nutr. 2017;14:16."
+    type: position_stand
+    doi: 10.1186/s12970-017-0174-y
+    pmid: "28630601"
+    pmcid: PMC5470183
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: full_text
+  - id: helms2014
+    citation: "Helms ER, Aragon AA, Fitschen PJ. Evidence-based recommendations for natural bodybuilding contest preparation: nutrition and supplementation. J Int Soc Sports Nutr. 2014;11:20."
+    type: narrative_review
+    doi: 10.1186/1550-2783-11-20
+    pmid: "24864135"
+    pmcid: PMC4033492
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: full_text
+    population: "natural bodybuilders in contest preparation (lean, trained)"
+  - id: garthe2011
+    citation: "Garthe I, et al. Effect of two different weight-loss rates on body composition and strength and power-related performance in elite athletes. Int J Sport Nutr Exerc Metab. 2011;21(2):97-104."
+    type: rct
+    doi: 10.1123/ijsnem.21.2.97
+    pmid: "21558571"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract
+    population: "24 elite athletes, ~22-24 y, ~72-75 kg, 4 RT sessions/wk"
+    limitations: "campione piccolo; durata 5-9 settimane; atleti d'élite"
+  - id: hall2011
+    citation: "Hall KD, et al. Quantification of the effect of energy imbalance on bodyweight. Lancet. 2011;378(9793):826-37."
+    type: modelling_study
+    doi: 10.1016/S0140-6736(11)60812-X
+    pmid: "21872751"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract
+  - id: mifflin1990
+    citation: "Mifflin MD, et al. A new predictive equation for resting energy expenditure in healthy individuals. Am J Clin Nutr. 1990;51(2):241-7."
+    type: validation_study
+    doi: 10.1093/ajcn/51.2.241
+    pmid: "2305711"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract
+    population: "498 adulti sani 19-78 y, normopeso e obesi; non atleti"
+  - id: barakat2020
+    citation: "Barakat C, et al. Body Recomposition: Can Trained Individuals Build Muscle and Lose Fat at the Same Time? Strength Cond J. 2020."
+    type: narrative_review
+    doi: 10.1519/SSC.0000000000000584
+    pmid: null
+    verified: {via: [crossref], date: "2026-10-03"}
+    read_level: id_only
+  - id: jager2017
+    citation: "Jäger R, et al. International Society of Sports Nutrition Position Stand: protein and exercise. J Int Soc Sports Nutr. 2017;14:20."
+    type: position_stand
+    doi: 10.1186/s12970-017-0177-8
+    pmid: "28642676"
+    pmcid: PMC5477153
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: full_text
+  - id: morton2018
+    citation: "Morton RW, et al. A systematic review, meta-analysis and meta-regression of the effect of protein supplementation on resistance training-induced gains in muscle mass and strength in healthy adults. Br J Sports Med. 2018;52(6):376-384."
+    type: systematic_review_meta_analysis
+    doi: 10.1136/bjsports-2017-097608
+    pmid: "28698222"
+    pmcid: PMC5867436
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: full_text
+    population: "49 RCT, 1863 adulti sani; solo partecipanti a fabbisogno energetico pieno o superiore (dichiarato dagli autori)"
+  - id: acsm2009
+    citation: "American College of Sports Medicine. Position stand. Progression models in resistance training for healthy adults. Med Sci Sports Exerc. 2009;41(3):687-708."
+    type: position_stand
+    doi: 10.1249/MSS.0b013e3181915670
+    pmid: "19204579"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract
+    limitations: "datato (2009); precede le meta-analisi su volume, carico e prossimità al cedimento"
+  - id: pelland2025
+    citation: "Pelland JC, et al. The Resistance Training Dose Response: Meta-Regressions Exploring the Effects of Weekly Volume and Frequency on Muscle Hypertrophy and Strength Gains. Sports Med. 2026;56(2):481-505 (epub 2025)."
+    type: meta_analysis
+    doi: 10.1007/s40279-025-02344-w
+    pmid: "41343037"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract
+    notes: "versione pubblicata non open access; esiste un preprint (10.51224/srxiv.460, 2024) senza relazione formale con la versione pubblicata: non usato"
+    population: "67 studi, 2058 partecipanti, 79% maschi, età media ~25 y"
+  - id: schoenfeld2017vol
+    citation: "Schoenfeld BJ, Ogborn D, Krieger JW. Dose-response relationship between weekly resistance training volume and increases in muscle mass: A systematic review and meta-analysis. J Sports Sci. 2017;35(11):1073-1082."
+    type: systematic_review_meta_analysis
+    doi: 10.1080/02640414.2016.1210197
+    pmid: "27433992"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract
+    limitations: "15 studi; superata in ampiezza da pelland2025"
+  - id: schoenfeld2016freq
+    citation: "Schoenfeld BJ, Ogborn D, Krieger JW. Effects of Resistance Training Frequency on Measures of Muscle Hypertrophy: A Systematic Review and Meta-Analysis. Sports Med. 2016;46(11):1689-1697."
+    type: systematic_review_meta_analysis
+    doi: 10.1007/s40279-016-0543-8
+    pmid: "27102172"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract
+    limitations: "10 studi"
+  - id: schoenfeld2017load
+    citation: "Schoenfeld BJ, Grgic J, Ogborn D, Krieger JW. Strength and Hypertrophy Adaptations Between Low- vs. High-Load Resistance Training: A Systematic Review and Meta-analysis. J Strength Cond Res. 2017;31(12):3508-3523."
+    type: systematic_review_meta_analysis
+    doi: 10.1519/JSC.0000000000002200
+    pmid: "28834797"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract
+    limitations: "21 studi, tutte le serie a cedimento"
+  - id: robinson2024
+    citation: "Robinson ZP, et al. Exploring the Dose-Response Relationship Between Estimated Resistance Training Proximity to Failure, Strength Gain, and Muscle Hypertrophy: A Series of Meta-Regressions. Sports Med. 2024;54(9):2209-2231."
+    type: meta_analysis
+    doi: 10.1007/s40279-024-02069-2
+    pmid: "38970765"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract
+    notes: "versione pubblicata non open access; il preprint (10.51224/srxiv.295, 2023) precede la revisione paritaria: non usato"
+    limitations: "esplorativa; RIR stimato dalle descrizioni dei protocolli"
+  - id: refalo2023
+    citation: "Refalo MC, et al. Influence of Resistance Training Proximity-to-Failure on Skeletal Muscle Hypertrophy: A Systematic Review with Meta-analysis. Sports Med. 2023;53(3):649-665."
+    type: systematic_review_meta_analysis
+    doi: 10.1007/s40279-022-01784-y
+    pmid: "36334240"
+    pmcid: PMC9935748
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: full_text
+    limitations: "nessuna definizione condivisa di 'cedimento' tra gli studi"
+  - id: helms2016rir
+    citation: "Helms ER, Cronin J, Storey A, Zourdos MC. Application of the Repetitions in Reserve-Based Rating of Perceived Exertion Scale for Resistance Training. Strength Cond J. 2016;38(4):42-49."
+    type: narrative_review
+    doi: 10.1519/SSC.0000000000000218
+    pmid: "27531969"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract
+  - id: bell2023
+    citation: "Bell L, et al. Integrating Deloading into Strength and Physique Sports Training Programmes: An International Delphi Consensus Approach. Sports Med Open. 2023;9(1):87."
+    type: expert_consensus_delphi
+    doi: 10.1186/s40798-023-00633-0
+    pmid: "37730925"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract
+    limitations: "opinione di 21-34 coach; nessun dato sperimentale"
+  - id: schumann2022
+    citation: "Schumann M, et al. Compatibility of Concurrent Aerobic and Strength Training for Skeletal Muscle Size and Function: An Updated Systematic Review and Meta-Analysis. Sports Med. 2022;52(3):601-612."
+    type: systematic_review_meta_analysis
+    doi: 10.1007/s40279-021-01587-7
+    pmid: "34757594"
+    pmcid: PMC8891239
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: full_text
+    population: "43 studi, adulti sani non allenati o attivi (non specificamente allenati con i pesi), allenamento supervisionato >= 4 settimane"
+    limitations: "qualità media degli studi moderata (PEDro medio 4,3; 7 studi di bassa qualità)"
+  - id: wilson2012
+    citation: "Wilson JM, et al. Concurrent training: a meta-analysis examining interference of aerobic and resistance exercises. J Strength Cond Res. 2012;26(8):2293-307."
+    type: meta_analysis
+    doi: 10.1519/JSC.0b013e31823a3e2d
+    pmid: "22002517"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract
+    limitations: "21 studi; in parte superata da schumann2022"
+  - id: seiler2010
+    citation: "Seiler S. What is best practice for training intensity and duration distribution in endurance athletes? Int J Sports Physiol Perform. 2010;5(3):276-91."
+    type: narrative_review
+    doi: 10.1123/ijspp.5.3.276
+    pmid: "20861519"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract
+    population: "atleti di endurance d'élite (10-13 sessioni/settimana)"
+  - id: persinger2004
+    citation: "Persinger R, Foster C, Gibson M, Fater DC, Porcari JP. Consistency of the talk test for exercise prescription. Med Sci Sports Exerc. 2004;36(9):1632-6."
+    type: observational_study
+    doi: null
+    pmid: "15354048"
+    verified: {via: [pubmed], date: "2026-10-03"}
+    read_level: abstract
+    population: "16 volontari sani"
+  - id: reed2014
+    citation: "Reed JL, Pipe AL. The talk test: a useful tool for prescribing and monitoring exercise intensity. Curr Opin Cardiol. 2014;29(5):475-80."
+    type: narrative_review
+    doi: 10.1097/HCO.0000000000000097
+    pmid: "25010379"
+    verified: {via: [pubmed], date: "2026-10-03"}
+    read_level: abstract
+  - id: foster2001
+    citation: "Foster C, et al. A new approach to monitoring exercise training. J Strength Cond Res. 2001."
+    type: validation_study
+    doi: 10.1519/00124278-200102000-00019
+    pmid: null
+    verified: {via: [crossref], date: "2026-10-03"}
+    read_level: id_only
+    notes: "titolo/autore/anno/rivista verificati su Crossref; abstract non disponibile su PubMed"
+  - id: impellizzeri2020
+    citation: "Impellizzeri FM, et al. Acute:Chronic Workload Ratio: Conceptual Issues and Fundamental Pitfalls. Int J Sports Physiol Perform. 2020;15(6):907-913."
+    type: methodological_critique
+    doi: 10.1123/ijspp.2019-0864
+    pmid: "32502973"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract
+  - id: mountjoy2023
+    citation: "Mountjoy M, et al. 2023 International Olympic Committee's (IOC) consensus statement on Relative Energy Deficiency in Sport (REDs). Br J Sports Med. 2023;57(17):1073-1097."
+    type: consensus_statement
+    doi: 10.1136/bjsports-2023-106994
+    pmid: "37752011"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract
+  - id: watson2015
+    citation: "Watson NF, et al. Recommended Amount of Sleep for a Healthy Adult: A Joint Consensus Statement of the American Academy of Sleep Medicine and Sleep Research Society. Sleep. 2015;38(6):843-4."
+    type: consensus_statement
+    doi: 10.5665/sleep.4716
+    pmid: "26039963"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract   # l'abstract non riporta il numero di ore; full text non accessibile via PMC
+  - id: walsh2021
+    citation: "Walsh NP, et al. Sleep and the athlete: narrative review and 2021 expert consensus recommendations. Br J Sports Med. 2021 (epub 2020)."
+    type: expert_consensus_narrative_review
+    doi: 10.1136/bjsports-2020-102025
+    pmid: "33144349"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract
+  - id: plews2013
+    citation: "Plews DJ, et al. Training adaptation and heart rate variability in elite endurance athletes: opening the door to effective monitoring. Sports Med. 2013;43(9):773-81."
+    type: narrative_review
+    doi: 10.1007/s40279-013-0071-8
+    pmid: "23852425"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract
+    population: "atleti di endurance d'élite"
+  - id: kreider2017
+    citation: "Kreider RB, et al. International Society of Sports Nutrition position stand: safety and efficacy of creatine supplementation in exercise, sport, and medicine. J Int Soc Sports Nutr. 2017;14:18."
+    type: position_stand
+    doi: 10.1186/s12970-017-0173-z
+    pmid: "28615996"
+    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    read_level: abstract
