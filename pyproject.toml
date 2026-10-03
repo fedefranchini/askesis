@@ -35,7 +35,7 @@ pythonpath = ["src"]  # robust against hidden .pth files on macOS
 addopts = "-q"
 
 [tool.ruff]
-line-length = 110
+line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
