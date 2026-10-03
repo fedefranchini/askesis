@@ -70,8 +70,9 @@ evidence metadata. All personal and health data stays local and is excluded from
 The evidence knowledge base stores only bibliographic metadata, summaries in our own words and very
 short quotations. It never stores full texts or PDFs of articles.
 
-A versioned pre-commit hook (`.githooks/pre-commit`) blocks commits of private paths, databases,
-health exports, PDFs, secrets, local user paths and personal e-mail addresses. Enable it once per clone:
+Versioned pre-commit and pre-push hooks (`.githooks/`) block commits and pushes of private paths,
+databases, health exports, PDFs, secrets, local user paths, personal e-mail addresses and terms from a
+private, untracked denylist. Enable them once per clone:
 
 ```bash
 git config core.hooksPath .githooks

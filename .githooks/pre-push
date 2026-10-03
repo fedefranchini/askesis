@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Controllo privacy su TUTTI i commit che stanno per essere pubblicati (vedi privacy-guard).
+set -euo pipefail
+empty_tree=$(git hash-object -t tree /dev/null)
+zero=0000000000000000000000000000000000000000
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue            # cancellazione di un ref: niente da controllare
+  if [ "$remote_sha" = "$zero" ]; then base=$empty_tree; else base=$remote_sha; fi
+  "$(dirname "$0")/privacy-guard" --range "$base" "$local_sha"
+  # anche i messaggi dei commit
+  for c in $(git rev-list "$local_sha" --not --remotes); do
+    git log -1 --format=%B "$c" | "$(dirname "$0")/commit-msg" /dev/stdin
+  done
+done
