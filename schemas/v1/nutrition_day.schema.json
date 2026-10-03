@@ -1,0 +1,110 @@
+{
+  "$defs": {
+    "Completeness": {
+      "enum": [
+        "complete",
+        "partial",
+        "estimated",
+        "not_logged"
+      ],
+      "title": "Completeness",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "energy_kcal": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Energy Kcal"
+    },
+    "protein_g": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Protein G"
+    },
+    "carbohydrate_g": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Carbohydrate G"
+    },
+    "fat_g": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fat G"
+    },
+    "fiber_g": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fiber G"
+    },
+    "alcohol_g": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Alcohol G"
+    },
+    "completeness": {
+      "$ref": "#/$defs/Completeness"
+    },
+    "logging_method": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Logging Method"
+    }
+  },
+  "required": [
+    "completeness"
+  ],
+  "title": "NutritionDay",
+  "type": "object",
+  "$comment": "askesis schema 0.1"
+}

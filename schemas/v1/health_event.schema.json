@@ -1,0 +1,56 @@
+{
+  "additionalProperties": true,
+  "properties": {
+    "kind": {
+      "enum": [
+        "injury",
+        "illness",
+        "symptom"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "body_region": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Body Region"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Status"
+    }
+  },
+  "required": [
+    "kind"
+  ],
+  "title": "HealthEvent",
+  "type": "object",
+  "$comment": "askesis schema 0.1"
+}

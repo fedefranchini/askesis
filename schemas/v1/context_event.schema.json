@@ -1,0 +1,65 @@
+{
+  "additionalProperties": true,
+  "properties": {
+    "kind": {
+      "title": "Kind",
+      "type": "string"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "start": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Start"
+    },
+    "end": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "End"
+    },
+    "approximate": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Approximate"
+    }
+  },
+  "required": [
+    "kind"
+  ],
+  "title": "ContextEvent",
+  "type": "object",
+  "$comment": "askesis schema 0.1"
+}

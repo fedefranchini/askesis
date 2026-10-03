@@ -31,6 +31,7 @@ packages = ["src/askesis"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]  # robust against hidden .pth files on macOS
 addopts = "-q"
 
 [tool.ruff]

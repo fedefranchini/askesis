@@ -1,0 +1,43 @@
+{
+  "additionalProperties": true,
+  "properties": {
+    "domain": {
+      "title": "Domain",
+      "type": "string"
+    },
+    "priority_rank": {
+      "title": "Priority Rank",
+      "type": "integer"
+    },
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "status": {
+      "default": "active",
+      "title": "Status",
+      "type": "string"
+    },
+    "valid_from": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Valid From"
+    }
+  },
+  "required": [
+    "domain",
+    "priority_rank",
+    "description"
+  ],
+  "title": "Goal",
+  "type": "object",
+  "$comment": "askesis schema 0.1"
+}

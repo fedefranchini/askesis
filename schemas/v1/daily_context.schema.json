@@ -1,0 +1,34 @@
+{
+  "additionalProperties": false,
+  "description": "Generic, user-defined context variable. Keys and aliases live in private configuration.",
+  "properties": {
+    "key": {
+      "title": "Key",
+      "type": "string"
+    },
+    "value": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "boolean"
+        }
+      ],
+      "title": "Value"
+    }
+  },
+  "required": [
+    "key",
+    "value"
+  ],
+  "title": "DailyContext",
+  "type": "object",
+  "$comment": "askesis schema 0.1"
+}

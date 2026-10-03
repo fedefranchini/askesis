@@ -1,0 +1,51 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "session_kind": {
+      "default": "strength",
+      "title": "Session Kind",
+      "type": "string"
+    },
+    "session_rpe": {
+      "anyOf": [
+        {
+          "maximum": 10,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Session Rpe"
+    },
+    "location": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Location"
+    },
+    "planned_session_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Planned Session Id"
+    }
+  },
+  "title": "TrainingSession",
+  "type": "object",
+  "$comment": "askesis schema 0.1"
+}

@@ -1,0 +1,15 @@
+{
+  "additionalProperties": true,
+  "properties": {
+    "test_kind": {
+      "title": "Test Kind",
+      "type": "string"
+    }
+  },
+  "required": [
+    "test_kind"
+  ],
+  "title": "TestResult",
+  "type": "object",
+  "$comment": "askesis schema 0.1"
+}

@@ -1,0 +1,32 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "asleep_s": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Asleep S"
+    },
+    "in_bed_s": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "In Bed S"
+    }
+  },
+  "title": "SleepSession",
+  "type": "object",
+  "$comment": "askesis schema 0.1"
+}

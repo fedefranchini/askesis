@@ -1,0 +1,32 @@
+{
+  "additionalProperties": true,
+  "properties": {
+    "key": {
+      "title": "Key",
+      "type": "string"
+    },
+    "value": {
+      "title": "Value"
+    },
+    "valid_from": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Valid From"
+    }
+  },
+  "required": [
+    "key",
+    "value"
+  ],
+  "title": "AthleteAttribute",
+  "type": "object",
+  "$comment": "askesis schema 0.1"
+}

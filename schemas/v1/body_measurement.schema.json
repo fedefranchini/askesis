@@ -1,0 +1,36 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "site": {
+      "title": "Site",
+      "type": "string"
+    },
+    "readings_cm": {
+      "items": {
+        "type": "number"
+      },
+      "minItems": 1,
+      "title": "Readings Cm",
+      "type": "array"
+    },
+    "protocol_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Protocol Id"
+    }
+  },
+  "required": [
+    "site",
+    "readings_cm"
+  ],
+  "title": "BodyMeasurement",
+  "type": "object",
+  "$comment": "askesis schema 0.1"
+}

@@ -1,0 +1,130 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "distance_m": {
+      "title": "Distance M",
+      "type": "number"
+    },
+    "elapsed_s": {
+      "title": "Elapsed S",
+      "type": "integer"
+    },
+    "moving_s": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Moving S"
+    },
+    "avg_hr": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Avg Hr"
+    },
+    "max_hr": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Max Hr"
+    },
+    "avg_cadence": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Avg Cadence"
+    },
+    "elev_gain_m": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Elev Gain M"
+    },
+    "environment": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Environment"
+    },
+    "run_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Run Type"
+    },
+    "session_rpe": {
+      "anyOf": [
+        {
+          "maximum": 10,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Session Rpe"
+    },
+    "stop_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Stop Reason"
+    }
+  },
+  "required": [
+    "distance_m",
+    "elapsed_s"
+  ],
+  "title": "RunningSession",
+  "type": "object",
+  "$comment": "askesis schema 0.1"
+}

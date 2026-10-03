@@ -1,0 +1,180 @@
+{
+  "$defs": {
+    "SetType": {
+      "enum": [
+        "warmup",
+        "working",
+        "top",
+        "backoff",
+        "drop",
+        "amrap",
+        "myo",
+        "cluster"
+      ],
+      "title": "SetType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "session_id": {
+      "title": "Session Id",
+      "type": "string"
+    },
+    "exercise_raw": {
+      "title": "Exercise Raw",
+      "type": "string"
+    },
+    "exercise_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Exercise Id"
+    },
+    "sequence": {
+      "minimum": 1,
+      "title": "Sequence",
+      "type": "integer"
+    },
+    "set_type": {
+      "$ref": "#/$defs/SetType",
+      "default": "working"
+    },
+    "load_kg": {
+      "title": "Load Kg",
+      "type": "number"
+    },
+    "load_kind": {
+      "default": "external",
+      "enum": [
+        "external",
+        "bodyweight",
+        "bodyweight_plus",
+        "assisted"
+      ],
+      "title": "Load Kind",
+      "type": "string"
+    },
+    "reps": {
+      "title": "Reps",
+      "type": "integer"
+    },
+    "reps_target": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reps Target"
+    },
+    "rpe": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rpe"
+    },
+    "rir": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rir"
+    },
+    "to_failure": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "To Failure"
+    },
+    "rom": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rom"
+    },
+    "side": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Side"
+    },
+    "pain": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Pain"
+    },
+    "pain_region": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Pain Region"
+    },
+    "completed": {
+      "default": true,
+      "title": "Completed",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "session_id",
+    "exercise_raw",
+    "sequence",
+    "load_kg",
+    "reps"
+  ],
+  "title": "SetRecord",
+  "type": "object",
+  "$comment": "askesis schema 0.1"
+}

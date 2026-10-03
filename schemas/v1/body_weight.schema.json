@@ -1,0 +1,63 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "value_kg": {
+      "title": "Value Kg",
+      "type": "number"
+    },
+    "fasted": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fasted"
+    },
+    "post_void": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Post Void"
+    },
+    "clothing": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Clothing"
+    },
+    "method": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Method"
+    }
+  },
+  "required": [
+    "value_kg"
+  ],
+  "title": "BodyWeight",
+  "type": "object",
+  "$comment": "askesis schema 0.1"
+}

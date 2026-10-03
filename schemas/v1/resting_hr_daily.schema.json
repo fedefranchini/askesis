@@ -1,0 +1,27 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "bpm": {
+      "title": "Bpm",
+      "type": "integer"
+    },
+    "method": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Method"
+    }
+  },
+  "required": [
+    "bpm"
+  ],
+  "title": "RestingHrDaily",
+  "type": "object",
+  "$comment": "askesis schema 0.1"
+}

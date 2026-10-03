@@ -1,0 +1,15 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "steps": {
+      "title": "Steps",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "steps"
+  ],
+  "title": "DailyActivity",
+  "type": "object",
+  "$comment": "askesis schema 0.1"
+}

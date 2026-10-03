@@ -1,0 +1,16 @@
+{
+  "additionalProperties": true,
+  "description": "A summary reported by the athlete (e.g. an app's weekly report). Not a measurement.",
+  "properties": {
+    "source": {
+      "title": "Source",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source"
+  ],
+  "title": "ReportedSummary",
+  "type": "object",
+  "$comment": "askesis schema 0.1"
+}

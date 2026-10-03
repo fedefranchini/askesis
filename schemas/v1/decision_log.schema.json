@@ -1,0 +1,44 @@
+{
+  "additionalProperties": true,
+  "properties": {
+    "type": {
+      "title": "Type",
+      "type": "string"
+    },
+    "status": {
+      "title": "Status",
+      "type": "string"
+    },
+    "athlete_response_verbatim": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Athlete Response Verbatim"
+    },
+    "scope": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scope"
+    }
+  },
+  "required": [
+    "type",
+    "status"
+  ],
+  "title": "DecisionLog",
+  "type": "object",
+  "$comment": "askesis schema 0.1"
+}

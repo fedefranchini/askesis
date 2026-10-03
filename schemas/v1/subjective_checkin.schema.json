@@ -1,0 +1,120 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "fatigue_1_5": {
+      "anyOf": [
+        {
+          "maximum": 5,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fatigue 1 5"
+    },
+    "soreness_1_5": {
+      "anyOf": [
+        {
+          "maximum": 5,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Soreness 1 5"
+    },
+    "stress_1_5": {
+      "anyOf": [
+        {
+          "maximum": 5,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Stress 1 5"
+    },
+    "mood_1_5": {
+      "anyOf": [
+        {
+          "maximum": 5,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mood 1 5"
+    },
+    "sleep_quality_1_5": {
+      "anyOf": [
+        {
+          "maximum": 5,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sleep Quality 1 5"
+    },
+    "readiness_1_10": {
+      "anyOf": [
+        {
+          "maximum": 10,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Readiness 1 10"
+    },
+    "illness": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Illness"
+    },
+    "pain": {
+      "anyOf": [
+        {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Pain"
+    }
+  },
+  "title": "SubjectiveCheckin",
+  "type": "object",
+  "$comment": "askesis schema 0.1"
+}
