@@ -1,0 +1,14 @@
+# Askesis — default system configuration (public, generic).
+# Personal settings (time zone, aliases for personal context variables, …) go in a private override:
+# private/askesis.toml (excluded from git), or the file pointed to by ASKESIS_CONFIG.
+
+timezone = "UTC"
+nutrition_cutoff = "03:00"   # intakes before this local time belong to the previous nutrition day
+weigh_time = "07:00"         # assumed local time of a morning weigh-in when none is given
+db_path = "data/askesis.db"
+backup_dir = "data/backups"
+staging_dir = "data/staging"
+source_id = "manual_cli"
+
+# alias -> daily_context key, e.g.  myvar = "my_context_variable". Define personal ones privately.
+[context_aliases]
