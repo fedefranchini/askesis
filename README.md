@@ -78,10 +78,31 @@ private, untracked denylist. Enable them once per clone:
 git config core.hooksPath .githooks
 ```
 
+## Quick start
+
+```bash
+uv sync                      # Python 3.12 environment and dependencies
+uv run pytest                # test suite (synthetic data only)
+bin/ak init                  # create the local database (data/askesis.db, never committed)
+bin/ak day "p 68.4 · cibo 1850 115 · pesi: squat 80x5 r2, 80x5 r1"   # fast daily line
+bin/ak show week
+bin/ak backup
+```
+
+`bin/ak` is a launcher for the `askesis` CLI. Personal settings (time zone, aliases for personal context
+variables) go in `private/askesis.toml`, which is never committed.
+
 ## Repository layout
 
 ```
 AGENTS.md            system rules for AI assistant (data, evidence, decisions, safety, privacy)
+src/askesis/         data core: model, append-only store, data quality, ingestion, parsers, CLI
+migrations/          forward-only SQL migrations
+schemas/v1/          JSON Schema of the ingestion contract
+config/              public default configuration
+knowledge/           evidence KB and reference data (exercise catalog)
+tests/               test suite (synthetic data only)
+bin/ak               CLI launcher
 docs/                architecture spec and roadmap
 .githooks/           privacy and attribution guards
 .assistant/             project settings for AI assistant

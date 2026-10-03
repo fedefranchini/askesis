@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Launcher for the askesis CLI that does not depend on the editable-install .pth file
+# (on macOS, .pth files can get the "hidden" flag and be skipped by Python 3.12+).
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}" exec uv run --project "$ROOT" --no-sync --quiet python -m askesis "$@"

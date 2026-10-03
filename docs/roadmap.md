@@ -126,7 +126,7 @@ Documento in `docs/` (nessun dato personale): **zone FC personalizzate** dal tes
 cardiorespiratorio (VO2max stimato); monitoraggio del sonno; notifiche di FC alta/bassa e ritmo
 irregolare; metriche di corsa (disponibilità dipendente dal modello); permessi di condivisione in Salute.
 
-### F1 — Data core + CLI · 2–3 sessioni · 3–5 giorni
+### F1 — Data core + CLI · 2–3 sessioni · 3–5 giorni · ✅ completata (2026-10-03)
 uv/pyproject; SQLite + migrazioni; envelope; `units`, `time` (fuso e cutoff configurabili); entità MVP
 (`body_weight`, `body_measurement`, `nutrition_day`, `training_session` + `set_record`,
 `running_session`, `daily_activity` **(passi)**, `sleep_session`/`resting_hr_daily` opzionali,
