@@ -1,0 +1,36 @@
+# --- Dati personali: MAI sotto git ---
+data/
+private/
+reports/
+assistant local instructions file
+.assistant/settings.local.json
+# export Apple Health e foto
+export.zip
+export.xml
+export_cda.xml
+apple_health_export/
+*.heic
+*.HEIC
+# articoli scientifici: mai testi integrali in repo (copyright)
+*.pdf
+*.PDF
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.ndjson
+.env
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# --- macOS ---
+.DS_Store
