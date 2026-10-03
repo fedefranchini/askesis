@@ -46,7 +46,7 @@ if printf '%s\n' "$added" | grep -Eq '/Users/[A-Za-z0-9._-]+|/home/[A-Za-z0-9._-
   err "percorso locale con nome utente nel contenuto"
 fi
 
-emails=$(printf '%s\n' "$added" | grep -Eo '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' \
+emails=$(printf '%s\n' "$added" | grep -Eo '[A-Za-z0-9][A-Za-z0-9._%+-]*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}' \
   | grep -Ev '@users\.noreply\.github\.com$|@example\.(com|org)$' || true)
 if [ -n "$emails" ]; then err "email nel contenuto: $(printf '%s ' $emails)"; fi
 
