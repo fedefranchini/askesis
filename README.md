@@ -86,6 +86,8 @@ uv run pytest                # test suite (synthetic data only)
 bin/ak init                  # create the local database (data/askesis.db, never committed)
 bin/ak day "p 68.4 · cibo 1850 115 · pesi: squat 80x5 r2, 80x5 r1"   # fast daily line
 bin/ak show week
+bin/ak metrics rebuild        # recompute all derived metrics and check reproducibility
+bin/ak review                # weekly review (Markdown) of the week just closed
 bin/ak backup
 ```
 
@@ -100,7 +102,7 @@ src/askesis/         data core: model, append-only store, data quality, ingestio
 migrations/          forward-only SQL migrations
 schemas/v1/          JSON Schema of the ingestion contract
 config/              public default configuration
-knowledge/           evidence KB and reference data (exercise catalog)
+knowledge/           evidence KB, metric parameters (each with its basis), reference data
 tests/               test suite (synthetic data only)
 bin/ak               CLI launcher
 docs/                architecture spec and roadmap

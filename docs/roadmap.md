@@ -143,7 +143,7 @@ CLI: `askesis log weight|food|waist|gym|run|steps|checkin`, `askesis fix`, `aske
   nutrizione scrive su Salute.
 - `askesis import-inbox`: importa e archivia i file (idempotente). In iCloud solo piccoli file di inbox, mai il database.
 
-### F2 — Metriche + review settimanale · 2–3 sessioni · ~1 settimana
+### F2 — Metriche + review settimanale · 2–3 sessioni · ~1 settimana · ✅ completata (2026-10-04)
 Registro metriche; `weight_ema`, `weight_rate`, `intake_mean`, `adaptive_tdee` (prior + incertezza),
 `hard_set`, `volume_per_muscle_week`, `e1rm`, volume settimanale di corsa, **media passi settimanale**;
 grade DQ semplificato; test golden e property-based su dati sintetici; `askesis review --week`.
