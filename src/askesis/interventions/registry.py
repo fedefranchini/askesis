@@ -367,6 +367,10 @@ def why(conn: sqlite3.Connection, ref: str | int) -> dict:
     }
 
 
+def _r(v, nd: int = 2):
+    return "—" if v is None else round(v, nd)
+
+
 def render_why(w: dict) -> str:
     pr, d = w["prereg"], w["decision"]
     L = [f"# Intervento n. {w['number']} — {w['title']}", ""]
@@ -390,7 +394,7 @@ def render_why(w: dict) -> str:
     b = pr["baseline"]
     L += [
         "",
-        f"**Cosa sapevamo (baseline):** {b['metric']} = {b['value']} (fino al {b['period_end']}; "
+        f"**Cosa sapevamo (baseline):** {b['metric']} = {_r(b['value'])} (fino al {b['period_end']}; "
         f"dati noti al {b['knowledge_cutoff']}, impronta {b['input_fingerprint'][:12]})",
         f"**Esito atteso:** {pr['expected_outcome']['metric_id']} {pr['expected_outcome']['direction']}, "
         f"intervallo {pr['expected_outcome']['expected_range']}",
@@ -401,9 +405,11 @@ def render_why(w: dict) -> str:
     for e in w["events"]:
         pl = e["payload"] or {}
         if e["event"] == "evaluated":
+            ci = pl.get("actual_interval") or [None, None]
+            ci_txt = f" (IC {_r(ci[0])}–{_r(ci[1])})" if None not in ci else ""
             L.append(
-                f"- {e['at'][:10]} valutazione: {pl['wording']} — osservato {pl['actual']} "
-                f"(IC {pl['actual_interval']}), baseline {pl['baseline']}, aderenza "
+                f"- valutazione al {pl['on']}: {pl['wording']} — osservato {_r(pl['actual'])}{ci_txt}, "
+                f"baseline {_r(pl['baseline'])}, aderenza "
                 + ", ".join(f"{k} {v:.0%}" for k, v in pl["adherence"].items())
             )
             for c in pl["confounders"]:
@@ -411,5 +417,5 @@ def render_why(w: dict) -> str:
         elif e["event"] == "amended":
             L.append(f"- {e['at'][:10]} emendamento: {pl['text']}")
         else:
-            L.append(f"- {e['at'][:10]} {e['event']}")
+            L.append(f"- {e['at'][:10]} {e['event']} (registrato)")
     return "\n".join(L)

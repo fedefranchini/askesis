@@ -189,7 +189,8 @@ def iv_evaluate(number: int, date_: DateOpt = None) -> None:
     cfg, conn = _ctx()
     res = reg.evaluate(conn, reg.get(conn, number)["id"], _d(date_, cfg))
     typer.echo(
-        f"{res['wording']} · osservato {res['actual']} · atteso {res['expected_range']} · aderenza {res['adherence']}"
+        f"{res['wording']} · osservato {reg._r(res['actual'])} · atteso {res['expected_range']} · aderenza "
+        + ", ".join(f"{k} {v:.0%}" for k, v in res["adherence"].items())
     )
     for c in res["confounders"]:
         typer.echo(f"  confondente: {c}")
