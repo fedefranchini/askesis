@@ -1,0 +1,82 @@
+# Plan, progression and safety parameters. Same rules as metrics.yaml: every value has a basis.
+schema_version: "0.1"
+last_reviewed: "2026-10-04"
+parameters:
+
+  # ---------------- safety
+  safety_rapid_loss_pct_per_week:
+    value: 1.0
+    unit: "%BW/week (absolute)"
+    basis: evidence
+    rationale: "Upper end of the 0.5–1 %BW/week range recommended to maximise muscle retention; faster loss is flagged."
+    claims: [energy.rate_0_5_to_1_pct, energy.slow_vs_fast_rct]
+  safety_rapid_loss_pct_severe:
+    value: 1.5
+    unit: "%BW/week (absolute)"
+    basis: engineering_choice
+    rationale: "Escalation threshold to tier T2."
+  safety_rapid_loss_min_weeks:
+    value: 2
+    unit: consecutive_weeks
+    basis: engineering_choice
+    rationale: "Requires persistence; the first diet week is excluded (water and glycogen)."
+  safety_pain_threshold:
+    value: 4
+    unit: "0-10"
+    basis: expert_opinion
+    rationale: "Pain at or above this level during an exercise opens a flag. No verified source in the KB (gap)."
+  safety_pain_severe:
+    value: 7
+    unit: "0-10"
+    basis: expert_opinion
+  safety_low_intake_ratio_to_ree:
+    value: 1.0
+    unit: ratio
+    basis: expert_opinion
+    rationale: >-
+      Mean intake of complete days below estimated resting energy expenditure is treated as a low energy
+      availability signal (proxy only: true EA needs fat-free mass and exercise energy expenditure).
+    claims: [safety.reds]
+  safety_cardiovascular_red_flags:
+    value: [chest_pain, syncope, near_syncope, palpitations_with_dizziness, disproportionate_dyspnea,
+            irregular_rhythm_notification]
+    basis: evidence
+    rationale: "Exercise-related cardiovascular events are often preceded by warning signs/symptoms."
+    claims: [screen.acsm_model]
+  safety_eating_disorder_signals:
+    value: [binge_episode, purging, compensatory_exercise, distress_missed_log, rigid_escalating_restriction]
+    basis: expert_opinion
+    rationale: "Behavioural warning signs; any confirmed signal opens a T2 flag and disables restrictive targets."
+    claims: [safety.reds]
+
+  # ---------------- progression (L1)
+  double_progression_exposures:
+    value: 2
+    unit: consecutive_exposures
+    basis: engineering_choice
+    rationale: "Load increases after the top of the rep range is reached at target effort in consecutive sessions."
+  double_progression_load_increase:
+    value: [0.02, 0.10]
+    unit: fraction_of_load
+    basis: evidence
+    rationale: "2–10% load increase when the current load is done for 1–2 reps over target; the catalog increment is used, capped to this range."
+    claims: [rt.progression_acsm]
+
+  # ---------------- deload (L1 when pre-planned)
+  deload_volume_factor:
+    value: 0.5
+    unit: fraction_of_sets
+    basis: expert_opinion
+    rationale: "Reduced training stress; how much and when relies on coach consensus, not experiments."
+    claims: [rt.deload]
+  deload_rir_increase:
+    value: 2
+    unit: reps_in_reserve
+    basis: expert_opinion
+    claims: [rt.deload]
+
+  # ---------------- interventions
+  intervention_max_active_per_domain:
+    value: 1
+    basis: engineering_choice
+    rationale: "One change per outcome domain at a time keeps outcomes attributable (docs/architecture.md §8.3)."

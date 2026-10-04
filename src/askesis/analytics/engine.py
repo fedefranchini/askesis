@@ -18,7 +18,7 @@ from askesis.store import repository as repo
 
 from . import body, energy, training
 from .base import MetricValue, r6
-from .params import PARAMS_FILE, p
+from .params import PARAMS_DIR, p
 
 ENGINE_VERSION = "0.2.0"
 
@@ -147,7 +147,10 @@ def digest(values: list[MetricValue]) -> str:
 
 
 def params_fingerprint() -> str:
-    return hashlib.sha256(PARAMS_FILE.read_bytes()).hexdigest()
+    h = hashlib.sha256()
+    for f in sorted(PARAMS_DIR.glob("*.yaml")):
+        h.update(f.read_bytes())
+    return h.hexdigest()
 
 
 def run(conn: sqlite3.Connection, start: date | None = None, end: date | None = None,
