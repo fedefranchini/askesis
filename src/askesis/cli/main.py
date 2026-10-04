@@ -32,6 +32,7 @@ from askesis.cli import f3  # noqa: E402
 app.add_typer(f3.plan_app, name="plan")
 app.add_typer(f3.iv_app, name="intervention")
 app.add_typer(f3.safety_app, name="safety")
+app.add_typer(f3.gym_app, name="gym-note")
 app.add_typer(show_app, name="show")
 app.add_typer(metrics_app, name="metrics")
 

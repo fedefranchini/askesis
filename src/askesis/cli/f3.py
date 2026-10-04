@@ -234,3 +234,131 @@ def month_cmd(date_: str | None) -> str:
         )
     ]
     return review.render_month(values, first, last, ivs, prof, flags)
+
+
+# ------------------------------------------------------------------ gym day sheet (Apple Notes)
+gym_app = typer.Typer(no_args_is_help=True, help="Scheda del giorno per la palestra (Apple Note).")
+
+
+def _settings() -> dict[str, str]:
+    p = config_mod.ROOT / "private" / "machine_settings.yaml"
+    return (yaml.safe_load(p.read_text()) or {}) if p.exists() else {}
+
+
+def _last_performance(conn, exercise: str, before: date) -> str | None:
+    from askesis.ingestion.readback import _set
+
+    hist = plan_rules.exposures(conn, exercise, before, limit=1)
+    if not hist:
+        return None
+    h = hist[-1]
+    sets = [
+        _set({"load_kg": ld, "reps": r, **({"rir": q} if q is not None else {})})
+        for ld, r, q in zip(h.loads, h.reps, h.rirs, strict=True)
+    ]
+    return f"({h.day.day}/{h.day.month}): " + " · ".join(sets)
+
+
+@gym_app.command("create")
+def gym_create(
+    date_: Annotated[str, typer.Option("--for", help="Data della sessione YYYY-MM-DD")],
+    print_only: Annotated[bool, typer.Option("--print", help="Mostra senza creare la nota")] = False,
+) -> None:
+    """Crea/aggiorna la nota con la sessione pianificata (solo esercizi e carichi)."""
+    from askesis import notes_bridge
+    from askesis.ingestion import gymnote
+    from askesis.reference import find_exercise
+
+    cfg, conn = _ctx()
+    d = date.fromisoformat(date_)
+    out = plan_rules.next_session(conn, d, record=not print_only)
+    if out["status"] != "session":
+        typer.echo({"no_programme": "nessun programma attivo", "rest_day": "giorno senza sessione"}[out["status"]])
+        raise typer.Exit(1)
+    settings = _settings()
+    for s in out["sessions"]:
+        last = {}
+        for lift in s["lifts"]:
+            ref = find_exercise(lift["exercise"])
+            key = ref["id"] if ref else lift["exercise"]
+            perf = _last_performance(conn, lift["exercise"], d)
+            if perf:
+                last[key] = perf
+        lines = gymnote.render(d, s, last, settings)
+        typer.echo("\n".join(lines))
+        if not print_only:
+            notes_bridge.upsert(lines[0], gymnote.to_html(lines))
+            typer.echo(f"\n✓ nota «{lines[0]}» creata/aggiornata in Note → cartella {notes_bridge.FOLDER}")
+
+
+@gym_app.command("import")
+def gym_import(
+    date_: Annotated[str, typer.Option("--for", help="Data della sessione YYYY-MM-DD")],
+    session: Annotated[str | None, typer.Option("--session", help="Nome sessione (default: dal piano)")] = None,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Conferma dopo l'anteprima")] = False,
+) -> None:
+    """Legge i risultati dalla nota, mostra l'anteprima e (con --yes) li importa."""
+    from askesis import notes_bridge
+    from askesis.cli.main import _print_receipt
+    from askesis.core.timeutil import at_local, now_utc
+    from askesis.ingestion import gymnote, manual, readback
+    from askesis.ingestion.pipeline import ingest
+    from askesis.parsers.text import Intent, ParseError, parse_run
+
+    cfg, conn = _ctx()
+    d = date.fromisoformat(date_)
+    if session is None:
+        out = plan_rules.next_session(conn, d, record=False)
+        names = [s["name"] for s in out.get("sessions", [])]
+        session = names[0] if names else "sessione"
+    body = notes_bridge.read(gymnote.title_for(d, session))
+    if body is None:
+        typer.echo(f"nota «{gymnote.title_for(d, session)}» non trovata")
+        raise typer.Exit(1)
+    res = gymnote.parse_note(gymnote.html_to_lines(body))
+    intents = [Intent("gym", {"exercises": res.exercises})] if res.exercises else []
+    if res.run_text:
+        try:
+            intents.append(Intent("run", parse_run(res.run_text)))
+        except ParseError as exc:
+            res.errors.append(("corsa", f"{res.run_text!r}: {exc}"))
+    now = now_utc()
+    start = at_local(d, manual.NOON, cfg.timezone)
+    records = [r for it in intents for r in manual.build(it, cfg, d, now)]
+    for r in records:  # deterministic time: the exact session time is not in the note
+        if "start_at" in r:
+            dur = (r["end_at"] - r["start_at"]) if r.get("end_at") else None
+            r["start_at"] = start
+            if dur is not None:
+                r["end_at"] = start + dur
+    records = gymnote.keyed_records(records, d)
+    to_ingest, unchanged, missing = gymnote.reconcile(conn, records)
+    for ex, problem in res.errors:
+        typer.secho(f"✗ non letto — {ex}: {problem} (correggi la nota o dettamelo)", fg="red")
+    for ex in res.skipped:
+        typer.echo(f"– non svolto: {ex}")
+    if res.notes:
+        typer.echo(f"Note: {res.notes}")
+    if unchanged:
+        typer.echo(f"= già importati e invariati: {len(unchanged)}")
+    if missing:
+        typer.secho(
+            f"! righe importate in precedenza ma ora assenti dalla nota: {', '.join(missing)} "
+            "(non ritirate automaticamente: chiedere all'atleta)",
+            fg="yellow",
+        )
+    if not to_ingest:
+        typer.echo("nulla di nuovo da importare")
+        return
+    corrections = [r for r in to_ingest if r.get("supersedes_id")]
+    if not yes:
+        typer.echo("ANTEPRIMA — nulla salvato:")
+        for line in readback.lines(to_ingest):
+            typer.echo(f"· {line}" if not line.startswith("  ") else f"  {line.strip()}")
+        if corrections:
+            typer.echo(f"({len(corrections)} correzioni di righe già importate)")
+        typer.echo("Se è corretto, ripetere con --yes per salvare.")
+        return
+    r = ingest(conn, to_ingest, "gym_note")
+    _print_receipt(r)
+    print_flags(conn, d)
