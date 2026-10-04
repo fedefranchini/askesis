@@ -14,7 +14,7 @@
 ## 1. Executive architecture
 
 Sistema **local-first, single-athlete, a strati, append-only, bitemporale**. Il **codice deterministico
-(Python) è l'unico che calcola numeri e scrive dati**; **AI assistant** (+ skill) è l'interfaccia
+(Python) è l'unico che calcola numeri e scrive dati**; **l'assistente IA** (agente di programmazione + skill) è l'interfaccia
 conversazionale e il ragionamento, e opera **solo tramite una CLI validata**.
 
 ```
@@ -492,7 +492,7 @@ parallelo?" → `intervention` → `decision` → `state_snapshot` → `metric_v
 ### 9.2 Schema
 
 - **`evidence_source`**: id, type (meta-analysis / systematic review / RCT / cohort / position stand / narrative review / textbook), autori, anno, titolo, rivista, **DOI/PMID/URL**, data di pubblicazione, retraction flag, `verified_at` (DOI risolto via Crossref/PubMed).
-- **`evidence_claim`** (versionato): `claim` (affermazione atomica), `domain_tags`, `conditions/scope`, `population` (training status, sesso, età, N), `outcome`, `effect` (direzione, size se disponibile), `evidence_type`, **`certainty`** (high/moderate/low/very_low, ispirato a GRADE), `limitations`, `relevance` (al dominio, non all'atleta), `links` [{source_id, relation: supports/contradicts/qualifies}], `status` (unverified/verified/contested/superseded/retracted), `last_reviewed`, `review_due` `[PARAM, es. 18 mesi]`, `reviewer` (human/assistant + data).
+- **`evidence_claim`** (versionato): `claim` (affermazione atomica), `domain_tags`, `conditions/scope`, `population` (training status, sesso, età, N), `outcome`, `effect` (direzione, size se disponibile), `evidence_type`, **`certainty`** (high/moderate/low/very_low, ispirato a GRADE), `limitations`, `relevance` (al dominio, non all'atleta), `links` [{source_id, relation: supports/contradicts/qualifies}], `status` (unverified/verified/contested/superseded/retracted), `last_reviewed`, `review_due` `[PARAM, es. 18 mesi]`, `reviewer` (umano/assistente IA + data).
 - **`evidence_parameter`**: id (es. `protein_g_per_kg_range`), default value/range, unità, `derived_from` [claim_id@ver], razionale.
 - **Override dell'atleta**: in `config/athlete_overrides`, con motivo e `intervention_id` — **separazione garantita** tra parametro generale e override personale.
 
@@ -509,7 +509,7 @@ una sezione esplicita "Non fare".
 **Valutazione dell'elenco proposto:**
 - **`hypertrophy` + `strength` → `resistance-training`** (una skill, due reference). Progressione, selezione esercizi, conteggio del volume e deload sono condivisi: due skill duplicherebbero logica e si contraddirebbero.
 - **`recovery` + `sleep` → `recovery-sleep`**: il sonno è input della recovery; stesse soglie e segnali.
-- **Safety non è una skill**: modulo di codice + regole always-on in `AGENTS.md` (una skill può non attivarsi). Al massimo una reference di linguaggio per i rinvii, letta dall'orchestratore.
+- **Safety non è una skill**: modulo di codice + regole always-on nel file di istruzioni dell'assistente (`AGENTS.md`) (una skill può non attivarsi). Al massimo una reference di linguaggio per i rinvii, letta dall'orchestratore.
 
 | Skill | RESPONSIBILITY | INPUTS | OUTPUTS | ACTIVATION | DEPENDENCIES | MUST NOT |
 |---|---|---|---|---|---|---|
@@ -736,7 +736,7 @@ askesis/
 │  ├─ rules/{progression,problems,safety,dq}/*.yaml
 │  └─ reference/{exercises,zone_models}/*.yaml
 ├─ config/                       # default di sistema (priorità sorgenti, soglie)
-├─ assistant-skills/<skill>/       # SKILL.md + references/
+├─ <cartella skill dell'assistente>/<skill>/  # SKILL.md + references/ (locale)
 ├─ tests/{unit,golden,property,fixtures_synthetic}/
 ├─ data/          (GITIGNORED)   # coach.db, inbox/, archive/raw/, backups/, athlete_overrides
 ├─ reports/       (GITIGNORED)

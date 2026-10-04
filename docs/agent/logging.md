@@ -43,7 +43,7 @@ JSON per record, **solo in append** (`>>`). Formato envelope v0:
   - `running_session` {start_at, elapsed_s, moving_s?, distance_m, avg_hr?, max_hr?, run_type?, session_rpe?, stop_reason?}
   - `daily_activity` {steps}
   - `daily_context` {key, value} — variabili di contesto personalizzabili; chiavi e formato di dettatura
-    definiti solo in `assistant local instructions file`
+    definiti solo nelle istruzioni locali private dell'assistente
   - `sleep_session` / `resting_hr_daily` (opzionali)
   - `subjective_checkin` {fatigue_1_5?, soreness_1_5?, stress_1_5?, readiness_1_10?, illness?, pain?}
   - `athlete_attribute`, `goal`, `health_event`, `context_event` (es. `exam_period`), `test_result`

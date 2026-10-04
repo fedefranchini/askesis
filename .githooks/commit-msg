@@ -1,7 +1,21 @@
 #!/usr/bin/env bash
-# Blocca attribuzioni automatiche a assistant nei messaggi di commit: l'autore è sempre il proprietario.
+# Commit messages: the author is always the repository owner. Rejects any Co-Authored-By trailer and any term
+# listed in the private file private/commit_msg_denylist.txt (one term per line, case-insensitive).
 set -euo pipefail
-if grep -Eiq 'Co-Authored-By:.*(assistant|anthropic)|Generated with \[?AI assistant' "$1"; then
-  echo "✗ Messaggio di commit con attribuzione a assistant: rimuovila." >&2
+msg="$1"
+root="$(git rev-parse --show-toplevel)"
+if grep -Eiq '^[[:space:]]*co-authored-by:' "$msg"; then
+  echo "✗ Messaggio di commit con un trailer Co-Authored-By: rimuovilo (l'autore è il proprietario)." >&2
   exit 1
+fi
+deny="$root/private/commit_msg_denylist.txt"
+if [ -f "$deny" ]; then
+  while IFS= read -r term; do
+    [ -z "$term" ] && continue
+    case "$term" in \#*) continue ;; esac
+    if grep -Fqi -- "$term" "$msg"; then
+      echo "✗ Messaggio di commit con un termine della denylist privata: riformulalo." >&2
+      exit 1
+    fi
+  done < "$deny"
 fi

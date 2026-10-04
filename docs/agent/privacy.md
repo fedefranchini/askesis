@@ -7,7 +7,7 @@ Questa repository è **pubblica**. I dati personali e sanitari dell'atleta non d
 
 1. **Dati personali solo in file privati**: `data/` (staging, database, report, backup, foto, export),
    `private/` (profilo, onboarding, contesto medico, interventi, roadmap personale, evidenze su temi
-   personali) e `assistant local instructions file`. Le risposte all'onboarding e ogni dato dell'atleta vanno **solo** lì.
+   personali) e nelle istruzioni locali private dell'assistente. Le risposte all'onboarding e ogni dato dell'atleta vanno **solo** lì.
    Docs, codice, test ed esempi pubblici usano dati sintetici o segnaposto.
 2. **Nei file pubblici solo strutture generiche.** Ogni dato personale, anche futuro, compare nei file
    pubblici solo come struttura generica (es. una variabile di contesto personalizzabile), mai con il suo
@@ -19,9 +19,10 @@ Questa repository è **pubblica**. I dati personali e sanitari dell'atleta non d
    (con la denylist privata `private/denylist.txt`) sono una rete di sicurezza, non un sostituto della
    revisione. Quando emerge un nuovo dato personale sensibile, aggiungerne i termini alla denylist.
    **Mai** usare `--no-verify`.
-4. **Nessuna attribuzione a assistant** nei commit e nelle PR (niente `Co-Authored-By: assistant`, niente
-   "Generated with AI assistant"): l'autore è sempre l'atleta/proprietario della repo. Impostato anche in
-   `local assistant settings` (`attribution`) e verificato dall'hook `commit-msg`.
+4. **Nessuna attribuzione all'assistente IA** nei commit e nelle PR (nessun trailer `Co-Authored-By`, nessuna
+   riga "generated with …"): l'autore è sempre l'atleta/proprietario della repo. Disattivato anche nelle
+   impostazioni locali dell'assistente e verificato dall'hook `commit-msg`; l'autore e il committer devono
+   usare l'indirizzo noreply di GitHub (controllo negli hook).
 5. **Esempi lontani dal caso reale.** Esempi, test, help e docstring usano valori coerenti con il profilo
    fittizio dei test (`tests/synthetic.py`), mai valori vicini ai dati reali dell'atleta (peso, intake,
    misure, età, fuso, regioni del corpo con problemi noti). Prima di ogni commit controllare anche i
@@ -34,4 +35,5 @@ Questa repository è **pubblica**. I dati personali e sanitari dell'atleta non d
 
 ## Skill
 
-`personal-trainer` è disattivata (in `a disabled-skills folder`): solo riferimento in lettura.
+La skill esterna `personal-trainer` è disattivata (spostata fuori dalla cartella delle skill attive): solo
+riferimento in lettura.

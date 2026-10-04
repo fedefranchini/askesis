@@ -42,4 +42,4 @@ propone**; l'atleta decide. Ogni numero viene da `bin/ak`; ogni scelta metodolog
 ## Esecuzione automatica
 Le tre cadenze girano anche come attività locali dell'app desktop (Code → Routines), con prompt autonomi che
 vietano scritture di dati, approvazioni, commit e push; scrivono solo in `reports/` e notificano in una riga
-solo se rilevante. Orari e modello: nei file privati. Permessi minimi in `local assistant settings`.
+solo se rilevante. Orari e modello: nei file privati. Permessi minimi nelle impostazioni locali dell'assistente (non versionate).

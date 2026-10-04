@@ -14,17 +14,53 @@ fi
 
 fail=0
 err() { printf '✗ %s\n' "$1" >&2; fail=1; }
+root="$(git rev-parse --show-toplevel)"
+noreply='@users\.noreply\.github\.com$'
+
+# 0a) Identità: autore e committer devono usare l'indirizzo noreply di GitHub (nessuna email personale nello storico)
+if [ "$mode" = "--range" ]; then
+  while IFS= read -r ident; do
+    [ -z "$ident" ] && continue
+    printf '%s\n' "$ident" | grep -Eq "$noreply" || err "commit con autore/committer non noreply: ${ident%% *}"
+  done < <(git log --format='%h %ae%n%h %ce' "$2..$3" 2>/dev/null || git log --format='%h %ae%n%h %ce' "$3")
+else
+  for var in GIT_AUTHOR_IDENT GIT_COMMITTER_IDENT; do
+    email=$(git var "$var" | sed -E 's/.*<([^>]*)>.*/\1/')
+    printf '%s\n' "$email" | grep -Eq "$noreply" || err "$var non usa l'indirizzo noreply di GitHub"
+  done
+  # 0b) Backup privato dei file locali dell'assistente (elenco in private/backup_list.txt)
+  if [ -f "$root/private/backup_list.txt" ]; then
+    mkdir -p "$root/private/agent-config"
+    while IFS= read -r f; do
+      [ -z "$f" ] && continue
+      case "$f" in \#*) continue ;; esac
+      [ -e "$root/$f" ] && mkdir -p "$root/private/agent-config/$(dirname "$f")" && cp -p "$root/$f" "$root/private/agent-config/$f"
+    done < "$root/private/backup_list.txt"
+  fi
+fi
 
 staged=$(git diff "${diff_args[@]}" --name-only --diff-filter=ACMR)
-[ -z "$staged" ] && exit 0
+if [ -z "$staged" ]; then
+  [ "$fail" -ne 0 ] && { echo "$What bloccato dal privacy guard." >&2; exit 1; }
+  exit 0
+fi
 
-# 1) Percorsi e tipi di file vietati
-blocked_paths='^(data|private|reports)/|(^|/)assistant\.local\.md$|(^|/)settings\.local\.json$|(^|/)\.env|\.(db|db-wal|db-shm|sqlite|sqlite3|ndjson|heic|HEIC|jpe?g|JPE?G|pdf|PDF)$|(^|/)(export\.zip|export\.xml|export_cda\.xml)$|apple_health_export'
+# 1) Percorsi e tipi di file vietati (generici + elenco privato private/blocked_paths.txt)
+blocked_paths='^(data|private|reports)/|(^|/)[^/]*\.local\.md$|(^|/)settings\.local\.json$|(^|/)\.env|\.(db|db-wal|db-shm|sqlite|sqlite3|ndjson|heic|HEIC|jpe?g|JPE?G|pdf|PDF)$|(^|/)(export\.zip|export\.xml|export_cda\.xml)$|apple_health_export'
 while IFS= read -r f; do
   if printf '%s\n' "$f" | grep -Eq "$blocked_paths"; then
     err "file vietato in $what: $f"
   fi
 done <<< "$staged"
+if [ -f "$root/private/blocked_paths.txt" ]; then
+  while IFS= read -r rx; do
+    [ -z "$rx" ] && continue
+    case "$rx" in \#*) continue ;; esac
+    while IFS= read -r f; do
+      printf '%s\n' "$f" | grep -Eq -- "$rx" && err "file vietato in $what (elenco privato): $f"
+    done <<< "$staged"
+  done < "$root/private/blocked_paths.txt"
+fi
 
 # 2) Contenuto aggiunto: segreti, percorsi locali, email personali
 added=$(git diff "${diff_args[@]}" -U0 --no-color --diff-filter=ACMR | grep -E '^\+' | grep -Ev '^\+\+\+ ' || true)
@@ -51,7 +87,7 @@ emails=$(printf '%s\n' "$added" | grep -Eo '[A-Za-z0-9][A-Za-z0-9._%+-]*@[A-Za-z
 if [ -n "$emails" ]; then err "email nel contenuto: $(printf '%s ' $emails)"; fi
 
 # 3) Denylist privata (stringhe personali, file escluso da git)
-denylist="private/denylist.txt"
+denylist="$root/private/denylist.txt"
 if [ -f "$denylist" ]; then
   while IFS= read -r term; do
     [ -z "$term" ] && continue

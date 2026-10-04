@@ -64,7 +64,7 @@ evidence metadata. All personal and health data stays local and is excluded from
 |---|---|---|
 | `data/` | database, staging, reports, backups, photos, health exports | No |
 | `private/` | athlete profile, personal plan, links between evidence and personal data, papers for reading | No |
-| `assistant local instructions file` | personal instructions for AI assistant | No |
+| local assistant instructions | personal instructions for your AI assistant (any `*.local.md`, tool settings folders) | No |
 
 The evidence knowledge base stores only bibliographic metadata, summaries in our own words and very
 short quotations. It never stores full texts or PDFs of articles.
@@ -96,7 +96,7 @@ variables) go in `private/askesis.toml`, which is never committed.
 ## Repository layout
 
 ```
-AGENTS.md            system rules for AI assistant (data, evidence, decisions, safety, privacy)
+AGENTS.md            rules for an AI assistant (data, evidence, decisions, safety, privacy)
 src/askesis/         data core: model, append-only store, data quality, ingestion, parsers, CLI
 migrations/          forward-only SQL migrations
 schemas/v1/          JSON Schema of the ingestion contract
@@ -104,10 +104,24 @@ config/              public default configuration
 knowledge/           evidence KB, metric parameters (each with its basis), reference data
 tests/               test suite (synthetic data only)
 bin/ak               CLI launcher
-docs/                architecture spec and roadmap
+docs/                architecture spec, roadmap, detailed assistant rules (docs/agent/)
 .githooks/           privacy and attribution guards
-.assistant/             project settings for AI assistant
 ```
+
+## Using it with an AI assistant
+
+Askesis works without AI: the CLI, metrics, reviews, safety rules and intervention registry are plain code.
+An AI assistant makes it better — it reads your data through the CLI, writes the reports and proposes changes,
+while the code computes every number and enforces approvals, privacy and safety.
+
+The assistant rules are model-independent and live in [`AGENTS.md`](AGENTS.md) (details in `docs/agent/`):
+
+- if your coding assistant reads `AGENTS.md`, nothing else is needed;
+- otherwise create the instruction file your assistant expects (it stays local, never committed) and make it
+  include or point to `AGENTS.md`, adding only tool-specific notes;
+- keep personal preferences in a private local instructions file, and deny direct writes to `data/` in your
+  assistant's permission settings (data goes only through `bin/ak`);
+- disable automatic AI attribution in commits; the hooks reject any `Co-Authored-By` trailer anyway.
 
 ## Disclaimer
 

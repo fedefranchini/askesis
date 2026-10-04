@@ -2,8 +2,6 @@
 data/
 private/
 reports/
-assistant local instructions file
-.assistant/settings.local.json
 # export Apple Health e foto
 export.zip
 export.xml

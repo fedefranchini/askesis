@@ -4,7 +4,7 @@ Regole complete; l'essenziale è in `AGENTS.md` (regola 1). Il codice le applica
 `src/askesis/safety/` con soglie in `knowledge/parameters/plan_safety.yaml`.
 
 
-assistant non è un medico: descrive pattern e raccomanda valutazioni, **non fa diagnosi**.
+L'assistente non è un medico: descrive pattern e raccomanda valutazioni, **non fa diagnosi**.
 
 | Segnale | Azione |
 |---|---|

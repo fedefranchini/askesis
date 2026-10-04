@@ -11,17 +11,17 @@
 
 | Tema | Default |
 |---|---|
-| Skill `personal-trainer` | Disattivata (spostata in `a disabled-skills folder`), usata solo come riferimento |
+| Skill `personal-trainer` | Disattivata (spostata fuori dalle skill attive), usata solo come riferimento |
 | Logging | Peso giornaliero a digiuno; energia + proteine giornaliere (stimate da app); RIR sulle serie di lavoro (se non ricordato → vuoto, mai inventato); vita settimanale con **2–3 letture** (stima TEM); giorni incompleti marcati `partial` |
 | Approvazione | "approvo" esplicito in chat, registrato. **L1** (automatico) = solo doppia progressione con parametri scritti nella versione di programma + deload già pianificati. Le regole versionate (es. `knowledge/rules/calorie_adjustment.yaml`, pre-registrata nel primo intervento) quando scattano generano una **proposta L2** da approvare con un "approvo" rapido. Deload reattivi = L2 |
-| Modello di coaching | Il coach (assistant) legge i dati, produce i report (giornaliero se rilevante, review del lunedì, retrospettiva mensile) e propone modifiche; il codice calcola; l'atleta decide. Vedi `docs/agent/coaching.md` |
+| Modello di coaching | Il coach (assistente IA) legge i dati, produce i report (giornaliero se rilevante, review del lunedì, retrospettiva mensile) e propone modifiche; il codice calcola; l'atleta decide. Vedi `docs/agent/coaching.md` |
 | Rilettura | Pesi, corsa e import: anteprima compatta e salvataggio solo dopo conferma (`--yes`); peso, cibo e valori semplici: salvati subito con rilettura |
 | Cadenza | Review settimanale **il lunedì mattina** sulla settimana lun–dom appena chiusa; chiusura del giorno nutrizionale configurabile (es. 03:00) |
 | Configurazione personale | Lingua, fuso, sesso per le formule, sorgenti: in file privati |
 | Report | Markdown |
 | Screening salute | Tipo PAR-Q+ prima di qualsiasi test massimale |
 | Backup | Time Machine su disco esterno **cifrato** + `askesis backup` (snapshot via SQLite online backup API in `data/backups/`, rotazione 7 giornalieri + 4 settimanali). DB vivo **mai** in iCloud Drive; snapshot in iCloud solo con Protezione avanzata dei dati o dentro immagine disco cifrata |
-| Privacy | Dati personali solo in `data/`, `private/`, `assistant local instructions file` (esclusi da git, protetti da hook) |
+| Privacy | Dati personali solo in `data/`, `private/` e nelle istruzioni locali private dell'assistente (esclusi da git, protetti da hook) |
 
 Le soglie di safety in `AGENTS.md` sono default provvisori `[PARAM]`, da verificare in F4.
 
@@ -38,10 +38,10 @@ Settimana 4 : F3 chiusa → MVP completo · prima retrospettiva mensile a fine m
 ## Fasi
 
 ### F0 — Setup · 1 sessione
-Ordine vincolante: git init + `.gitignore` **prima** di qualsiasi dato personale → `AGENTS.md` → roadmap.
+Ordine vincolante: git init + `.gitignore` **prima** di qualsiasi dato personale → regole dell'assistente → roadmap.
 - Isolamento della skill `personal-trainer`
 - git init, `.gitignore`, hook di protezione privacy, attribuzione disattivata
-- `AGENTS.md` pubblico (regole di sistema) + `assistant local instructions file` privato (dati personali)
+- Regole pubbliche dell'assistente (`AGENTS.md`) + istruzioni locali private (dati personali)
 - Setup backup
 
 ### Onboarding + Intervento n. 1 · 1–2 sessioni
@@ -164,7 +164,7 @@ un **Athlete Response Profile** minimo; import intervento n. 1.
 **MVP completo: ~6–8 sessioni, 2–3 settimane di calendario.**
 
 ### F3b — Pre-avvio del primo intervento · ✅ completata (2026-10-05)
-- `AGENTS.md` snello (8 regole essenziali, safety sempre caricata; dettagli in `docs/agent/`)
+- Regole dell'assistente snelle (8 regole essenziali, safety sempre caricata; dettagli in `docs/agent/`)
 - Rilettura compatta con nomi italiani del catalogo; anteprima + `--yes` per pesi, corsa e import
 - Scheda del giorno in Apple Note (`ak gym-note create/import`): solo esercizi e carichi; parsing tollerante;
   righe illeggibili segnalate e mai indovinate; import idempotente; righe modificate → correzioni
@@ -188,7 +188,7 @@ un **Athlete Response Profile** minimo; import intervento n. 1.
 **Principio architetturale: un solo nucleo, tante interfacce.** Il motore (modello dati, store, metriche, regole,
 safety, interventi) è unico; CLI, dashboard web, app iPhone e server MCP sono involucri sottili attorno allo stesso
 motore, con gli stessi controlli (validazione, rilettura, approvazioni, safety, append-only). **Il modello operativo
-è il coach**: assistant legge i dati, fa i report e propone; il codice calcola e garantisce i vincoli critici.
+è il coach**: l'assistente IA legge i dati, fa i report e propone; il codice calcola e garantisce i vincoli critici.
 
 | Ordine | Fase | Voce |
 |---|---|---|
