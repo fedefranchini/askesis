@@ -1,10 +1,10 @@
-# Autopilot rule (L1 with limits): calorie adjustment during a fat-loss phase.
+# Rule (L2): calorie adjustment during a fat-loss phase.
 # Rules are data: conditions, limits and sources are versioned here; parameters can be tuned without code.
-# Approving a plan version that references this rule (id@version) approves its automatic application
-# within the limits below. Execution engine: phase F3c. Generic: no athlete data in this file.
+# When all preconditions hold, the rule generates a PROPOSAL (data, rule@version, reason) that the athlete
+# approves with "approvo". It never changes the plan on its own. Generic: no athlete data in this file.
 id: calorie_adjustment
-version: 1
-level: L1
+version: 2
+level: L2
 domain: body_composition
 status: active          # proposed | shadow | active | retired  (shadow = computed and logged, never applied)
 
@@ -36,10 +36,10 @@ limits:
   max_applications_per_phase: 4
   floor: "never below estimated resting energy expenditure (safety.low_energy_intake)"
 
-on_apply:
-  notify: one_line                     # e.g. "Pilota automatico: target −150 kcal (…); annulla con ak undo <id>"
-  record: rule_execution               # inputs → rule@version → output
-  undoable: true                       # restores the previous nutrition_target version
+on_trigger:
+  action: propose                      # creates an intervention proposal; applied only after "approvo"
+  record: rule_execution               # inputs → rule@version → proposal
+  notify: one_line                     # e.g. "Proposta: target −150 kcal (velocità −0,3 %/sett, sotto la fascia)"
 
 basis:
   target_band:

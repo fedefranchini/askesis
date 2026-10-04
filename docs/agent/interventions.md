@@ -18,11 +18,11 @@ Dettagli richiamati da `AGENTS.md` (regola 4).
   attiva, e deload già pianificati. Tutto il resto è L2 (serve "approvo").
 - Preferire **una variabile alla volta** per dominio di esito.
 
-## Livelli di automazione (decisione 2026-10-04, modifica C6)
+## Livelli di automazione (decisione aggiornata: aggiustamento calorico riportato a L2)
 
-- **L1 (senza approvazione, con limiti dichiarati nella versione di piano approvata):** doppia progressione,
-  deload pianificati e **regola di aggiustamento calorico** (pilota automatico). La regola calorica si applica
-  da sola solo se tutte le condizioni minime sono soddisfatte (aderenza, qualità dati, nessun flag di safety
-  aperto), al massimo una volta ogni 2 settimane con il passo dichiarato; ogni applicazione è registrata,
-  notificata in una riga e annullabile. Va pre-registrata nell'intervento che la introduce.
-- **L2:** tutto il resto, con "approvo".
+- **L1 (automatico, senza approvazione):** solo doppia progressione con parametri scritti nella versione di
+  programma attiva, e deload già pianificati.
+- **L2 (serve "approvo"):** tutto il resto. Le regole versionate come dato (es.
+  `knowledge/rules/calorie_adjustment.yaml`), pre-registrate nell'intervento, quando le condizioni minime
+  sono soddisfatte generano una **proposta** con dati, regola@versione e motivo, che l'atleta approva con un
+  "approvo" rapido. Mai proposte di aumento dello stress con flag di safety aperti.
