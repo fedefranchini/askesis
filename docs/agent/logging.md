@@ -15,7 +15,9 @@ bin/ak day "p 68.4 · cibo 1850 115 · pesi: panca 80x8 r2, 80x7 r1 · corsa 5.2
 - Serie dei pesi separate da **virgola + spazio**; esercizi separati da `·`.
 - Correzioni: `bin/ak fix <id> '<json>'` (nuova versione); errori: `bin/ak retract <id> -r "<motivo>"`.
 - Alias personali delle variabili di contesto: solo nella configurazione privata.
-- Dopo ogni registrazione mostrare all'atleta la ricevuta della CLI.
+- **Rilettura (decisione 2026-10-04, b):** peso, cibo, passi, vita, contesto si salvano subito e la CLI mostra
+  una rilettura compatta. Pesi, corsa e import mostrano un'**ANTEPRIMA** (es. "Panca piana: 80 kg × 8 @RIR 2"):
+  presentarla all'atleta e salvare con `--yes` solo dopo la sua conferma.
 - `bin/ak` è il launcher (non dipende dall'installazione editable).
 
 ## Staging (formato v0 — fallback)

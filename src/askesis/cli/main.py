@@ -14,7 +14,7 @@ from askesis import config as config_mod
 from askesis.core.ids import new_id
 from askesis.core.timeutil import at_local, now_utc
 from askesis.core.units import format_duration
-from askesis.ingestion import manual, staging
+from askesis.ingestion import manual, readback, staging
 from askesis.ingestion.pipeline import Receipt, ingest
 from askesis.model.entities import Envelope
 from askesis.parsers.text import Intent, ParseError, parse_day, parse_gym, parse_run
@@ -78,8 +78,9 @@ def _describe(env: Envelope) -> str:
 
 
 def _print_receipt(r: Receipt) -> None:
-    for env in r.inserted:
-        typer.echo(f"✓ {_describe(env)}")
+    saved = [e.model_dump(mode="json") for e in r.inserted]
+    for line in readback.lines(saved):
+        typer.echo(f"✓ {line}" if not line.startswith("  ") else f"  {line.strip()}")
     for label in r.duplicates:
         typer.echo(f"= già presente: {label}")
     for label, reason in r.rejected:
@@ -90,12 +91,17 @@ def _print_receipt(r: Receipt) -> None:
     typer.echo(r.summary())
 
 
-def _commit(records: list[dict], adapter: str, dry_run: bool = False) -> Receipt | None:
+def _commit(records: list[dict], adapter: str, dry_run: bool = False, yes: bool = False) -> Receipt | None:
+    """Save records. Workouts, runs and imports are previewed and saved only with --yes (decision 2026-10-04, b)."""
     cfg, conn = _ctx()
-    if dry_run:
-        for rec in records:
-            typer.echo(f"· {_describe(Envelope.model_validate(rec))}")
-        typer.echo(f"(dry-run: {len(records)} record, nulla salvato)")
+    preview = dry_run or (readback.needs_confirmation(records) and not yes)
+    if preview:
+        rows = [Envelope.model_validate(rec).model_dump(mode="json") for rec in records]
+        typer.echo("ANTEPRIMA — nulla salvato:")
+        for line in readback.lines(rows):
+            typer.echo(f"· {line}" if not line.startswith("  ") else f"  {line.strip()}")
+        if not dry_run:
+            typer.echo("Se è corretto, ripetere con --yes per salvare.")
         return None
     r = ingest(conn, records, adapter)
     _print_receipt(r)
@@ -115,14 +121,15 @@ def day(
     line: Annotated[str, typer.Argument(help="Riga rapida, es. 'p 68.4 · cibo 1850 115'")],
     date_: DateOpt = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Mostra senza salvare")] = False,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Conferma: salva anche pesi e corsa")] = False,
 ) -> None:
-    """Registrazione rapida giornaliera (cibo e passi = giorno precedente)."""
+    """Registrazione rapida giornaliera (cibo e passi = giorno precedente). Pesi e corsa: anteprima, poi --yes."""
     cfg = config_mod.load()
     try:
         intents = parse_day(line, cfg.context_aliases)
     except ParseError as exc:
         raise typer.BadParameter(str(exc)) from exc
-    _commit(_build(intents, _day(date_, cfg)), "manual_day", dry_run)
+    _commit(_build(intents, _day(date_, cfg)), "manual_day", dry_run, yes)
 
 
 @log_app.command("weight")
@@ -152,23 +159,23 @@ def log_waist(readings: list[float], date_: DateOpt = None) -> None:
 
 
 @log_app.command("gym")
-def log_gym(text: str, date_: DateOpt = None) -> None:
+def log_gym(text: str, date_: DateOpt = None, yes: Annotated[bool, typer.Option("--yes", "-y")] = False) -> None:
     """Sessione pesi, es. 'panca 80x8 r2, 80x7 r1 · rematore 60x10 r2'."""
     try:
         exercises = parse_gym(text)
     except ParseError as exc:
         raise typer.BadParameter(str(exc)) from exc
-    _commit(_build([Intent("gym", {"exercises": exercises})], _day(date_, config_mod.load())), "manual_cli")
+    _commit(_build([Intent("gym", {"exercises": exercises})], _day(date_, config_mod.load())), "manual_cli", yes=yes)
 
 
 @log_app.command("run")
-def log_run(text: str, date_: DateOpt = None) -> None:
+def log_run(text: str, date_: DateOpt = None, yes: Annotated[bool, typer.Option("--yes", "-y")] = False) -> None:
     """Corsa, es. '5.2km 31:40 fc145 stop:fiato'."""
     try:
         data = parse_run(text)
     except ParseError as exc:
         raise typer.BadParameter(str(exc)) from exc
-    _commit(_build([Intent("run", data)], _day(date_, config_mod.load())), "manual_cli")
+    _commit(_build([Intent("run", data)], _day(date_, config_mod.load())), "manual_cli", yes=yes)
 
 
 @log_app.command("steps")
@@ -315,13 +322,17 @@ def show_week(date_: DateOpt = None) -> None:
 def import_staging(
     paths: Annotated[list[Path] | None, typer.Argument(help="File NDJSON (default: tutti in staging_dir)")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Conferma l'import dopo l'anteprima")] = False,
 ) -> None:
-    """Importa lo staging NDJSON v0 nel database (idempotente)."""
+    """Importa lo staging NDJSON v0 nel database (idempotente). Anteprima, poi --yes."""
     cfg, conn = _ctx()
     files = paths or sorted(cfg.staging_dir.glob("*.ndjson"))
     records, digest = staging.read(files)
     typer.echo(f"{len(files)} file · {len(records)} record · sha256 {digest[:12]}")
-    if dry_run:
+    if dry_run or not yes:
+        for line in readback.lines(records)[:60]:
+            typer.echo(f"· {line}")
+        typer.echo("ANTEPRIMA — nulla salvato." + ("" if dry_run else " Se è corretto, ripetere con --yes."))
         return
     r = ingest(conn, records, "staging_v0", input_ref=digest)
     for label, reason in r.rejected:
