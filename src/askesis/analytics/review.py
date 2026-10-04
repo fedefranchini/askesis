@@ -113,6 +113,8 @@ def render(values: list[MetricValue], week_start: date, issues: list[tuple[str, 
     if st:
         L.append(f"- Passi medi: **{_fmt(st.value, 0)}/die** ({st.n_obs} giorni) — {_cite(st)}"
                  if st.value is not None else f"- Passi: solo {st.n_obs} giorni registrati, media non calcolata")
+    else:
+        L.append("- Passi: nessun dato")
     L.append("")
 
     ctx = many("context_mean_week")
