@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
 from askesis.analytics import body, energy
-from askesis.analytics.engine import load_inputs
+from askesis.analytics.engine import athlete_as_of, load_inputs
 from askesis.analytics.params import p
 from askesis.core.ids import new_id
 from askesis.core.timeutil import iso, now_utc
@@ -182,7 +182,10 @@ def _low_intake(inp, on: date) -> list[Flag]:
     means = energy.intake_mean(inp.nutrition, on, 7)
     if not means or means[0].value is None or not daily:
         return []
-    ree = energy.mifflin(daily[max(daily)], inp.athlete)
+    past = [d for d in daily if d <= on]  # never a weigh-in after the evaluated date
+    if not past:
+        return []
+    ree = energy.mifflin(daily[max(past)], athlete_as_of(inp, on))
     if ree is None:
         return []
     ratio = means[0].value / ree

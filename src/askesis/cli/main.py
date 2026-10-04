@@ -406,8 +406,9 @@ def review_cmd(
         """SELECT i.severity, i.message FROM dq_issue i JOIN raw_record r ON r.id = i.record_id
            WHERE i.status = 'open' AND i.severity != 'info' AND r.local_date BETWEEN ? AND ?""",
         (ws.isoformat(), (ws + timedelta(days=6)).isoformat()))]
-    issues += [(f"safety {r['tier']}", r["message"]) for r in conn.execute(
-        "SELECT tier, message FROM v_safety_open")]
+    issues += [(f"safety {r['tier']}", r["message"]) for r in conn.execute(  # only flags of this week (no look-ahead)
+        "SELECT tier, message FROM safety_flag WHERE local_date BETWEEN ? AND ?",
+        (ws.isoformat(), (ws + timedelta(days=6)).isoformat()))]
     md = review.render(values, ws, issues)
     if stdout_only:
         typer.echo(md)

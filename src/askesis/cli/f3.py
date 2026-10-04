@@ -220,6 +220,20 @@ def why_cmd(number: int) -> None:
 
 
 # ------------------------------------------------------------------ monthly retrospective
+def intervention_status_as_of(conn, on: date) -> list[dict]:
+    """Status of each intervention as it was at the end of `on` (events recorded later are ignored)."""
+    limit = (on + timedelta(days=1)).isoformat()
+    out = []
+    for r in conn.execute("SELECT id, number, title FROM intervention WHERE created_at < ? ORDER BY number", (limit,)):
+        ev = conn.execute(
+            "SELECT event FROM intervention_event WHERE intervention_id = ? AND at < ? "
+            "ORDER BY at DESC, rowid DESC LIMIT 1",
+            (r["id"], limit),
+        ).fetchone()
+        out.append({"number": r["number"], "title": r["title"], "status": ev["event"] if ev else "proposed"})
+    return out
+
+
 def month_cmd(date_: str | None) -> str:
     from askesis.analytics import engine, review
 
@@ -228,7 +242,7 @@ def month_cmd(date_: str | None) -> str:
     first = (d.replace(day=1) - timedelta(days=1)).replace(day=1) if not date_ else d.replace(day=1)
     last = (first.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
     _, values, _ = engine.run(conn, first - timedelta(days=28), last)
-    ivs = [dict(r) for r in conn.execute("SELECT number, title, status FROM v_intervention_status ORDER BY number")]
+    ivs = intervention_status_as_of(conn, last)
     prof = [
         dict(r)
         for r in conn.execute(

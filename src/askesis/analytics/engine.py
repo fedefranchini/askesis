@@ -33,6 +33,7 @@ class Inputs:
     steps: dict[date, int] = field(default_factory=dict)
     context: list[tuple[date, str, float]] = field(default_factory=list)
     athlete: energy.AthleteBasics = field(default_factory=lambda: energy.AthleteBasics(None, None, None))
+    attr_history: list[tuple[date, str, object]] = field(default_factory=list)  # (valid from, key, value)
     fingerprint: str = ""
     dates: list[date] = field(default_factory=list)
 
@@ -45,7 +46,6 @@ def load_inputs(conn: sqlite3.Connection, cutoff: datetime | None = None) -> Inp
     rows = repo.current(conn, as_of=cutoff)
     inp = Inputs()
     h = hashlib.sha256()
-    attrs: dict[str, object] = {}
     for r in rows:
         h.update(f"{r['id']}:{r['payload_hash']}".encode())
         e, pl, d = r["entity_type"], json.loads(r["payload"]), _d(r["local_date"])
@@ -67,19 +67,28 @@ def load_inputs(conn: sqlite3.Connection, cutoff: datetime | None = None) -> Inp
         elif e == "daily_context":
             inp.context.append((d, pl["key"], pl["value"]))
         elif e == "athlete_attribute":
-            attrs[pl["key"]] = pl["value"]  # rows are ordered by date: latest wins
+            valid = pl.get("valid_from")
+            inp.attr_history.append((date.fromisoformat(str(valid)) if valid else d, pl["key"], pl["value"]))
+    inp.athlete = athlete_as_of(inp, max(inp.dates) if inp.dates else date.max)
+    inp.fingerprint = h.hexdigest()
+    return inp
+
+
+def athlete_as_of(inp: Inputs, on: date) -> energy.AthleteBasics:
+    """Athlete attributes known on `on` (never a value that only becomes valid later)."""
+    attrs: dict[str, object] = {}
+    for valid, key, value in sorted(inp.attr_history, key=lambda x: x[0]):
+        if valid <= on:
+            attrs[key] = value
     age = attrs.get("age_years")
-    if age is None and attrs.get("birth_date") and inp.dates:
-        # deterministic: age at the latest data date, never at wall-clock "today"
-        age = (max(inp.dates) - date.fromisoformat(str(attrs["birth_date"]))).days / 365.25
-    inp.athlete = energy.AthleteBasics(
+    if age is None and attrs.get("birth_date"):
+        age = (on - date.fromisoformat(str(attrs["birth_date"]))).days / 365.25
+    return energy.AthleteBasics(
         height_cm=_num(attrs.get("height_cm")),
         age_years=_num(age if age is not None else attrs.get("age_years_reported")),
         sex=attrs.get("sex_for_formulas"),
         activity_factor=_num(attrs.get("activity_factor")),
     )
-    inp.fingerprint = h.hexdigest()
-    return inp
 
 
 def _num(v) -> float | None:
@@ -124,7 +133,7 @@ def compute(inp: Inputs, start: date, end: date) -> list[MetricValue]:
     vals += [m for m in body.waist_sessions(inp.waist) if start <= m.period_start <= end]
     for ws, we in iso_weeks(start, end):
         for m in (body.weight_ema(daily, we), body.weight_ma7(daily, we),
-                  energy.adaptive_tdee(inp.nutrition, daily, inp.athlete, we),
+                  energy.adaptive_tdee(inp.nutrition, daily, athlete_as_of(inp, we), we),
                   training.steps_week(inp.steps, ws, we)):
             if m:
                 vals.append(m)
