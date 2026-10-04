@@ -1,0 +1,58 @@
+# Autopilot rule (L1 with limits): calorie adjustment during a fat-loss phase.
+# Rules are data: conditions, limits and sources are versioned here; parameters can be tuned without code.
+# Approving a plan version that references this rule (id@version) approves its automatic application
+# within the limits below. Execution engine: phase F3c. Generic: no athlete data in this file.
+id: calorie_adjustment
+version: 1
+level: L1
+domain: body_composition
+status: active          # proposed | shadow | active | retired  (shadow = computed and logged, never applied)
+
+applies_when:
+  phase: [fat_loss]
+  min_days_since_phase_start: 21     # first evaluation at the end of week 3
+
+evaluation:
+  window_days: [8, 21]               # days since phase start; the first week is excluded
+  first_week_excluded_reason: "water and glycogen shifts at diet onset"
+  metric: weight_rate_pct_14d        # %BW/week, Theil–Sen with 90% CI
+
+preconditions:                        # all must hold, otherwise the rule does not act and says why
+  nutrition_complete_days_min: 0.80  # fraction of days in the window
+  weighins_min: 10                    # out of 14
+  intake_vs_target_within: 0.10       # |mean intake − target| / target
+  dq_grade_min: B
+  no_open_safety_flags: true
+
+decision:
+  target_band_pct_per_week: [-1.0, -0.5]   # loss between 0.5% and 1% of body weight per week
+  neutral_zone: true                       # inside the band → no change (hysteresis)
+  if_slower_than_band: {change_kcal: -150}
+  if_faster_than_band: {change_kcal: +150}
+
+limits:
+  max_change_kcal_per_application: 150
+  min_days_between_applications: 14
+  max_applications_per_phase: 4
+  floor: "never below estimated resting energy expenditure (safety.low_energy_intake)"
+
+on_apply:
+  notify: one_line                     # e.g. "Pilota automatico: target −150 kcal (…); annulla con ak undo <id>"
+  record: rule_execution               # inputs → rule@version → output
+  undoable: true                       # restores the previous nutrition_target version
+
+basis:
+  target_band:
+    basis: evidence
+    claims: [energy.rate_0_5_to_1_pct, energy.slow_vs_fast_rct]
+  first_week_exclusion:
+    basis: expert_opinion
+  step_size_and_frequency:
+    basis: engineering_choice
+    rationale: "Small, infrequent steps keep the system stable and changes attributable."
+  preconditions:
+    basis: engineering_choice
+  energy_dynamics_caveat:
+    basis: evidence
+    claims: [energy.dynamic_response]
+    rationale: "The weight response to an intake change is slow and dynamic: re-evaluate after ≥ 2 weeks."
