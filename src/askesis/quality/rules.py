@@ -10,6 +10,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
+from askesis.analytics.params import p as p_
 from askesis.model.entities import Envelope
 
 
@@ -71,7 +72,7 @@ def soft_checks(conn: sqlite3.Connection, env: Envelope) -> list[Issue]:
         ).fetchone()
         if prev:
             v, last = env.payload["value_kg"], prev["value_kg"]
-            if abs(v - last) > 2.0:
+            if abs(v - last) > p_("weight_jump_soft_kg"):
                 out.append(Issue("weight.jump", "soft", f"variazione di {v - last:+.1f} kg rispetto all'ultima pesata"))
             if 2.0 < v / last < 2.4:
                 out.append(Issue("weight.unit_suspect", "soft", "valore ~2,2× il precedente: possibili libbre"))

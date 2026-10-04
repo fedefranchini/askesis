@@ -1,0 +1,128 @@
+# Metric parameters — the ONLY place where metric constants live (code reads them from here).
+#
+# basis:
+#   evidence            → linked to claims in knowledge/evidence/claims.yaml
+#   expert_opinion      → common practice without a verified source in the KB
+#   engineering_choice  → a design decision of this system (smoothing, windows, thresholds); revisable
+schema_version: "0.1"
+last_reviewed: "2026-10-04"
+parameters:
+
+  # ---------------- body weight
+  weight_daily_rule:
+    value: first_fasted_then_first
+    basis: engineering_choice
+    rationale: "One value per day: first fasted morning weigh-in, otherwise the first of the day (flagged)."
+  weight_ma7_min_points:
+    value: 4
+    unit: days_of_7
+    basis: engineering_choice
+    rationale: "A 7-day mean is reported only with at least 4 daily values."
+  weight_ema_alpha:
+    value: 0.1
+    unit: per_day
+    basis: engineering_choice
+    rationale: "Smoothing of daily scale noise (water, gut content); alpha 0.1 ≈ half-life ~6.6 days. Gap-aware: alpha_eff = 1-(1-alpha)^days."
+  weight_rate_windows:
+    value: [14, 28]
+    unit: days
+    basis: engineering_choice
+    rationale: "Short and long windows to separate noise from trend."
+  weight_rate_min_points:
+    value: {"14": 8, "28": 14}
+    basis: engineering_choice
+  rate_ci_level:
+    value: 0.90
+    basis: engineering_choice
+    rationale: "Interval level used for slopes and TDEE."
+
+  # ---------------- nutrition and energy
+  intake_min_completeness:
+    value: 0.70
+    unit: fraction_of_days
+    basis: engineering_choice
+    rationale: "intake_mean is reported only if ≥70% of the window's days are 'complete'."
+  tdee_window_days:
+    value: 28
+    unit: days
+    basis: engineering_choice
+    rationale: "Long enough to average water fluctuations; see claim energy.dynamic_response."
+    claims: [energy.dynamic_response]
+  tdee_min_intake_completeness:
+    value: 0.80
+    unit: fraction_of_days
+    basis: engineering_choice
+  tdee_min_weight_days:
+    value: 0.70
+    unit: fraction_of_days
+    basis: engineering_choice
+  tissue_energy_density:
+    value: 7000
+    sd: 800
+    unit: kcal_per_kg
+    basis: expert_opinion
+    rationale: >-
+      Converts a short-window weight slope into an energy balance. The value depends on body-composition
+      change and is not a fixed constant (energy.dynamic_response); carried with an explicit SD. Listed as a
+      gap in the KB.
+    claims: [energy.dynamic_response]
+  prior_ree_equation:
+    value: mifflin_st_jeor
+    basis: evidence
+    claims: [energy.mifflin_ree]
+  prior_activity_factor_default:
+    value: 1.55
+    basis: expert_opinion
+    rationale: "Used only when no athlete-specific factor is recorded; individual error is large."
+    claims: [energy.activity_multiplier]
+  prior_relative_sd:
+    value: 0.15
+    unit: fraction_of_prior
+    basis: engineering_choice
+    rationale: "Wide prior so that ~3–4 weeks of good data dominate the estimate."
+
+  # ---------------- strength
+  hard_set_max_rir:
+    value: 4
+    unit: reps_in_reserve
+    basis: engineering_choice
+    rationale: >-
+      Working sets ending with RIR ≤ 4 count as hard sets. Hypertrophy improves closer to failure but the
+      relationship is probably non-linear (rt.proximity_to_failure); the cut-off itself is a convention.
+    claims: [rt.proximity_to_failure]
+  secondary_muscle_fraction:
+    value: 0.5
+    basis: evidence
+    rationale: "Fractional counting of indirect sets best predicted adaptations."
+    claims: [rt.volume_dose_response]
+  e1rm_formula:
+    value: epley_reps_plus_rir
+    basis: expert_opinion
+    rationale: >-
+      e1RM = load × (1 + (reps + RIR) / 30). Epley is a widely used estimate without a verified source in
+      the KB; RIR adjustment follows the RIR-based scale (rt.rir_scale). Sets without RIR give a lower bound.
+    claims: [rt.rir_scale]
+  e1rm_max_reps_equivalent:
+    value: 12
+    basis: engineering_choice
+    rationale: "Estimates from reps+RIR > 12 are too imprecise and are not computed."
+
+  # ---------------- running and activity
+  week_definition:
+    value: iso_monday_to_sunday
+    basis: engineering_choice
+  steps_min_days_for_mean:
+    value: 4
+    unit: days_of_7
+    basis: engineering_choice
+
+  # ---------------- data quality
+  dq_grade_thresholds:
+    value: {A: 0.90, B: 0.75, C: 0.50}
+    basis: engineering_choice
+    rationale: "Grade is set by the weakest component (docs/architecture.md §13.3)."
+  weight_jump_soft_kg:
+    value: 2.0
+    unit: kg
+    basis: engineering_choice
+    rationale: "Day-to-day change above this opens a soft data-quality issue (not a rejection)."

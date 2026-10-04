@@ -26,7 +26,9 @@ app = typer.Typer(no_args_is_help=True, add_completion=False, help="Askesis — 
 log_app = typer.Typer(no_args_is_help=True, help="Registra un singolo dato.")
 show_app = typer.Typer(no_args_is_help=True, help="Mostra i dati registrati.")
 app.add_typer(log_app, name="log")
+metrics_app = typer.Typer(no_args_is_help=True, help="Metriche derivate (cache ricalcolabile).")
 app.add_typer(show_app, name="show")
+app.add_typer(metrics_app, name="metrics")
 
 DateOpt = Annotated[str | None, typer.Option("--date", "-d", help="Data YYYY-MM-DD (default: oggi)")]
 
@@ -302,6 +304,63 @@ def backup_cmd() -> None:
     path = backup_mod.backup(conn, cfg.backup_dir, datetime.now())
     removed = backup_mod.rotate(cfg.backup_dir)
     typer.echo(f"✓ backup {path.name} · rimossi {len(removed)} vecchi backup")
+
+
+@metrics_app.command("compute")
+def metrics_compute(
+    from_: Annotated[str | None, typer.Option("--from")] = None,
+    to: Annotated[str | None, typer.Option("--to")] = None,
+) -> None:
+    """Calcola le metriche (default: tutto il periodo con dati)."""
+    from askesis.analytics import engine
+
+    cfg, conn = _ctx()
+    run_id, values, dg = engine.run(conn, date.fromisoformat(from_) if from_ else None,
+                                    date.fromisoformat(to) if to else None)
+    typer.echo(f"✓ run {run_id[-8:] if run_id else '—'} · {len(values)} valori · digest {dg[:12]}")
+
+
+@metrics_app.command("rebuild")
+def metrics_rebuild() -> None:
+    """Cancella la cache delle metriche, ricalcola tutto e verifica la riproducibilità."""
+    from askesis.analytics import engine
+
+    cfg, conn = _ctx()
+    run_id, n, dg, ok = engine.rebuild(conn)
+    typer.echo(f"{'✓' if ok else '✗'} rebuild · {n} valori · digest {dg[:12]} · "
+               f"{'riproducibile' if ok else 'NON riproducibile'}")
+    if not ok:
+        raise typer.Exit(1)
+
+
+@app.command("review")
+def review_cmd(
+    date_: Annotated[
+        str | None, typer.Option("--date", "-d", help="Un giorno della settimana (default: settimana scorsa)")
+    ] = None,
+    stdout_only: Annotated[bool, typer.Option("--stdout", help="Non salvare su file")] = False,
+) -> None:
+    """Review settimanale (lun–dom) in Markdown, salvata in reports/."""
+    from askesis.analytics import engine, review
+
+    cfg, conn = _ctx()
+    d = date.fromisoformat(date_) if date_ else _day(None, cfg) - timedelta(days=7)
+    ws = d - timedelta(days=d.weekday())
+    _, values, _ = engine.run(conn, ws - timedelta(days=28), ws + timedelta(days=6))
+    issues = [(r["severity"], r["message"]) for r in conn.execute(
+        """SELECT i.severity, i.message FROM dq_issue i JOIN raw_record r ON r.id = i.record_id
+           WHERE i.status = 'open' AND i.severity != 'info' AND r.local_date BETWEEN ? AND ?""",
+        (ws.isoformat(), (ws + timedelta(days=6)).isoformat()))]
+    md = review.render(values, ws, issues)
+    if stdout_only:
+        typer.echo(md)
+        return
+    y, w, _ = ws.isocalendar()
+    out = config_mod.ROOT / "reports" / f"review-{y}-W{w:02d}.md"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(md + "\n")
+    typer.echo(md)
+    typer.echo(f"\n✓ salvata in {out.relative_to(config_mod.ROOT)}")
 
 
 @app.command("init")
