@@ -74,6 +74,16 @@ def safety_resolve(flag_id: str, resolution: Annotated[str, typer.Option("--reso
     typer.echo("✓ flag risolto")
 
 
+def _status_message(out: dict) -> str:
+    if out["status"] == "blocked_by_safety":
+        return (
+            "✗ nessuna prescrizione: flag di safety aperti ("
+            + "; ".join(f"{f['tier']}: {f['message']}" for f in out["flags"])
+            + ")"
+        )
+    return {"no_programme": "nessun programma attivo", "rest_day": "giorno senza sessione"}[out["status"]]
+
+
 # ------------------------------------------------------------------ plan
 @plan_app.command("show")
 def plan_show(date_: DateOpt = None) -> None:
@@ -111,7 +121,7 @@ def plan_next(date_: DateOpt = None, no_record: Annotated[bool, typer.Option("--
     cfg, conn = _ctx()
     out = plan_rules.next_session(conn, _d(date_, cfg), record=not no_record)
     if out["status"] != "session":
-        typer.echo({"no_programme": "nessun programma attivo", "rest_day": "giorno senza sessione"}[out["status"]])
+        typer.echo(_status_message(out))
         return
     flags = [k for k in ("deload", "minimal_week") if out[k]] + out["periods"]
     typer.echo(f"{out['date']}" + (f" · {', '.join(flags)}" if flags else ""))
@@ -273,7 +283,7 @@ def gym_create(
     d = date.fromisoformat(date_)
     out = plan_rules.next_session(conn, d, record=not print_only)
     if out["status"] != "session":
-        typer.echo({"no_programme": "nessun programma attivo", "rest_day": "giorno senza sessione"}[out["status"]])
+        typer.echo(_status_message(out))
         raise typer.Exit(1)
     settings = _settings()
     for s in out["sessions"]:

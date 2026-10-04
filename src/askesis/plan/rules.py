@@ -109,6 +109,9 @@ def exposures(conn: sqlite3.Connection, exercise: str, before: date, limit: int 
 
 def next_session(conn: sqlite3.Connection, on: date, record: bool = True) -> dict:
     """Prescription for the session planned on `on`, applying L1 rules and pre-planned periods."""
+    blocking = conn.execute("SELECT tier, message FROM v_safety_open WHERE tier IN ('T2', 'T3')").fetchall()
+    if blocking:  # safety first: no prescriptions while a T2/T3 flag is open
+        return {"status": "blocked_by_safety", "flags": [dict(f) for f in blocking]}
     row = store.active(conn, "programme", on)
     if row is None:
         return {"status": "no_programme"}

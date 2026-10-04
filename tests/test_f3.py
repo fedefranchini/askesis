@@ -330,3 +330,15 @@ def test_why_answers_when_why_and_what_happened(conn):
         "concluded",
     ):
         assert needle in text, needle
+
+
+def test_no_prescription_while_T2_or_T3_flag_open(conn):
+    store.add_version(conn, "programme", "base", programme(), D0, None)
+    conn.commit()
+    ingest(conn, [health(D0, kind="symptom", red_flags=["syncope"])], "s")
+    safety.evaluate(conn, D0)
+    out = rules.next_session(conn, D0)
+    assert out["status"] == "blocked_by_safety" and out["flags"][0]["tier"] == "T3"
+    assert conn.execute("SELECT COUNT(*) FROM rule_execution").fetchone()[0] == 0
+    safety.resolve(conn, safety.open_flags(conn)[0]["id"], "valutazione medica: ok")
+    assert rules.next_session(conn, D0)["status"] == "session"
