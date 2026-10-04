@@ -2,7 +2,6 @@
 
 A local-first, evidence-based **longitudinal AI athlete coach** for a single athlete.
 
-
 Most fitness apps log workouts. Askesis is designed to answer a different question:
 **"When we changed something, why did we change it — and did it work?"**
 
