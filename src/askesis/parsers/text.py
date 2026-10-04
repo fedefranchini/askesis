@@ -4,7 +4,7 @@ Gym:   "panca 80x8 r2, 80x7 r1 · rematore 60x10 r2"   (sets separated by comma 
        set = [w]LOADxREPS[*N] [rRIR | @RPE];  LOAD may be "bw", "bw+10"; "w" marks a warm-up set
 Run:   "5.2km 31:40 fc145 fcmax178 rpe6 stop:fiato"
 Day:   "p 68.4 · cibo 1850 115 [parz] · vita 74.1 74.3 · pesi: <gym> · corsa <run> · passi 8200 ·
-        sonno 7h30 · fcr 55 · dolore ginocchio 3/10 · <alias> <value>"
+        sonno 7h30 · fcr 55 · dolore spalla 3/10 · <alias> <value>"
 """
 
 from __future__ import annotations

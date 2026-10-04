@@ -53,7 +53,7 @@ def test_run_requires_distance_and_time():
 
 def test_day_line_full():
     line = ("p 74.6 · cibo 1650 95 parz · vita 80.1 80.3 · pesi: panca 60x8 r2 · rematore 50x10 r2 · "
-            "corsa 4km 25:00 fc140 · passi 9000 · sonno 7h30 · fcr 55 · dolore ginocchio 3/10 · xvar 4")
+            "corsa 4km 25:00 fc140 · passi 9000 · sonno 7h30 · fcr 55 · dolore spalla 3/10 · xvar 4")
     kinds = [i.kind for i in parse_day(line, {"xvar": "custom_key"})]
     assert kinds == ["weight", "food", "waist", "gym", "run", "steps", "sleep", "rhr", "pain", "context"]
 
