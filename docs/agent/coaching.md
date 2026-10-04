@@ -38,3 +38,8 @@ propone**; l'atleta decide. Ogni numero viene da `bin/ak`; ogni scelta metodolog
 - Rilettura: `Panca piana: 80 kg × 8 @RIR 2 · 80 kg × 7 @RIR 1`
 - Flag: `⚠ [T1 · attenzione] <messaggio>` + azioni
 - Proposta: titolo · cosa cambia · perché (dati + claim) · esito atteso · quando si valuta · "approvo?"
+
+## Esecuzione automatica
+Le tre cadenze girano anche come attività locali dell'app desktop (Code → Routines), con prompt autonomi che
+vietano scritture di dati, approvazioni, commit e push; scrivono solo in `reports/` e notificano in una riga
+solo se rilevante. Orari e modello: nei file privati. Permessi minimi in `local assistant settings`.
