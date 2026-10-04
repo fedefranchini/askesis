@@ -13,7 +13,8 @@
 |---|---|
 | Skill `personal-trainer` | Disattivata (spostata in `a disabled-skills folder`), usata solo come riferimento |
 | Logging | Peso giornaliero a digiuno; energia + proteine giornaliere (stimate da app); RIR sulle serie di lavoro (se non ricordato → vuoto, mai inventato); vita settimanale con **2–3 letture** (stima TEM); giorni incompleti marcati `partial` |
-| Approvazione | "approvo" esplicito in chat, registrato. **L1** = solo doppia progressione con parametri scritti nella versione di programma + deload già pianificati. Deload reattivi = L2 |
+| Approvazione | "approvo" esplicito in chat, registrato. **L1** (automatico, con limiti dichiarati nella versione di piano approvata) = doppia progressione, deload già pianificati e **aggiustamento calorico** (regola `knowledge/rules/calorie_adjustment.yaml`; mai con flag di safety aperti; notificato e annullabile) — decisione del 2026-10-04 che modifica la precedente. Deload reattivi = L2 finché non diventano regole del pilota automatico |
+| Rilettura | Pesi, corsa e import: anteprima compatta e salvataggio solo dopo conferma (`--yes`); peso, cibo e valori semplici: salvati subito con rilettura |
 | Cadenza | Review settimanale **il lunedì mattina** sulla settimana lun–dom appena chiusa; chiusura del giorno nutrizionale configurabile (es. 03:00) |
 | Configurazione personale | Lingua, fuso, sesso per le formule, sorgenti: in file privati |
 | Report | Markdown |
@@ -161,13 +162,157 @@ un **Athlete Response Profile** minimo; import intervento n. 1.
 
 **MVP completo: ~6–8 sessioni, 2–3 settimane di calendario.**
 
-## Fasi successive (ordine indicativo)
+### F3b — Pre-avvio del primo intervento · ✅ completata (2026-10-05)
+- `AGENTS.md` snello (8 regole essenziali, safety sempre caricata; dettagli in `docs/agent/`)
+- Rilettura compatta con nomi italiani del catalogo; anteprima + `--yes` per pesi, corsa e import
+- Scheda del giorno in Apple Note (`ak gym-note create/import`): solo esercizi e carichi; parsing tollerante;
+  righe illeggibili segnalate e mai indovinate; import idempotente; righe modificate → correzioni
+- Controlli nel codice: permessi che negano scritture dirette in `data/` e il client `sqlite3`; nessuna
+  prescrizione con flag di safety T2/T3 aperti; CI (Ruff + test) a ogni push
+- Regola di aggiustamento calorico come dato versionato (`knowledge/rules/`), validata dai test
 
-| Fase | Contenuto | Stima |
+### F3c — Settimane 1–2 del primo intervento
+- Review rimodulata: **fondamentali** (aderenza calorica, proteine, sessioni svolte/pianificate, sonno, passi) →
+  **indicatori ritardati** (peso, vita, forza, corsa) → al massimo **3 punti di attenzione** in linguaggio semplice.
+  Per ogni metrica "cambiamento reale" o "dentro il rumore", con rumore stimato dai dati e base dichiarata
+  (fonti su errore tecnico di misura e cambiamento minimo rilevabile da verificare nella KB).
+- Motore della regola calorica L1 (condizioni minime, zona neutra, limiti, notifica, annullamento).
+- Backup automatico (launchd) + test di ripristino settimanale (integrità, conteggi, digest delle metriche).
+  Richiede il permesso esplicito dell'atleta prima dell'installazione.
+- Controllo automatico dei valori di esempio (intervalli reali letti da un file privato) e verifica periodica
+  di DOI/PMID della KB in CI.
+
+## Fasi future (sola progettazione — nessuna implementazione finché non approvata)
+
+**Principio architetturale: un solo nucleo, tante interfacce.** Il motore (modello dati, store, metriche, regole,
+safety, interventi) è unico e deterministico; CLI, dashboard web, app iPhone, server MCP e pilota automatico sono
+involucri sottili attorno allo stesso motore, con gli stessi controlli (validazione, approvazioni, safety).
+**Funziona senza IA, funziona meglio con l'IA.** Ogni voce: evidenze, costi/benefici.
+
+| Ordine | Fase | Voce |
 |---|---|---|
-| F4 | Evidence KB essenziale: prima i `[PARAM]` usati dall'MVP (incluse soglie di safety), poi lacune (running, concurrent, REDs) | 1–2 sessioni |
-| F5 | Apple Health export (peso, sonno, FC a riposo, passi, corse con FC) + metriche running/recovery | 2–3 |
-| F6 | State model + safety estesa (EA/REDs, fatica, malattia) | 2 |
-| F7 | Decision engine (catalogo problemi, scoring) | 2–3 |
-| F8 | Skill modulari (health-data, intervention-management, orchestrator per primi) | 2 |
-| F9 | Dashboard / iOS | aperto |
+| 1 | F4 | A + B — Pilota automatico deterministico + simulatore di atleti sintetici |
+| 2 | F5 | I — Dashboard web locale |
+| 3 | F6 | E — App iPhone nativa con HealthKit |
+| 4 | F7 | C — Server MCP locale |
+| continuo | — | F — Backlog di precisione · D — Usabilità per chi scarica la repo |
+| lungo termine | — | G — Machine learning e dataset pubblici (dopo ~1 anno di dati) |
+| vincoli | — | H — Porta aperta a un'app distribuibile |
+
+### A. Pilota automatico deterministico (obiettivo centrale)
+- **Regole come dati**: file versionati in `knowledge/rules/` con condizioni, precondizioni (aderenza, qualità
+  dati), limiti (ampiezza massima, frequenza massima), base scientifica e parametri regolabili senza toccare il
+  codice. Primo esempio: `calorie_adjustment@1`.
+- **Approvazione**: approvare una versione di piano approva anche le regole che essa richiama (`id@versione`),
+  ciascuna con i suoi limiti espliciti.
+- **Candidati**: aggiustamento calorico; doppia progressione; deload reattivo quando più indicatori di fatica
+  concordano; progressione del volume di corsa; passaggio alla settimana minima nei periodi programmati.
+- **Stabilità**: zona neutra (isteresi), passi piccoli, tempi minimi tra un cambio e l'altro, risoluzione dei
+  conflitti (priorità tra regole, un cambiamento per dominio di esito).
+- **Prudenza**: con dati scarsi o di bassa qualità la regola non agisce e lo dichiara.
+- **Ciclo di vita**: `proposed` → collaudo sul simulatore (B) → `shadow` (calcola e registra cosa avrebbe fatto,
+  senza applicarlo; confronto con l'esito reale) → `active` → `retired`.
+- **Spiegabilità e controllo**: ogni applicazione registrata (input → regola@versione → output), spiegata in
+  linguaggio semplice, notificata in una riga, annullabile. La safety ha sempre priorità.
+- **Decision engine**: *regole prima, IA solo per le eccezioni* — l'IA interviene quando una regola segnala
+  un'eccezione, in situazioni non previste, nella retrospettiva mensile, nella riprogettazione del programma e
+  nella revisione delle evidenze.
+- **Evidenze**: i parametri di ogni regola citano claim della KB o sono etichettati come scelte ingegneristiche.
+  Sul controllo automatico in sé non esistono evidenze specifiche per l'allenamento: il valore dipende dalla
+  qualità delle regole, da qui il simulatore e la modalità ombra.
+- **Costi/benefici**: costo medio (motore generico di regole, test); beneficio alto (affidabilità, nessun costo
+  per l'uso, funziona senza IA, riduce il carico dell'atleta).
+
+### B. Simulatore di atleti sintetici
+- **Dinamica del peso** da modelli fisiologici pubblicati: Hall et al. 2011 (Lancet,
+  [10.1016/S0140-6736(11)60812-X](https://doi.org/10.1016/s0140-6736(11)60812-x), già nella KB) e Hall 2012 su
+  componenti del bilancio energetico ([10.3945/ajcn.112.036350](https://doi.org/10.3945/ajcn.112.036350),
+  identificativo verificato, contenuto da leggere). Rumore giornaliero realistico; effetto del giorno della
+  settimana (Orsama et al. 2014, [10.1159/000356147](https://doi.org/10.1159/000356147), identificativo
+  verificato); settimane di scarsa aderenza, malattie, periodi d'esame, errori di logging.
+- **Metriche di valutazione delle regole**: raggiungimento dell'obiettivo, tempo necessario, oscillazioni,
+  superamenti, violazioni di safety; confronto tra regole e con "nessuna regola".
+- **Vincolo**: ogni regola nuova o modificata supera il collaudo prima di entrare in modalità ombra.
+- **Costi/benefici**: costo medio-alto; beneficio alto (si collaudano le regole senza rischi per l'atleta).
+
+### I. Dashboard web locale (localhost, stesso stack Python)
+- Inserimento con campi pronti: peso, vita, sonno, check-in, contesto, serie in palestra, totali giornalieri di
+  energia e proteine — tramite lo stesso nucleo (validazione, rilettura, safety).
+- Grafici e andamenti: tendenza del peso, TDEE con incertezza, … *(specifica da completare con l'atleta)*.
+- Solo `localhost`, nessun accesso esterno; dati sanitari mai fuori dal Mac.
+- **Costi/benefici**: costo basso-medio; beneficio: inserimento e consultazione più comodi prima dell'app iPhone,
+  e banco di prova delle schermate dell'app.
+
+### E. App iPhone nativa
+- Un'unica app per i dati manuali (peso, serie con scheda del giorno precompilata, vita, check-in, contesto),
+  grafici, andamenti e ultima review; sostituisce la scheda in Note.
+- **HealthKit** in lettura: sonno, FC a riposo, HRV, passi, allenamenti, corse e dati nutrizionali scritti in
+  Salute dall'app di nutrizione.
+- **Architettura**: inizialmente adapter nell'envelope esistente con motore sul Mac; nucleo progettato per poter
+  girare in futuro anche sul telefono (vedi H).
+- **Sincronizzazione** (da progettare): batch NDJSON conformi all'envelope; deduplica per UUID HealthKit e chiavi
+  deterministiche; gestione delle cancellazioni (anchored query); trasporto privato e cifrato (preferibilmente
+  rete locale o file cifrati), mai il database vivo nel cloud.
+- **Senza aprire una sessione**: review del lunedì e controlli di safety eseguiti in automatico sul Mac
+  (launchd) e consultabili dall'app.
+- **Distribuzione**: gratuita con scadenza 7 giorni o Apple Developer Program a pagamento — decisione rimandata;
+  progettare per entrambe.
+- **Costi/benefici**: costo alto (Swift, HealthKit, sync); beneficio alto (meno attrito, dati automatici).
+
+### C. Server MCP locale
+- Strumenti: stato attuale dell'atleta, ultima review, "perché abbiamo cambiato X", prossima sessione, metriche
+  e trend.
+- Di default **sola lettura e dati aggregati** (minimizzazione); qualsiasi scrittura passa dagli stessi controlli
+  della CLI (validazione, approvazioni, safety).
+- Prima versione **locale** (app desktop); accesso remoto dal telefono solo dopo una progettazione di sicurezza
+  dedicata (autenticazione, cifratura, superficie minima). Compatibile con qualsiasi client MCP.
+- **Costi/benefici**: costo basso (involucro sottile sul nucleo); beneficio medio.
+
+### F. Backlog di precisione (continuo)
+Principio (in `AGENTS.md`, regola 8): ogni funzione nuova deve migliorare precisione o aderenza senza aumentare
+in modo significativo il carico quotidiano.
+- **Protocolli di misura** (istruzioni per la settimana di test): pesata standardizzata e verifica mensile della
+  bilancia con un peso noto; registrazione delle impostazioni delle macchine; calibrazione periodica del RIR
+  (serie a cedimento controllato su esercizi sicuri); HRV mattutina con una sessione di respirazione di 1 minuto
+  sul Watch; corsa di riferimento ogni 4 settimane a FC fissa; costi/benefici di una fascia cardio toracica.
+- **Analisi**: filtro di Kalman per peso e TDEE confrontato con il metodo a finestre (validazione temporale);
+  correzione dell'effetto giorno della settimana sul peso (Orsama 2014); correzione della FC di corsa per la
+  temperatura; proiezione della data di raggiungimento dell'obiettivo con intervallo di incertezza.
+- **Decisioni**: revisione "avvocato del diavolo" indipendente di ogni intervento; pre-mortem obbligatorio
+  (pratica di gestione del rischio: *opinione esperta*); tecniche di aderenza basate su evidenze, es. intenzioni
+  di implementazione (Gollwitzer & Sheeran 2006, meta-analisi,
+  [10.1016/S0065-2601(06)38002-1](https://doi.org/10.1016/s0065-2601(06)38002-1), identificativo verificato,
+  contenuto da leggere).
+
+### D. Usabilità per chi scarica la repo (secondario, non rallenta il piano principale)
+- Installazione portabile su qualsiasi computer (già `uv sync`; CI su Linux verde); file di configurazione di
+  esempio; formato documentato per scrivere un piano a mano e modelli predefiniti; demo con dati sintetici;
+  disclaimer sanitario chiaro.
+
+### G. Machine learning e dataset pubblici (lungo termine)
+- **Regola**: un modello più complesso entra solo se batte il metodo semplice in una validazione che rispetta
+  l'ordine temporale (addestramento sul passato, verifica sul futuro). Il pilota automatico resta spiegabile.
+- **Dataset candidati** (mai nella repo; cartella esclusa da git con licenza e provenienza documentate; per
+  ciascuno registrare se l'uso commerciale è consentito):
+
+  | Dataset | Fonte (identificativo verificato) | Uso previsto | Note su licenza |
+  |---|---|---|---|
+  | MyFitnessPal Food Diary | Weber & Achananuparp 2016, [10.1142/9789814749411_0049](https://doi.org/10.1142/9789814749411_0049) | aderenza nel simulatore | da verificare |
+  | PMData | Thambawita et al. 2020, [10.1145/3339825.3394926](https://doi.org/10.1145/3339825.3394926) | validare metriche e simulatore | da verificare |
+  | ScopeSense | Riegler et al. 2023, [10.31219/osf.io/8z5gc](https://doi.org/10.31219/osf.io/8z5gc) (preprint) | idem | da verificare |
+  | FitRec / Endomondo | Ni et al. 2019, [10.1145/3308558.3313643](https://doi.org/10.1145/3308558.3313643) | risposta FC alla corsa | solo uso accademico |
+  | OpenPowerlifting | sito del progetto | priori di progressione della forza | pubblico dominio (da confermare) |
+  | LifeSnaps | Yfantidou et al. 2022, [10.1038/s41597-022-01764-x](https://doi.org/10.1038/s41597-022-01764-x) | recupero, HRV, sonno | da verificare |
+
+### H. Porta aperta a un'app distribuibile (nessun lavoro ora, solo scelte che non la chiudano)
+- Nucleo portabile (in futuro eseguibile sul telefono senza il Mac); pilota automatico senza costi per utente
+  (nessuna chiamata IA nel funzionamento normale); privacy by design (dati sanitari preferibilmente solo sul
+  dispositivo); tracciabilità della licenza di ogni dataset e componente di terze parti.
+- **Da verificare con professionisti prima di un'eventuale distribuzione** (senza approfondire ora): GDPR per
+  dati sanitari; confine con la normativa sui dispositivi medici; linee guida Apple per app con HealthKit;
+  aspetti fiscali.
+
+### Fasi precedenti riassorbite
+La vecchia sequenza F4–F9 è riassorbita: evidence KB → attività continua; Apple Health → E (HealthKit, con
+l'export XML come alternativa rapida); state model + safety estesa e decision engine → F4 (A); skill modulari →
+dopo C, se ancora utili.
