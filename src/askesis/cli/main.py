@@ -27,6 +27,11 @@ log_app = typer.Typer(no_args_is_help=True, help="Registra un singolo dato.")
 show_app = typer.Typer(no_args_is_help=True, help="Mostra i dati registrati.")
 app.add_typer(log_app, name="log")
 metrics_app = typer.Typer(no_args_is_help=True, help="Metriche derivate (cache ricalcolabile).")
+from askesis.cli import f3  # noqa: E402
+
+app.add_typer(f3.plan_app, name="plan")
+app.add_typer(f3.iv_app, name="intervention")
+app.add_typer(f3.safety_app, name="safety")
 app.add_typer(show_app, name="show")
 app.add_typer(metrics_app, name="metrics")
 
@@ -94,6 +99,8 @@ def _commit(records: list[dict], adapter: str, dry_run: bool = False) -> Receipt
         return None
     r = ingest(conn, records, adapter)
     _print_receipt(r)
+    if r.inserted:
+        f3.print_flags(conn, max(e.local_date for e in r.inserted))
     return r
 
 
@@ -201,6 +208,31 @@ def log_checkin(
         raise typer.BadParameter("indica almeno un valore")
     d = _day(date_, cfg)
     rec = manual._env("subjective_checkin", cfg, now_utc(), d, payload,
+                      occurred_at=at_local(d, manual.NOON, cfg.timezone))
+    _commit([rec], "manual_cli")
+
+
+@app.command("why")
+def why(number: int) -> None:
+    """Perché abbiamo cambiato X (intervento n.), cosa sapevamo e cosa è successo."""
+    f3.why_cmd(number)
+
+
+@log_app.command("event")
+def log_event(
+    kind: Annotated[str, typer.Option("--kind", help="injury | illness | symptom")],
+    description: Annotated[str, typer.Option("--desc")],
+    region: Annotated[str | None, typer.Option("--region")] = None,
+    flag: Annotated[list[str] | None, typer.Option("--flag", help="segnale strutturato (ripetibile)")] = None,
+    status: Annotated[str | None, typer.Option("--status")] = None,
+    date_: DateOpt = None,
+) -> None:
+    """Evento di salute confermato dall'atleta (sintomo, malattia, infortunio)."""
+    cfg = config_mod.load()
+    d = _day(date_, cfg)
+    payload = {"kind": kind, "description": description, "body_region": region, "status": status,
+               "red_flags": flag or []}
+    rec = manual._env("health_event", cfg, now_utc(), d, {k: v for k, v in payload.items() if v},
                       occurred_at=at_local(d, manual.NOON, cfg.timezone))
     _commit([rec], "manual_cli")
 
@@ -339,10 +371,21 @@ def review_cmd(
         str | None, typer.Option("--date", "-d", help="Un giorno della settimana (default: settimana scorsa)")
     ] = None,
     stdout_only: Annotated[bool, typer.Option("--stdout", help="Non salvare su file")] = False,
+    month: Annotated[bool, typer.Option("--month", help="Retrospettiva mensile (default: mese scorso)")] = False,
 ) -> None:
-    """Review settimanale (lun–dom) in Markdown, salvata in reports/."""
+    """Review settimanale (lun–dom) o retrospettiva mensile, in Markdown, salvata in reports/."""
     from askesis.analytics import engine, review
 
+    if month:
+        md = f3.month_cmd(date_)
+        typer.echo(md)
+        if not stdout_only:
+            first = md.split("— ")[1][:7]
+            out = config_mod.ROOT / "reports" / f"retro-{first}.md"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(md + "\n")
+            typer.echo(f"\n✓ salvata in {out.relative_to(config_mod.ROOT)}")
+        return
     cfg, conn = _ctx()
     d = date.fromisoformat(date_) if date_ else _day(None, cfg) - timedelta(days=7)
     ws = d - timedelta(days=d.weekday())
@@ -351,6 +394,8 @@ def review_cmd(
         """SELECT i.severity, i.message FROM dq_issue i JOIN raw_record r ON r.id = i.record_id
            WHERE i.status = 'open' AND i.severity != 'info' AND r.local_date BETWEEN ? AND ?""",
         (ws.isoformat(), (ws + timedelta(days=6)).isoformat()))]
+    issues += [(f"safety {r['tier']}", r["message"]) for r in conn.execute(
+        "SELECT tier, message FROM v_safety_open")]
     md = review.render(values, ws, issues)
     if stdout_only:
         typer.echo(md)

@@ -127,3 +127,39 @@ def render(values: list[MetricValue], week_start: date, issues: list[tuple[str, 
     if issues:
         L += ["## Segnalazioni di qualità aperte", ""] + [f"- [{sev}] {msg}" for sev, msg in issues] + [""]
     return "\n".join(L)
+
+
+def render_month(values: list[MetricValue], first: date, last: date, interventions: list[dict],
+                 profile: list[dict], flags: list[dict]) -> str:
+    """Monthly retrospective: weekly series + interventions + athlete response profile (N-of-1)."""
+    weeks = sorted({m.period_end for m in values if m.period_end >= first and m.period_end <= last + timedelta(days=6)
+                    and m.metric_id in ("weight_ema", "dq_score")})
+
+    def at(metric: str, end: date, subject: str = "global") -> MetricValue | None:
+        return next((m for m in values if m.metric_id == metric and m.subject == subject and m.period_end == end), None)
+
+    L = [f"# Retrospettiva mensile — {first:%Y-%m} ({first} → {last})", "",
+         "> Serie settimanali calcolate dal codice (`metrica@versione` nella legenda). Le conclusioni sugli",
+         "> interventi sono N-of-1: compatibili/non compatibili con l'esito atteso, mai prova causale.", "",
+         "| Settimana (fine) | Peso EMA | Vel. 14 gg %/sett | Intake medio | TDEE | Serie allenanti | Corsa km | DQ |",
+         "|---|---|---|---|---|---|---|---|"]
+    for w in weeks:
+        cells = [
+            _fmt(getattr(at("weight_ema", w), "value", None), 2),
+            _fmt(getattr(at("weight_rate_pct_14d", w), "value", None), 2),
+            _fmt(getattr(at("intake_mean_7d", w), "value", None), 0),
+            _fmt(getattr(at("adaptive_tdee", w), "value", None), 0),
+            _fmt(getattr(at("hard_sets", w), "value", None), 0),
+            _fmt(getattr(at("run_volume_km", w), "value", None), 1),
+            (at("dq_score", w, "domain:overall").detail.get("grade") if at("dq_score", w, "domain:overall") else "—"),
+        ]
+        L.append(f"| {w} | " + " | ".join(cells) + " |")
+    L += ["", "_Legenda: `weight_ema@1`, `weight_rate_pct_14d@1`, `intake_mean_7d@1`, `adaptive_tdee@1`, "
+              "`hard_sets@1`, `run_volume_km@1`, `dq_score@1`_", "", "## Interventi"]
+    L += [f"- n. {i['number']} — {i['title']}: {i['status']}" for i in interventions] or ["- nessuno"]
+    L += ["", "## Profilo di risposta dell'atleta (N-of-1, specifico, non evidenza generale)"]
+    L += [f"- {p['created_at'][:10]}: {p['finding']} — confidenza {p['confidence']}" for p in profile] or \
+         ["- nessuna nuova conclusione nel mese"]
+    L += ["", "## Safety"]
+    L += [f"- {f['local_date']} [{f['tier']}] {f['message']}" for f in flags] or ["- nessun flag nel mese"]
+    return "\n".join(L)
