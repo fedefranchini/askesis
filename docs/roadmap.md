@@ -149,7 +149,7 @@ Registro metriche; `weight_ema`, `weight_rate`, `intake_mean`, `adaptive_tdee` (
 grade DQ semplificato; test golden e property-based su dati sintetici; `askesis review --week`.
 **Uscita:** rebuild riproducibile; ogni numero della review rimanda a una metrica.
 
-### F3 — Piano + interventi + safety codificata · 2 sessioni · ~1 settimana
+### F3 — Piano + interventi + safety codificata · 2 sessioni · ~1 settimana · ✅ completata (2026-10-04, salvo import dell'intervento n. 1)
 `phase_declaration` (con criteri di uscita e fase successiva), `programme_version` (inclusa la variante
 **settimana minima**), `nutrition_target_version`, **periodi a carico ridotto** pianificati;
 registro interventi (pre-registrazione, freeze, emendamenti, valutazione calcolata); record decisionale
