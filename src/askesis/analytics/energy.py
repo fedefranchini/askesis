@@ -76,8 +76,9 @@ def adaptive_tdee(
     level = p("rate_ci_level")
     z = stats.norm.ppf(0.5 + level / 2)
     in_window = [w for d, w in daily_weight.items() if start <= d <= end]
-    ref_weight = float(np.mean(in_window)) if in_window else (
-        daily_weight[max(daily_weight)] if daily_weight else fallback_weight_kg)
+    # only weights known on or before `end`: a later weigh-in must never inform an earlier period
+    past = {d: w for d, w in daily_weight.items() if d <= end}
+    ref_weight = float(np.mean(in_window)) if in_window else (past[max(past)] if past else fallback_weight_kg)
     detail: dict = {"window_days": window, "ci_level": level}
     if ref_weight is None:
         return None

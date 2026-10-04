@@ -203,3 +203,12 @@ def test_engine_never_uses_wall_clock(db, monkeypatch):
     d2 = eng.digest(eng.compute(eng.load_inputs(db, cutoff), syn.START, WEEK4_END))
     assert d1 == d2
     assert date(2025, 3, 3).weekday() == 0
+
+
+def test_tdee_never_uses_weights_after_the_period(conn):
+    later = syn.START + timedelta(days=20)
+    ingest(conn, syn.athlete() + syn.linear_weights(1, later), "synthetic")
+    inp = engine.load_inputs(conn)
+    daily = body.daily_weights(inp.weighins)
+    assert energy.adaptive_tdee(inp.nutrition, daily, inp.athlete, syn.START + timedelta(days=6)) is None
+    assert energy.adaptive_tdee(inp.nutrition, daily, inp.athlete, later) is not None
