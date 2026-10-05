@@ -81,3 +81,14 @@ def test_unsupported_proposal_is_not_registered(cli, tmp_path):
     assert res.exit_code == 1 and "non registrata" in res.output
     assert "nessun intervento" in cli("intervention", "list").output.lower() or "n. 1" not in cli(
         "intervention", "list").output
+
+
+def test_calorie_check_reports_without_changing_the_plan(cli, tmp_path):
+    f = tmp_path / "prereg.yaml"
+    f.write_text(yaml.safe_dump(prereg(value_sources=SYNTHETIC_SOURCES), allow_unicode=True))
+    cli("intervention", "propose", str(f), "--title", "Fase", "--category", "phase_start_fat_loss")
+    cli("intervention", "approve", "1", "--verbatim", "approvo", "--reasoning", "r")
+    day = (syn.START + timedelta(days=20)).isoformat()
+    out = cli("plan", "calorie-check", "--date", day, "--no-record").output
+    assert "calorie_adjustment@2" in out and "precondizioni non soddisfatte" in out  # synthetic intake ≠ target
+    assert "1700" in cli("plan", "show", "--date", day).output

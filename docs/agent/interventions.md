@@ -37,6 +37,16 @@ Dettagli richiamati da `AGENTS.md` (regola 4).
   attivazione (append-only, con impronta) e crea le versioni di piano. Safety gate e controllo "un intervento
   attivo per dominio" vengono ripetuti all'attivazione.
 
+## Regola calorica (motore)
+
+`bin/ak plan calorie-check [--date]` esegue `knowledge/rules/calorie_adjustment.yaml`: fase di dimagrimento
+attiva, dalla fine della settimana 3, finestra di 14 giorni esclusa la prima settimana; precondizioni (giorni
+completi, pesate, intake vicino al target, qualità dati, nessun flag aperto per le riduzioni); zona neutra; passo,
+intervallo minimo tra proposte, massimo per fase, soglia sul metabolismo a riposo. Esito registrato in
+`rule_execution`. Se c'è una **proposta**, si presenta all'atleta con dati e regola@versione; dopo "approvo":
+`bin/ak plan calorie-apply <esecuzione> --verbatim "<testo>"` (nuova versione del target collegata all'intervento
+attivo, evento di emendamento); `--undo` annulla una modifica applicata (anch'esso con "approvo").
+
 ## Livelli di automazione (decisione aggiornata: aggiustamento calorico riportato a L2)
 
 - **L1 (automatico, senza approvazione):** solo doppia progressione con parametri scritti nella versione di

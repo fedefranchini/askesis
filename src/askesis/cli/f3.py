@@ -145,6 +145,58 @@ def plan_next(date_: DateOpt = None, no_record: Annotated[bool, typer.Option("--
 
 
 # ------------------------------------------------------------------ interventions
+@plan_app.command("calorie-check")
+def plan_calorie_check(
+    date_: DateOpt = None,
+    no_record: Annotated[bool, typer.Option("--no-record", help="Non registrare l'esecuzione")] = False,
+) -> None:
+    """Esegue la regola calorica (L2): al massimo una PROPOSTA, mai una modifica del piano."""
+    from askesis.plan import calorie_rule
+
+    cfg, conn = _ctx()
+    out = calorie_rule.evaluate(conn, _d(date_, cfg), record=not no_record)
+    labels = {"not_applicable": "non applicabile (nessuna fase di dimagrimento attiva)",
+              "waiting": f"in attesa: prima valutazione il {out.get('first_evaluation')}",
+              "preconditions_not_met": "precondizioni non soddisfatte", "neutral": "nella fascia: nessuna modifica",
+              "blocked_by_safety": "bloccata dalla safety", "too_soon": "troppo presto dall'ultima proposta",
+              "max_applications_reached": "numero massimo di applicazioni raggiunto",
+              "at_floor": "già alla soglia minima di safety", "propose": "PROPOSTA (serve \"approvo\")"}
+    typer.echo(f"{out['rule']} al {out['on']}: {labels[out['status']]}")
+    for r in out.get("reasons", []):
+        typer.echo(f"  - {r}")
+    i = out.get("inputs") or {}
+    if i:
+        rate = i.get("rate_pct_per_week")
+        typer.echo(f"  dati: finestra {i['window'][0]} → {i['window'][1]} · pesate {i['weighins']}/{i['days']} · "
+                   f"giorni completi {i['complete_nutrition_days']}/{i['days']} · qualità {i['dq_grade']} · "
+                   f"velocità {'—' if rate is None else f'{rate:+.2f} %/sett'} ({i['rate_metric']})")
+    if out["status"] == "propose":
+        typer.echo(f"  {out['notify']}")
+        typer.echo(f"  per applicarla dopo l'approvo: bin/ak plan calorie-apply {out['execution_id'][-8:]} "
+                   "--verbatim \"<testo dell'atleta>\"")
+
+
+@plan_app.command("calorie-apply")
+def plan_calorie_apply(
+    execution: str,
+    verbatim: Annotated[str, typer.Option("--verbatim")],
+    date_: DateOpt = None,
+    undo: Annotated[bool, typer.Option("--undo", help="Annulla una modifica applicata")] = False,
+) -> None:
+    """Applica (o annulla) una proposta della regola calorica approvata dall'atleta, dal giorno indicato."""
+    from askesis.plan import calorie_rule
+
+    cfg, conn = _ctx()
+    day = _d(date_, cfg) if date_ else _today(cfg) + timedelta(days=1)
+    try:
+        calorie_rule.apply(conn, execution, verbatim, day, undo=undo)
+    except ValueError as exc:
+        typer.secho(f"✗ {exc}", fg="red")
+        raise typer.Exit(1) from exc
+    kcal = plan_store.content(plan_store.active(conn, "nutrition_target", day))["energy_kcal"]
+    typer.echo(f"✓ {'annullata' if undo else 'applicata'}: target {kcal:g} kcal/die dal {day}")
+
+
 def _print_derived(conn, data: dict, today: date) -> None:
     """Provisional preview of the values that will be computed and frozen at activation."""
     from askesis.interventions import derive

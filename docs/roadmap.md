@@ -177,7 +177,7 @@ un **Athlete Response Profile** minimo; import intervento n. 1.
   **indicatori ritardati** (peso, vita, forza, corsa) → al massimo **3 punti di attenzione** in linguaggio semplice.
   Per ogni metrica "cambiamento reale" o "dentro il rumore", con rumore stimato dai dati e base dichiarata
   (fonti su errore tecnico di misura e cambiamento minimo rilevabile da verificare nella KB).
-- Motore della regola calorica L1 (condizioni minime, zona neutra, limiti, notifica, annullamento).
+- Motore della regola calorica L2 (condizioni minime, zona neutra, limiti, proposta con notifica, applicazione con "approvo", annullamento).
 - Backup automatico (launchd) + test di ripristino settimanale (integrità, conteggi, digest delle metriche).
   Richiede il permesso esplicito dell'atleta prima dell'installazione.
 - Controllo automatico dei valori di esempio (intervalli reali letti da un file privato) e verifica periodica
