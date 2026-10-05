@@ -1,0 +1,27 @@
+name: KB identifiers
+
+# Weekly check that every DOI/PMID of the evidence KB still matches title, first author and year
+# (Crossref and PubMed). Exit code 2 = network errors only (does not fail the job as a mismatch would).
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install
+        run: uv sync --python 3.12
+      - name: Verify DOI and PMID
+        run: |
+          set +e
+          uv run python -m askesis.kb_verify
+          code=$?
+          if [ "$code" -eq 2 ]; then echo "::warning::network errors only, no mismatch"; exit 0; fi
+          exit $code

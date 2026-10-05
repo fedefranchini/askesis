@@ -26,3 +26,7 @@ ma contiene **solo** metadati, riassunti scritti con parole proprie ed eventuali
 **Mai** PDF o testi integrali: se servono per la lettura vanno in `private/literature/` (esclusa da git).
 Il **collegamento tra evidenze e dati dell'atleta** (interventi, decisioni, override personali) resta
 **solo** nei file privati.
+
+**Verifica periodica.** `python -m askesis.kb_verify [file …]` ricontrolla ogni DOI su Crossref e ogni PMID su
+PubMed (titolo, primo autore, anno rispetto alla citazione salvata); in CI gira ogni lunedì
+(`.github/workflows/kb-verify.yml`). Le fonti private si verificano in locale passando il file come argomento.
