@@ -129,3 +129,9 @@ def test_launch_agents_are_only_shown_without_install(cli, tmp_path):
     out = cli("backup", "agent").output
     assert "local.askesis.backup" in out and "local.askesis.restore-test" in out and "Nulla installato" in out
     assert "<key>StartCalendarInterval</key>" in out
+
+
+def test_dashboard_agent_is_only_shown_and_binds_localhost(cli):
+    out = cli("web", "agent").output
+    assert "local.askesis.dashboard" in out and "<key>RunAtLoad</key><true/>" in out and "Nulla installato" in out
+    assert "--host" not in out and "0.0.0.0" not in out  # serve binds 127.0.0.1 only

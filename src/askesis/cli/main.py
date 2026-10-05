@@ -390,146 +390,24 @@ def backup_agent(
 ) -> None:
     """Agenti launchd: backup giornaliero (02:30) e test di ripristino settimanale (domenica 03:00).
     Senza opzioni mostra soltanto cosa verrebbe installato."""
-    import os
     import shutil
-    import subprocess
 
     cfg, _ = _ctx()
     uv = shutil.which("uv") or "uv"
     agents = backup_mod.launch_agents(config_mod.ROOT, uv, cfg.backup_dir)
-    target_dir = Path.home() / "Library" / "LaunchAgents"
-    domain = f"gui/{os.getuid()}"
+    from askesis import launchd
+
     if uninstall:
-        for label in agents:
-            subprocess.run(["launchctl", "bootout", f"{domain}/{label}"], check=False)
-            (target_dir / f"{label}.plist").unlink(missing_ok=True)
-            typer.echo(f"✓ rimosso {label}")
+        launchd.uninstall(list(agents))
+        typer.echo("✓ agenti rimossi")
         return
     for label, xml in agents.items():
-        typer.echo(f"— {target_dir / (label + '.plist')}\n{xml}")
+        typer.echo(f"— {launchd.AGENTS_DIR / (label + '.plist')}\n{xml}")
     if not (install and yes):
         typer.echo("Nulla installato. Per installare: bin/ak backup agent --install --yes")
         return
-    target_dir.mkdir(parents=True, exist_ok=True)
-    for label, xml in agents.items():
-        path = target_dir / f"{label}.plist"
-        path.write_text(xml)
-        subprocess.run(["launchctl", "bootout", f"{domain}/{label}"], check=False, capture_output=True)
-        subprocess.run(["launchctl", "bootstrap", domain, str(path)], check=True)
+    for label in launchd.install(agents):
         typer.echo(f"✓ installato e caricato {label}")
-
-
-@metrics_app.command("compute")
-def metrics_compute(
-    from_: Annotated[str | None, typer.Option("--from")] = None,
-    to: Annotated[str | None, typer.Option("--to")] = None,
-) -> None:
-    """Calcola le metriche (default: tutto il periodo con dati)."""
-    from askesis.analytics import engine
-
-    cfg, conn = _ctx()
-    run_id, values, dg = engine.run(conn, date.fromisoformat(from_) if from_ else None,
-                                    date.fromisoformat(to) if to else None)
-    typer.echo(f"✓ run {run_id[-8:] if run_id else '—'} · {len(values)} valori · digest {dg[:12]}")
-
-
-@metrics_app.command("rebuild")
-def metrics_rebuild() -> None:
-    """Cancella la cache delle metriche, ricalcola tutto e verifica la riproducibilità."""
-    from askesis.analytics import engine
-
-    cfg, conn = _ctx()
-    run_id, n, dg, ok = engine.rebuild(conn)
-    typer.echo(f"{'✓' if ok else '✗'} rebuild · {n} valori · digest {dg[:12]} · "
-               f"{'riproducibile' if ok else 'NON riproducibile'}")
-    if not ok:
-        raise typer.Exit(1)
-
-
-def _save_validated(md: str, out: Path, conn, echo: bool = True) -> None:
-    """Generated reports pass the validator too: on failure the final file is not written (DA VERIFICARE)."""
-    from askesis.validation import textcheck
-
-    out.parent.mkdir(parents=True, exist_ok=True)
-    draft = out.with_name(f".{out.name}.draft")
-    draft.write_text(md + "\n")
-    res, target = textcheck.finalize(draft, out, conn)
-    draft.unlink()
-    if echo:
-        typer.echo(md)
-    if res.ok:
-        typer.echo(f"\n✓ validata e salvata in {target.relative_to(config_mod.ROOT)}")
-        return
-    typer.echo(f"\n✗ DA VERIFICARE — {len(res.issues)} punti non supportati → {target.relative_to(config_mod.ROOT)}")
-    for i in res.issues:
-        typer.echo(i.render())
-    raise typer.Exit(1)
-
-
-@app.command("review")
-def review_cmd(
-    date_: Annotated[
-        str | None, typer.Option("--date", "-d", help="Un giorno della settimana (default: settimana scorsa)")
-    ] = None,
-    stdout_only: Annotated[bool, typer.Option("--stdout", help="Non salvare su file")] = False,
-    month: Annotated[bool, typer.Option("--month", help="Retrospettiva mensile (default: mese scorso)")] = False,
-) -> None:
-    """Review settimanale (lun–dom) o retrospettiva mensile, in Markdown, salvata in reports/."""
-    from askesis.analytics import engine, review
-
-    if month:
-        md = f3.month_cmd(date_)
-        typer.echo(md)
-        if not stdout_only:
-            first = md.split("— ")[1][:7]
-            _save_validated(md, config_mod.ROOT / "reports" / f"retro-{first}.md", connect(config_mod.load().db_path),
-                            echo=False)
-        return
-    cfg, conn = _ctx()
-    d = date.fromisoformat(date_) if date_ else _day(None, cfg) - timedelta(days=7)
-    ws = d - timedelta(days=d.weekday())
-    _, values, _ = engine.run(conn, ws - timedelta(days=28), ws + timedelta(days=6))
-    issues = [(r["severity"], r["message"]) for r in conn.execute(
-        """SELECT i.severity, i.message FROM dq_issue i JOIN raw_record r ON r.id = i.record_id
-           WHERE i.status = 'open' AND i.severity != 'info' AND r.local_date BETWEEN ? AND ?""",
-        (ws.isoformat(), (ws + timedelta(days=6)).isoformat()))]
-    issues += [(f"safety {r['tier']}", f"{r['message']} [flag:{r['id'][-8:]}]") for r in conn.execute(
-        "SELECT id, tier, message FROM safety_flag WHERE local_date BETWEEN ? AND ?",  # only this week's flags
-        (ws.isoformat(), (ws + timedelta(days=6)).isoformat()))]
-    md = review.render(values, ws, issues)
-    if stdout_only:
-        typer.echo(md)
-        return
-    y, w, _ = ws.isocalendar()
-    out = config_mod.ROOT / "reports" / f"review-{y}-W{w:02d}.md"
-    _save_validated(md, out, conn)
-
-
-@app.command("validate")
-def validate_cmd(
-    draft: Path,
-    out: Annotated[
-        Path | None, typer.Option("--out", "-o", help="File definitivo (scritto solo se il controllo passa)")
-    ] = None,
-) -> None:
-    """Controlla un testo generato: numeri con riferimento verificato, id e fonti presenti nella KB.
-
-    Con --out: se passa scrive il file definitivo; altrimenti scrive <out>.DA-VERIFICARE.md con i punti non
-    supportati ed esce con codice 1."""
-    from askesis.validation import textcheck
-
-    cfg, conn = _ctx()
-    if out is None:
-        res, target = textcheck.validate(draft.read_text(), conn), None
-    else:
-        res, target = textcheck.finalize(draft, out, conn)
-    if res.ok:
-        typer.echo("✓ validazione superata" + (f": salvato {target}" if target else ""))
-        return
-    typer.echo(f"✗ DA VERIFICARE — {len(res.issues)} punti non supportati" + (f" → {target}" if target else ""))
-    for i in res.issues:
-        typer.echo(i.render())
-    raise typer.Exit(1)
 
 
 web_app = typer.Typer(no_args_is_help=True, help="Dashboard locale (solo questo Mac).")
@@ -562,6 +440,36 @@ def web_serve(port: Annotated[int, typer.Option("--port")] = 8765) -> None:
         raise typer.BadParameter("dipendenze mancanti: uv sync --extra dashboard") from exc
     typer.echo(f"Dashboard su http://127.0.0.1:{port} — Ctrl+C per fermarla")
     uvicorn.run(create_app(), host="127.0.0.1", port=port, log_level="warning")
+
+
+@web_app.command("agent")
+def web_agent(
+    port: Annotated[int, typer.Option("--port")] = 8765,
+    install: Annotated[bool, typer.Option("--install", help="Scrive e carica l'agente (serve --yes)")] = False,
+    uninstall: Annotated[bool, typer.Option("--uninstall", help="Scarica e rimuove l'agente")] = False,
+    yes: Annotated[bool, typer.Option("--yes")] = False,
+) -> None:
+    """Agente launchd: avvia la dashboard al login (solo 127.0.0.1) e la riavvia se si ferma per errore.
+    Senza opzioni mostra soltanto cosa verrebbe installato."""
+    import shutil
+
+    from askesis import launchd
+
+    cfg = config_mod.load()
+    label = "local.askesis.dashboard"
+    uv = shutil.which("uv") or "uv"
+    xml = launchd.plist(label, [str(config_mod.ROOT / "bin" / "ak"), "web", "serve", "--port", str(port)],
+                        str(Path(uv).parent), cfg.db_path.parent / "web.log", run_at_load=True, keep_alive=True)
+    if uninstall:
+        launchd.uninstall([label])
+        typer.echo(f"✓ rimosso {label}")
+        return
+    typer.echo(f"— {launchd.AGENTS_DIR / (label + '.plist')}\n{xml}")
+    if not (install and yes):
+        typer.echo("Nulla installato. Per installare: bin/ak web agent --install --yes")
+        return
+    launchd.install({label: xml})
+    typer.echo(f"✓ installato e caricato {label}: http://127.0.0.1:{port}")
 
 
 @app.command("init")

@@ -95,32 +95,13 @@ def verify(live: sqlite3.Connection, snapshot: Path, workdir: Path) -> dict:
 
 def launch_agents(root: Path, uv: str, log_dir: Path) -> dict[str, str]:
     """launchd agents (plist XML by label): daily backup and weekly restore test. Nothing is written here."""
-    def plist(label: str, args: list[str], calendar: dict[str, int]) -> str:
-        argv = "".join(f"\n        <string>{a}</string>" for a in args)
-        cal = "".join(f"\n        <key>{k}</key><integer>{v}</integer>" for k, v in calendar.items())
-        return f"""<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key><string>{label}</string>
-    <key>ProgramArguments</key>
-    <array>{argv}
-    </array>
-    <key>StartCalendarInterval</key>
-    <dict>{cal}
-    </dict>
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>PATH</key><string>{Path(uv).parent}:/usr/bin:/bin</string>
-    </dict>
-    <key>StandardOutPath</key><string>{log_dir / (label + ".log")}</string>
-    <key>StandardErrorPath</key><string>{log_dir / (label + ".log")}</string>
-</dict>
-</plist>
-"""
-    ak = str(root / "bin" / "ak")
+    from askesis import launchd
+
+    ak, path_env = str(root / "bin" / "ak"), str(Path(uv).parent)
     return {
-        "local.askesis.backup": plist("local.askesis.backup", [ak, "backup"], {"Hour": 2, "Minute": 30}),
-        "local.askesis.restore-test": plist("local.askesis.restore-test", [ak, "backup", "verify", "--notify"],
-                                            {"Weekday": 0, "Hour": 3, "Minute": 0}),
+        "local.askesis.backup": launchd.plist("local.askesis.backup", [ak, "backup"], path_env,
+                                              log_dir / "local.askesis.backup.log", calendar={"Hour": 2, "Minute": 30}),
+        "local.askesis.restore-test": launchd.plist(
+            "local.askesis.restore-test", [ak, "backup", "verify", "--notify"], path_env,
+            log_dir / "local.askesis.restore-test.log", calendar={"Weekday": 0, "Hour": 3, "Minute": 0}),
     }
