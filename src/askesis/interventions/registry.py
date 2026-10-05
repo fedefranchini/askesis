@@ -2,6 +2,8 @@
 
 Lifecycle: proposed → approved (athlete's verbatim "approvo", a decision row) → activated (plan versions are
 created; pre-registration frozen by hash) → amended* → evaluated* → concluded. Rejections are recorded too.
+With derived values (interventions/derive.py) activation is a separate step: on or after the start date, the values
+are computed from data up to the declared cut-off and frozen in the activation event.
 Conclusions use "compatible with", never "proves": an N-of-1 pre/post design cannot establish causality.
 """
 
@@ -19,7 +21,10 @@ from askesis.analytics.params import p
 from askesis.core.ids import new_id
 from askesis.core.timeutil import iso, now_utc
 from askesis.plan import store as plan_store
+from askesis.plan.model import SCHEMAS
 from askesis.safety import rules as safety
+
+from . import derive
 
 
 class ExpectedOutcome(BaseModel):
@@ -58,6 +63,8 @@ class Prereg(BaseModel):
     evidence_claims: list[str] = []
     expert_opinion: list[str] = []
     personal_preference: list[str] = []
+    derived: derive.DerivedSpec | None = None  # formulas frozen now, values computed at activation
+    value_sources: dict[str, str] = {}  # dotted path (prefix) → source of each number (see validation.textcheck)
 
 
 def _event(conn, iid: str, event: str, payload: dict | None = None, at: datetime | None = None) -> None:
@@ -113,6 +120,15 @@ def propose(
     at: datetime | None = None,
 ) -> str:
     pr = Prereg.model_validate(prereg)
+    names = {d.name for d in pr.derived.values} if pr.derived else set()
+    dummy = {n: {"value": 1.0} for n in names}
+    for c in pr.plan_changes:  # plan contents must be valid now, not only at activation
+        missing = derive.placeholders(c.content) - names
+        if missing:
+            raise ValueError(f"valori derivati non dichiarati: {sorted(missing)}")
+        SCHEMAS[c.kind].model_validate(derive.substitute(c.content, dummy))
+    if pr.derived and pr.derived.data_until >= pr.start_date:
+        raise ValueError("data_until deve precedere la data di avvio")
     data = pr.model_dump(mode="json")
     data["baseline"] = _baseline(conn, pr.expected_outcome, pr.start_date, cutoff)
     blob = json.dumps(data, sort_keys=True, ensure_ascii=False)
@@ -153,6 +169,16 @@ def _record_decision(conn, question, options, selected, reasoning, claims, confi
     return did
 
 
+def _check_domain_free(conn, pr: dict) -> None:
+    active_same_domain = conn.execute(
+        """SELECT COUNT(*) FROM v_intervention_status s JOIN intervention i ON i.id = s.id
+           WHERE s.status IN ('activated', 'amended', 'evaluated') AND json_extract(i.prereg, '$.domain') = ?""",
+        (pr["domain"],),
+    ).fetchone()[0]
+    if active_same_domain >= p("intervention_max_active_per_domain"):
+        raise ValueError(f"già un intervento attivo nel dominio '{pr['domain']}' (attribuzione ambigua)")
+
+
 def approve(
     conn: sqlite3.Connection,
     iid: str,
@@ -172,13 +198,7 @@ def approve(
         raise ValueError("serve un 'approvo' esplicito dell'atleta")
     pr = json.loads(row["prereg"])
     safety.gate(conn, row["category"], override_reason)
-    active_same_domain = conn.execute(
-        """SELECT COUNT(*) FROM v_intervention_status s JOIN intervention i ON i.id = s.id
-           WHERE s.status IN ('activated', 'amended', 'evaluated') AND json_extract(i.prereg, '$.domain') = ?""",
-        (pr["domain"],),
-    ).fetchone()[0]
-    if active_same_domain >= p("intervention_max_active_per_domain"):
-        raise ValueError(f"già un intervento attivo nel dominio '{pr['domain']}' (attribuzione ambigua)")
+    _check_domain_free(conn, pr)
     with conn:
         did = _record_decision(
             conn,
@@ -193,14 +213,55 @@ def approve(
             at,
         )
         _event(conn, row["id"], "approved", {"decision_id": did, "override_reason": override_reason}, at)
-        versions = [
-            plan_store.add_version(
-                conn, c["kind"], c["name"], c["content"], date.fromisoformat(c["valid_from"]), row["id"], at
-            )
-            for c in pr["plan_changes"]
-        ]
+        if pr.get("derived"):  # values depend on data not yet available: activation is a separate step
+            return []
+        versions = _create_versions(conn, row, pr["plan_changes"], at)
         _event(conn, row["id"], "activated", {"plan_versions": versions, "prereg_hash": row["prereg_hash"]}, at)
     return versions
+
+
+def _create_versions(conn, row, changes: list[dict], at: datetime) -> list[str]:
+    return [
+        plan_store.add_version(conn, c["kind"], c["name"], c["content"], date.fromisoformat(c["valid_from"]),
+                               row["id"], at)
+        for c in changes
+    ]
+
+
+def activate(
+    conn: sqlite3.Connection, iid: str | int, on: date, override_reason: str | None = None, at: datetime | None = None
+) -> dict:
+    """Activate an approved intervention with derived values: compute them from data up to `data_until` (known at
+    `at`), freeze them in the append-only activation event and create the plan versions."""
+    at = at or now_utc()
+    row = get(conn, iid)
+    if row is None or status(conn, row["id"]) != "approved":
+        raise ValueError("intervento non in stato 'approved'")
+    pr = json.loads(row["prereg"])
+    spec = derive.DerivedSpec.model_validate(pr["derived"])
+    if on < date.fromisoformat(pr["start_date"]) or on <= spec.data_until:
+        raise ValueError(f"attivazione possibile dal {pr['start_date']} (dati fino al {spec.data_until})")
+    safety.gate(conn, row["category"], override_reason)
+    _check_domain_free(conn, pr)
+    result = derive.compute(conn, spec, cutoff=at)
+    eo = ExpectedOutcome.model_validate(pr["expected_outcome"])
+    baseline = _baseline(conn, eo, spec.data_until, at)
+    changes = [c | {"content": derive.substitute(c["content"], result["values"])} for c in pr["plan_changes"]]
+    with conn:
+        versions = _create_versions(conn, row, changes, at)
+        _event(conn, row["id"], "activated", {
+            "plan_versions": versions, "prereg_hash": row["prereg_hash"], "derived": result,
+            "derived_hash": derive.frozen_hash(result), "baseline": baseline,
+            "override_reason": override_reason}, at)
+    return result
+
+
+def activation(conn: sqlite3.Connection, iid: str) -> dict | None:
+    r = conn.execute(
+        "SELECT payload FROM intervention_event WHERE intervention_id = ? AND event = 'activated' ORDER BY at LIMIT 1",
+        (iid,),
+    ).fetchone()
+    return json.loads(r["payload"]) if r and r["payload"] else None
 
 
 def reject(conn: sqlite3.Connection, iid: str, verbatim: str, reasoning: str, at: datetime | None = None) -> None:
@@ -273,7 +334,8 @@ def evaluate(
     actual = max(match, key=lambda x: x.period_end) if match else None
     adherence = _adherence(inp, start, on)
     confounders = _confounders(conn, row["id"], start, on)
-    base = pr["baseline"]["value"]
+    act = activation(conn, row["id"]) or {}
+    base = (act.get("baseline") or pr["baseline"])["value"]  # frozen at activation when values were derived
     result: dict = {
         "on": on.isoformat(),
         "metric": eo.metric_id,
@@ -391,7 +453,14 @@ def render_why(w: dict) -> str:
     for label, key in (("Opinione esperta", "expert_opinion"), ("Preferenza personale", "personal_preference")):
         if pr.get(key):
             L.append(f"**{label}:** {'; '.join(pr[key])}")
-    b = pr["baseline"]
+    act = next((e["payload"] for e in w["events"] if e["event"] == "activated"), None) or {}
+    if act.get("derived"):
+        dv = act["derived"]
+        L += ["", f"**Valori congelati all'attivazione** (dati fino al {dv['data_until']}, noti al "
+                  f"{dv['knowledge_cutoff']}, impronta {act['derived_hash'][:12]}):"]
+        for name, v in dv["values"].items():
+            L.append(f"  - {name} = {_r(v['value'], 1)}" + (f" ({v['source']})" if v.get("source") else ""))
+    b = act.get("baseline") or pr["baseline"]
     L += [
         "",
         f"**Cosa sapevamo (baseline):** {b['metric']} = {_r(b['value'])} (fino al {b['period_end']}; "

@@ -59,6 +59,8 @@ class NutritionDay(Strict):
     alcohol_g: float | None = None
     completeness: Completeness
     logging_method: str | None = None
+    free_meal_estimate_kcal: float | None = None  # part of energy_kcal estimated by the athlete (meal not in the app)
+    free_meal_estimate_protein_g: float | None = None
 
     @model_validator(mode="after")
     def _values_required_unless_not_logged(self) -> NutritionDay:

@@ -96,6 +96,14 @@ if [ -f "$denylist" ]; then
   done < "$denylist"
 fi
 
+# 3b) Valori reali: numeri negli intervalli reali dell'atleta (regole private, private/real_values.txt)
+real_rules="$root/private/real_values.txt"
+if [ -f "$real_rules" ]; then
+  if ! git diff "${diff_args[@]}" -U0 --no-color --diff-filter=ACMR | python3 "$root/.githooks/real_values.py" "$real_rules"; then
+    err "numeri negli intervalli dei valori reali (usare esempi lontani dal caso reale)"
+  fi
+fi
+
 # 4) gitleaks, se installato
 if command -v gitleaks >/dev/null 2>&1; then
   if [ "$mode" = "--staged" ]; then

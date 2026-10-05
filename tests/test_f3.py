@@ -342,3 +342,26 @@ def test_no_prescription_while_T2_or_T3_flag_open(conn):
     assert conn.execute("SELECT COUNT(*) FROM rule_execution").fetchone()[0] == 0
     safety.resolve(conn, safety.open_flags(conn)[0]["id"], "valutazione medica: ok")
     assert rules.next_session(conn, D0)["status"] == "session"
+
+
+def _topped_session(day, exercise="leg_press", load=100.0):
+    t = datetime(day.year, day.month, day.day, 17, 0, tzinfo=UTC)
+    s = syn._env("training_session", day, {"session_kind": "strength"}, start_at=t)
+    return [s] + [syn._env("set_record", day, {"session_id": s["id"], "exercise_id": exercise, "exercise_raw": exercise,
+                                               "sequence": i, "set_type": "working", "load_kg": load, "reps": 10,
+                                               "rir": 2}, start_at=t) for i in range(1, 4)]
+
+
+@pytest.mark.parametrize("score,held", [(3, True), (2, False)])
+def test_pain_gate_holds_load_on_gated_patterns(conn, score, held):
+    lift = {"exercise": "leg_press", "sets": 3, "rep_range": [8, 10], "target_rir": 2}
+    prog = programme()
+    prog["microcycle"] = [{"day": "mon", "name": "Gambe", "lifts": [lift]}]
+    prog["pain_gate"] = {"patterns": ["knee_dominant"], "regions": ["caviglia"], "max_score": 2, "lookback_days": 7}
+    store.add_version(conn, "programme", "base", prog, D0, None)
+    pain = syn._env("subjective_checkin", D0 + timedelta(days=12), {"pain": [{"region": "caviglia dx",
+                                                                              "score_0_10": score}]})
+    ingest(conn, _topped_session(D0) + _topped_session(D0 + timedelta(days=7)) + [pain], "s")
+    rx = rules.next_session(conn, D0 + timedelta(days=14), record=False)["sessions"][0]["lifts"][0]
+    assert (rx["load_kg"] == 100.0) is held
+    assert ("progressione sospesa" in rx["reason"]) is held

@@ -98,3 +98,9 @@ def test_simple_values_saved_immediately(cli):
 def test_unknown_exercise_is_marked(cli):
     out = cli("day", "pesi: esercizio strano 20x10 r2", "--date", "2026-01-16").output
     assert "esercizio strano (non in catalogo): 20 kg × 10 @RIR 2" in out
+
+
+def test_free_meal_estimate_end_to_end(cli):
+    r = cli("day", "cibo 1500 95 +400/20", "--date", "2026-01-13")
+    assert r.exit_code == 0, r.output
+    assert "✓ Cibo 12/1: 1.900 kcal (di cui ~400 kcal stimate, pasto libero), 115 g proteine" in r.output

@@ -3,7 +3,7 @@
 Gym:   "panca 80x8 r2, 80x7 r1 · rematore 60x10 r2"   (sets separated by comma + space)
        set = [w]LOADxREPS[*N] [rRIR | @RPE];  LOAD may be "bw", "bw+10"; "w" marks a warm-up set
 Run:   "5.2km 31:40 fc145 fcmax178 rpe6 stop:fiato"
-Day:   "p 68.4 · cibo 1850 115 [parz] · vita 74.1 74.3 · pesi: <gym> · corsa <run> · passi 8200 ·
+Day:   "p 68.4 · cibo 1850 115 [parz] [+600[/30]] · vita 74.1 74.3 · pesi: <gym> · corsa <run> · passi 8200 ·
         sonno 7h30 · fcr 55 · dolore spalla 3/10 · <alias> <value>"
 """
 
@@ -166,13 +166,17 @@ def parse_day(text: str, context_aliases: dict[str, str] | None = None) -> list[
         elif key == "cibo":
             parts = rest.split()
             partial = any(p.lower() in ("parz", "parziale") for p in parts)
-            nums = [p for p in parts if p.lower() not in ("parz", "parziale", "ieri", "oggi")]
+            extras = [p[1:] for p in parts if p.startswith("+")]  # free meal not in the app: "+800" or "+800/40"
+            nums = [p for p in parts if p.lower() not in ("parz", "parziale", "ieri", "oggi") and not p.startswith("+")]
             if not nums:
                 raise ParseError("cibo: servono kcal (e proteine)")
             when = "oggi" if any(p.lower() == "oggi" for p in parts) else "ieri"
+            extra_kcal = sum(_num(x.split("/")[0]) for x in extras)
+            extra_prot = sum(_num(x.split("/")[1]) for x in extras if "/" in x)
             intents.append(Intent("food", {
                 "energy_kcal": _num(nums[0]), "protein_g": _num(nums[1]) if len(nums) > 1 else None,
-                "partial": partial, "when": when}))
+                "partial": partial, "when": when, "free_meal_kcal": extra_kcal or None,
+                "free_meal_protein_g": extra_prot or None}))
         elif key == "vita":
             intents.append(Intent("waist", {"readings_cm": [_num(x) for x in rest.split()]}))
         elif key == "pesi":

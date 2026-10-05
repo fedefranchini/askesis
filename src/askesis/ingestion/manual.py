@@ -46,6 +46,12 @@ def build(intent: Intent, cfg: Config, day: date, now: datetime) -> list[dict]:
                    "logging_method": "app_estimated"}
         if d.get("protein_g") is not None:
             payload["protein_g"] = d["protein_g"]
+        if d.get("free_meal_kcal"):  # rough estimate of a meal not logged in the app: added to the totals, kept apart
+            payload["energy_kcal"] += d["free_meal_kcal"]
+            payload["free_meal_estimate_kcal"] = d["free_meal_kcal"]
+            if d.get("free_meal_protein_g"):
+                payload["protein_g"] = payload.get("protein_g", 0) + d["free_meal_protein_g"]
+                payload["free_meal_estimate_protein_g"] = d["free_meal_protein_g"]
         return [_env("nutrition_day", cfg, now, target, payload,
                      occurred_at=at_local(target, NOON, cfg.timezone))]
     if k == "waist":

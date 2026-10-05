@@ -25,9 +25,13 @@ def cli(tmp_path, monkeypatch):
     return lambda *a: runner.invoke(app, list(a), catch_exceptions=False)
 
 
+SYNTHETIC_SOURCES = {k: "engineering_choice: valori sintetici di test" for k in
+                     ("plan_changes", "expected_outcome", "min_adherence")}
+
+
 def test_full_intervention_flow_and_why(cli, tmp_path):
     f = tmp_path / "prereg.yaml"
-    f.write_text(yaml.safe_dump(prereg(), allow_unicode=True))
+    f.write_text(yaml.safe_dump(prereg(value_sources=SYNTHETIC_SOURCES), allow_unicode=True))
     assert "proposto intervento n. 1" in cli("intervention", "propose", str(f), "--title", "Fase",
                                               "--category", "phase_start_fat_loss").output
     out = cli("intervention", "approve", "1", "--verbatim", "approvo", "--reasoning", "deficit moderato").output

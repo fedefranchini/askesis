@@ -20,7 +20,7 @@ from askesis.core.timeutil import iso, now_utc
 from askesis.reference import catalog, find_exercise
 
 from . import store
-from .model import WEEKDAYS, LiftItem, Programme
+from .model import WEEKDAYS, LiftItem, PainGate, Programme
 
 RULE_DP = "double_progression@1"
 
@@ -107,6 +107,35 @@ def exposures(conn: sqlite3.Connection, exercise: str, before: date, limit: int 
     return sorted(by_session.values(), key=lambda e: e.day)[-limit:]
 
 
+def pain_hits(conn: sqlite3.Connection, on: date, gate: PainGate) -> list[dict]:
+    """Pain scores above the gate in the lookback window before `on` (check-ins and sets)."""
+    start = (on - timedelta(days=gate.lookback_days)).isoformat()
+    keys = [k.lower() for k in gate.regions]
+    hits = []
+    for r in conn.execute(
+        "SELECT local_date, payload FROM v_current WHERE entity_type = 'subjective_checkin' AND local_date >= ? "
+        "AND local_date < ?", (start, on.isoformat())):
+        for item in json.loads(r["payload"]).get("pain", []) or []:
+            where = str(item.get("region") or "").lower()
+            if (item.get("score_0_10") or 0) > gate.max_score and any(k in where for k in keys):
+                hits.append({"date": r["local_date"], "score": item["score_0_10"], "where": item.get("region")})
+    for r in conn.execute(
+        """SELECT local_date, json_extract(payload,'$.pain') pain, json_extract(payload,'$.pain_region') reg,
+                  json_extract(payload,'$.exercise_raw') ex FROM v_current
+           WHERE entity_type = 'set_record' AND local_date >= ? AND local_date < ?
+             AND json_extract(payload,'$.pain') > ?""",
+        (start, on.isoformat(), gate.max_score)):
+        where = str(r["reg"] or r["ex"] or "").lower()
+        if any(k in where for k in keys):
+            hits.append({"date": r["local_date"], "score": r["pain"], "where": r["reg"] or r["ex"]})
+    return hits
+
+
+def _pattern(exercise: str) -> str | None:
+    ref = find_exercise(exercise) or next((e for e in catalog()["exercises"] if e["id"] == exercise), None)
+    return ref.get("pattern") if ref else None
+
+
 def next_session(conn: sqlite3.Connection, on: date, record: bool = True) -> dict:
     """Prescription for the session planned on `on`, applying L1 rules and pre-planned periods."""
     blocking = conn.execute("SELECT tier, message FROM v_safety_open WHERE tier IN ('T2', 'T3')").fetchall()
@@ -130,6 +159,14 @@ def next_session(conn: sqlite3.Connection, on: date, record: bool = True) -> dic
         for item in s.lifts:
             hist = exposures(conn, item.exercise, on)
             rx = double_progression(item, hist)
+            if prog.pain_gate and _pattern(item.exercise) in prog.pain_gate.patterns and hist:
+                hits = pain_hits(conn, on, prog.pain_gate)
+                last_load = max(hist[-1].loads)
+                if hits and rx.load_kg is not None and rx.load_kg > last_load:
+                    worst = max(hits, key=lambda h: h["score"])
+                    rx.load_kg, rx.rep_target = last_load, min(item.rep_range[1], max(hist[-1].reps))
+                    rx.reason = (f"progressione sospesa: dolore {worst['where']} {worst['score']:g}/10 il "
+                                 f"{worst['date']} (soglia {prog.pain_gate.max_score:g}): carico invariato")
             if deload:
                 rx = apply_deload(rx)
             if volume_factor < 1.0:

@@ -26,7 +26,11 @@ Questa repository è **pubblica**. I dati personali e sanitari dell'atleta non d
 5. **Esempi lontani dal caso reale.** Esempi, test, help e docstring usano valori coerenti con il profilo
    fittizio dei test (`tests/synthetic.py`), mai valori vicini ai dati reali dell'atleta (peso, intake,
    misure, età, fuso, regioni del corpo con problemi noti). Prima di ogni commit controllare anche i
-   valori di esempio, non solo la denylist.
+   valori di esempio, non solo la denylist. Rete di sicurezza: `privacy-guard` passa le righe aggiunte a
+   `.githooks/real_values.py`, che blocca i numeri dentro gli intervalli reali dell'atleta (regole private in
+   `private/real_values.txt`: intervallo, solo decimali, contesto); `knowledge/` è esclusa (valori pubblicati).
+   Un falso positivo verificato si accetta con il marcatore `real-values: ok` sulla riga. Aggiornare le regole
+   quando cambiano i valori reali o il piano.
 6. **Riscrittura dello storico** (con force push) **solo** se un contenuto pubblicato rivela un dato reale
    dell'atleta o lo identifica. Le coincidenze con esempi generici non la richiedono; nei nuovi file si
    usano comunque esempi lontani dal caso reale.

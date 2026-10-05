@@ -44,11 +44,24 @@ class PlannedSession(_M):
     run: RunItem | None = None
 
 
+class PainGate(_M):
+    """Hold load progression on exercises of some movement patterns after pain in a body region is logged.
+
+    Below the safety threshold (safety layer) pain does not stop the session, but it must not be loaded further.
+    Regions are matched case-insensitively as substrings of the logged region or exercise."""
+
+    patterns: list[str] = Field(min_length=1)  # catalog patterns, e.g. knee_dominant
+    regions: list[str] = Field(min_length=1)  # logged region keywords
+    max_score: float = Field(ge=0, le=10)  # progression allowed only if every logged score is ≤ this
+    lookback_days: int = Field(ge=1, le=28)
+
+
 class Programme(_M):
     microcycle: list[PlannedSession]
     minimal_week: list[PlannedSession] = Field(min_length=1)  # fallback for difficult weeks
     progression_rule: str = "double_progression@1"
     deload_weeks: list[date] = []  # Monday of each pre-planned deload week (L1)
+    pain_gate: PainGate | None = None
     constraints: dict = {}
 
 

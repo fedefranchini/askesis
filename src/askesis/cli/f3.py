@@ -145,11 +145,35 @@ def plan_next(date_: DateOpt = None, no_record: Annotated[bool, typer.Option("--
 
 
 # ------------------------------------------------------------------ interventions
+def _print_derived(conn, data: dict, today: date) -> None:
+    """Provisional preview of the values that will be computed and frozen at activation."""
+    from askesis.interventions import derive
+
+    if not data.get("derived"):
+        return
+    spec = derive.DerivedSpec.model_validate(data["derived"])
+    until = min(today, spec.data_until)
+    typer.echo(f"\nValori derivati — PROVVISORI (dati fino al {until}); all'attivazione verranno ricalcolati con i "
+               f"dati fino al {spec.data_until} e congelati:")
+    try:
+        res = derive.compute(conn, spec, data_until=until, preview=True)
+    except derive.DerivationError as exc:
+        typer.echo(f"  non calcolabili ora: {exc}")
+        return
+    for d in spec.values:
+        v = res["values"][d.name]
+        src = f" [{v['source']}, {v['period_end']}]" if v.get("source") else ""
+        typer.echo(f"  - {d.name} = {v['value']:.1f} {d.unit}{src} — {d.description}")
+
+
 @iv_app.command("propose")
 def iv_propose(
-    file: Path, title: Annotated[str, typer.Option("--title")], category: Annotated[str, typer.Option("--category")]
+    file: Path,
+    title: Annotated[str, typer.Option("--title")],
+    category: Annotated[str, typer.Option("--category")],
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Controlla e mostra senza registrare")] = False,
 ) -> None:
-    """Registra una proposta (pre-registrazione da file YAML)."""
+    """Registra una proposta (pre-registrazione da file YAML), dopo il controllo di numeri e fonti."""
     from askesis.validation import textcheck
 
     cfg, conn = _ctx()
@@ -160,8 +184,48 @@ def iv_propose(
         for i in check.issues:
             typer.echo(i.render())
         raise typer.Exit(1)
+    if dry_run:
+        reg.Prereg.model_validate(data)
+        typer.echo("✓ controllo superato (nessuna registrazione: --dry-run)")
+        _print_derived(conn, data, _today(cfg))
+        return
     iid = reg.propose(conn, title, category, data)
     typer.echo(f"✓ proposto intervento n. {reg.get(conn, iid)['number']} ({iid[-8:]})")
+    _print_derived(conn, data, _today(cfg))
+
+
+@iv_app.command("render")
+def iv_render(
+    file: Path,
+    title: Annotated[str, typer.Option("--title")],
+    out: Annotated[Path | None, typer.Option("--out", help="Salva la proposta in Markdown")] = None,
+    note: Annotated[bool, typer.Option("--note", help="Crea/aggiorna la nota del piano in Apple Notes")] = False,
+) -> None:
+    """Versione leggibile di una pre-registrazione (valori derivati provvisori) e nota del piano per il telefono."""
+    from askesis import notes_bridge
+    from askesis.ingestion.gymnote import to_html
+    from askesis.interventions import derive, present
+
+    cfg, conn = _ctx()
+    data = yaml.safe_load(file.read_text())
+    preview, error = None, None
+    if data.get("derived"):
+        spec = derive.DerivedSpec.model_validate(data["derived"])
+        try:
+            preview = derive.compute(conn, spec, data_until=min(_today(cfg), spec.data_until), preview=True)
+        except derive.DerivationError as exc:
+            error = str(exc)
+    md = present.render_proposal(title, data, preview, error)
+    if out:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(md)
+        typer.echo(f"✓ proposta salvata in {out}")
+    else:
+        typer.echo(md)
+    if note:
+        lines = present.plan_note_lines(title, data, preview, provisional=bool(data.get("derived")))
+        notes_bridge.upsert(lines[0], to_html(lines))
+        typer.echo(f"✓ nota «{lines[0]}» aggiornata in Apple Notes (cartella {notes_bridge.FOLDER})")
 
 
 @iv_app.command("approve")
@@ -180,7 +244,49 @@ def iv_approve(
     except safety.SafetyBlock as exc:
         typer.secho(f"✗ bloccato dalla safety: {exc}", fg="red")
         raise typer.Exit(1) from exc
+    if reg.status(conn, row["id"]) == "approved":
+        start = json.loads(row["prereg"])["start_date"]
+        typer.echo(f"✓ intervento n. {number} approvato · attivazione dal {start} con `bin/ak intervention activate "
+                   f"{number}` (valori derivati calcolati e congelati in quel momento)")
+        return
     typer.echo(f"✓ intervento n. {number} attivato · {len(versions)} versioni di piano create")
+
+
+@iv_app.command("activate")
+def iv_activate(
+    number: int,
+    date_: DateOpt = None,
+    override: Annotated[str | None, typer.Option("--override-safety")] = None,
+    note: Annotated[bool, typer.Option("--note", help="Aggiorna la nota del piano in Apple Notes")] = False,
+) -> None:
+    """Attiva un intervento approvato: calcola e congela i valori derivati, crea le versioni di piano."""
+    from askesis.interventions import derive
+
+    cfg, conn = _ctx()
+    row = reg.get(conn, number)
+    try:
+        res = reg.activate(conn, row["id"], _d(date_, cfg), override_reason=override)
+    except safety.SafetyBlock as exc:
+        typer.secho(f"✗ bloccato dalla safety: {exc}", fg="red")
+        raise typer.Exit(1) from exc
+    except (ValueError, derive.DerivationError) as exc:
+        typer.secho(f"✗ non attivato: {exc}", fg="red")
+        raise typer.Exit(1) from exc
+    typer.echo(f"✓ intervento n. {number} attivato · valori congelati (dati fino al {res['data_until']}):")
+    for name, v in res["values"].items():
+        typer.echo(f"  - {name} = {v['value']:.1f}")
+    if note:  # the phone plan now shows the frozen values
+        from askesis import notes_bridge
+        from askesis.ingestion.gymnote import to_html
+        from askesis.interventions import present
+
+        lines = present.plan_note_lines(row["title"], json.loads(row["prereg"]), res | {"frozen": True},
+                                        provisional=False)
+        try:
+            notes_bridge.upsert(lines[0], to_html(lines))
+            typer.echo(f"✓ nota «{lines[0]}» aggiornata con i valori congelati")
+        except notes_bridge.NotesError as exc:
+            typer.echo(f"⚠ nota non aggiornata: {exc}")
 
 
 @iv_app.command("reject")

@@ -99,6 +99,30 @@
       ],
       "default": null,
       "title": "Logging Method"
+    },
+    "free_meal_estimate_kcal": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Free Meal Estimate Kcal"
+    },
+    "free_meal_estimate_protein_g": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Free Meal Estimate Protein G"
     }
   },
   "required": [

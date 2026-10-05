@@ -278,15 +278,104 @@ def validate(text: str, conn: sqlite3.Connection | None = None) -> Result:
 
 PREREG_TEXT = ("hypothesis", "reason", "change_description", "success_criteria", "stop_criteria", "expert_opinion",
                "personal_preference")
+LABELS = ("expert_opinion", "personal_preference", "engineering_choice")
+
+
+def _leaves(obj, path: str):
+    """(dotted path, number) for every numeric leaf. Plan changes are addressed by name."""
+    if isinstance(obj, bool) or obj is None:
+        return
+    if isinstance(obj, (int, float)):
+        yield path, float(obj)
+    elif isinstance(obj, dict):
+        for k, v in obj.items():
+            yield from _leaves(v, f"{path}.{k}" if path else str(k))
+    elif isinstance(obj, (list, tuple)):
+        for i, v in enumerate(obj):
+            yield from _leaves(v, f"{path}.{i}")
+
+
+def _covers(key: str, path: str) -> bool:
+    """`key` is a dotted path prefix; a `*` segment matches any single segment (e.g. a list index)."""
+    k, p_ = key.split("."), path.split(".")
+    return len(k) <= len(p_) and all(a == "*" or a == b for a, b in zip(k, p_, strict=False))
+
+
+def structured_numbers(prereg: dict):
+    for c in prereg.get("plan_changes") or []:
+        yield from _leaves(c.get("content"), f"plan_changes.{c.get('name')}.content")
+    for key in ("expected_outcome", "min_adherence"):
+        yield from _leaves(prereg.get(key), key)
+    for d in (prereg.get("derived") or {}).get("values", []):
+        yield from _leaves(d.get("args"), f"derived.{d.get('name')}.args")
+
+
+def check_source(value: float, source: str, conn: sqlite3.Connection | None = None) -> str | None:
+    """None if the source supports the value, otherwise the problem."""
+    claims, _ = _kb()
+    kind, _, rest = source.partition(":")
+    if kind in LABELS:
+        return None if len(rest.strip()) >= 10 else f"etichetta {kind} senza motivazione"
+    if kind == "claim":
+        c = claims.get(rest)
+        if c is None:
+            return f"claim inesistente: {rest}"
+        nums = _numbers_in(c.get("claim"))
+        return None if any(abs(abs(value) - abs(n)) <= 1e-9 for n in nums) else f"valore non presente nel claim {rest}"
+    if kind == "within":
+        m = re.fullmatch(r"claim:([a-z0-9_.]+):([0-9.]+)-([0-9.]+)", rest)
+        if not m:
+            return f"formato non valido: {source} (atteso within:claim:<id>:<min>-<max>)"
+        c = claims.get(m.group(1))
+        if c is None:
+            return f"claim inesistente: {m.group(1)}"
+        lo, hi = float(m.group(2)), float(m.group(3))
+        nums = _numbers_in(c.get("claim"))
+        if not all(any(abs(x - n) <= 1e-9 for n in nums) for x in (lo, hi)):
+            return f"intervallo {lo:g}–{hi:g} non presente nel claim {m.group(1)}"
+        return None if lo <= abs(value) <= hi else f"valore fuori dall'intervallo {lo:g}–{hi:g} del claim {m.group(1)}"
+    if kind == "param":
+        prm = all_params().get(rest)
+        if prm is None:
+            return f"parametro inesistente: {rest}"
+        return None if any(abs(value - n) <= 1e-9 for n in _numbers_in(prm.get("value"))) else (
+            f"valore diverso dal parametro {rest}")
+    if kind == "rule":
+        m = re.fullmatch(r"([a-z0-9_]+)@(\d+)", rest)
+        rule = _rules().get((m.group(1), int(m.group(2)))) if m else None
+        if rule is None:
+            return f"regola inesistente: {rest}"
+        nums = _numbers_in(rule)
+        ok = any(abs(abs(value) - abs(n)) <= 1e-9 for n in nums)
+        return None if ok else f"valore non presente nella regola {rest}"
+    if kind == "record":
+        row = conn.execute("SELECT payload FROM raw_record WHERE id = ? OR id LIKE ?", (rest, f"%{rest}")).fetchone() \
+            if conn is not None and rest else None
+        if row is None:
+            return f"record inesistente: {rest}"
+        nums = _numbers_in(json.loads(row["payload"]))
+        return None if any(abs(value - n) <= 1e-9 for n in nums) else f"valore non presente nel record {rest}"
+    return f"tipo di fonte sconosciuto: {source}"
 
 
 def check_prereg(prereg: dict, conn: sqlite3.Connection | None = None) -> Result:
-    """Intervention proposal: cited claims must exist; free-text fields follow the same rules as reports."""
+    """Intervention proposal: cited claims must exist; every number in the plan, expected outcome, adherence
+    thresholds and derivation arguments needs a source in `value_sources` (longest path prefix wins) that supports
+    it; free-text fields follow the same rules as reports."""
     claims, _ = _kb()
     res = Result()
     for cid in prereg.get("evidence_claims") or []:
         if cid not in claims:
             res.issues.append(Issue(f"evidence_claims: {cid}", f"claim inesistente: {cid}"))
+    sources: dict[str, str] = prereg.get("value_sources") or {}
+    for path, value in structured_numbers(prereg):
+        keys = [k for k in sources if _covers(k, path)]
+        if not keys:
+            res.issues.append(Issue(f"{path} = {value:g}", "numero strutturato senza fonte in value_sources"))
+            continue
+        problem = check_source(value, sources[max(keys, key=lambda k: (k.count(".") + 1, -k.count("*")))], conn)
+        if problem:
+            res.issues.append(Issue(f"{path} = {value:g}", problem))
     parts = []
     for key in PREREG_TEXT:
         v = prereg.get(key)

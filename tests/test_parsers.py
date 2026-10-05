@@ -77,3 +77,9 @@ def test_day_sleep_formats():
     assert parse_day("sonno 7h30")[0].data["asleep_s"] == 27000
     assert parse_day("sonno 7,5h")[0].data["asleep_s"] == 27000
     assert parse_day("sonno 6:45")[0].data["asleep_s"] == 24300
+
+
+def test_free_meal_estimate_is_added_and_kept_apart():
+    (food,) = parse_day("cibo 1850 115 +600/30")
+    assert food.data["energy_kcal"] == 1850 and food.data["free_meal_kcal"] == 600
+    assert food.data["free_meal_protein_g"] == 30

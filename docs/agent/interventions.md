@@ -18,6 +18,25 @@ Dettagli richiamati da `AGENTS.md` (regola 4).
   attiva, e deload già pianificati. Tutto il resto è L2 (serve "approvo").
 - Preferire **una variabile alla volta** per dominio di esito.
 
+## Fonti dei numeri e valori derivati (controllati dal codice)
+
+- **Ogni numero strutturato** della pre-registrazione (contenuti del piano, esito atteso, aderenza minima,
+  argomenti dei valori derivati) ha una fonte in `value_sources`, indicizzata per percorso puntato
+  (`plan_changes.<nome>.content.…`; vale il prefisso più lungo):
+  `claim:<id>` (valore presente nel claim) · `within:claim:<id>:<min>-<max>` (intervallo presente nel claim,
+  valore al suo interno) · `param:<id>` · `rule:<id>@<v>` · `expert_opinion: <motivo>` ·
+  `personal_preference: <motivo>` · `engineering_choice: <motivo>`. Senza fonte valida
+  `intervention propose` non registra la proposta (`--dry-run` per controllarla senza registrarla).
+- **Valori derivati** (`derived`): la proposta dichiara formule e data limite dei dati (`data_until`); i
+  contenuti del piano li richiamano con `"$derived:<nome>"`. Metodi: `metric` (valore di una metrica al
+  `data_until`), `energy_target` (TDEE − deficit per il ritmo dichiarato, con densità energetica da parametro e
+  soglia di safety sul metabolismo a riposo), `protein_target` (g/kg × peso di riferimento).
+  `propose` mostra i valori **provvisori** con i dati attuali.
+- Con valori derivati, `approve` registra solo l'approvazione; `bin/ak intervention activate N` (dalla data di
+  avvio, e dopo `data_until`) li calcola con i soli dati fino a `data_until`, li congela nell'evento di
+  attivazione (append-only, con impronta) e crea le versioni di piano. Safety gate e controllo "un intervento
+  attivo per dominio" vengono ripetuti all'attivazione.
+
 ## Livelli di automazione (decisione aggiornata: aggiustamento calorico riportato a L2)
 
 - **L1 (automatico, senza approvazione):** solo doppia progressione con parametri scritti nella versione di
