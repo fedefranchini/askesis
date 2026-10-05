@@ -172,7 +172,7 @@ un **Athlete Response Profile** minimo; import intervento n. 1.
   prescrizione con flag di safety T2/T3 aperti; CI (Ruff + test) a ogni push
 - Regola di aggiustamento calorico come dato versionato (`knowledge/rules/`), validata dai test
 
-### F3c — Settimane 1–2 del primo intervento
+### F3c — Settimane 1–2 del primo intervento · ✅ completata (installazione launchd in attesa del permesso)
 - Review rimodulata: **fondamentali** (aderenza calorica, proteine, sessioni svolte/pianificate, sonno, passi) →
   **indicatori ritardati** (peso, vita, forza, corsa) → al massimo **3 punti di attenzione** in linguaggio semplice.
   Per ogni metrica "cambiamento reale" o "dentro il rumore", con rumore stimato dai dati e base dichiarata
