@@ -224,6 +224,12 @@ def iv_render(
     else:
         typer.echo(md)
     if note:
+        from askesis.validation import textcheck
+
+        check = textcheck.check_prereg({**data, "title": title}, conn)
+        if not check.ok:  # the phone plan only shows validated proposals
+            typer.echo(f"✗ nota non aggiornata: proposta DA VERIFICARE ({len(check.issues)} punti non supportati)")
+            raise typer.Exit(1)
         lines = present.plan_note_lines(title, data, preview, provisional=bool(data.get("derived")))
         notes_bridge.upsert(lines[0], to_html(lines))
         typer.echo(f"✓ nota «{lines[0]}» aggiornata in Apple Notes (cartella {notes_bridge.FOLDER})")
