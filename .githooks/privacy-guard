@@ -46,7 +46,7 @@ if [ -z "$staged" ]; then
 fi
 
 # 1) Percorsi e tipi di file vietati (generici + elenco privato private/blocked_paths.txt)
-blocked_paths='^(data|private|reports)/|(^|/)[^/]*\.local\.md$|(^|/)settings\.local\.json$|(^|/)\.env|\.(db|db-wal|db-shm|sqlite|sqlite3|ndjson|heic|HEIC|jpe?g|JPE?G|pdf|PDF)$|(^|/)(export\.zip|export\.xml|export_cda\.xml)$|apple_health_export'
+blocked_paths='^(data|private|reports)/|(^|/)[^/]*\.local\.md$|(^|/)settings\.local\.json$|(^|/)\.env|\.(db|db-wal|db-shm|sqlite|sqlite3|ndjson|heic|HEIC|jpe?g|JPE?G|pdf|PDF)$|(^|/)(export\.zip|export\.xml|export_cda\.xml|esportazione[^/]*\.zip)$|apple_health_export'
 while IFS= read -r f; do
   if printf '%s\n' "$f" | grep -Eq "$blocked_paths"; then
     err "file vietato in $what: $f"

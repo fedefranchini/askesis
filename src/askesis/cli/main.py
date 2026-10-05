@@ -342,6 +342,41 @@ def import_staging(
     typer.echo(r.summary())
 
 
+@app.command("import-health")
+def import_health(
+    path: Path,
+    since: Annotated[str | None, typer.Option("--since", help="Importa solo dal giorno YYYY-MM-DD")] = None,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Salva (senza: solo anteprima)")] = False,
+) -> None:
+    """Import dell'esportazione di Salute (export.zip): anteprima per tipo, poi salvataggio con --yes."""
+    from askesis.ingestion import apple_health as ah
+
+    cfg, conn = _ctx()
+    typer.echo(f"Lettura di {path.name} (in streaming)…")
+    data = ah.parse(path)
+    plan = ah.build(data, cfg, conn, date.fromisoformat(since) if since else None)
+    typer.echo(f"Esportazione del {data.export_at:%Y-%m-%d %H:%M}" if data.export_at
+               else "Data di esportazione assente")
+    for (entity, outcome), n in sorted(plan.counts.items()):
+        typer.echo(f"  {entity:18} {outcome}: {n}")
+    if data.not_imported:
+        top = ", ".join(f"{k.removeprefix('HKQuantityTypeIdentifier')} {v}"
+                        for k, v in data.not_imported.most_common(8))
+        typer.echo(f"  non importati (nessuna regola ancora): {top}")
+    if not plan.records:
+        typer.echo("Nulla da salvare.")
+        return
+    if not yes:
+        typer.echo(f"ANTEPRIMA — nulla salvato ({len(plan.records)} record). Per salvare: ripetere con --yes")
+        return
+    r = ingest(conn, plan.records, "apple_health_export", input_ref=path.name, source_kind="imported")
+    typer.echo(r.summary())
+    for label, reason in r.rejected[:10]:
+        typer.secho(f"✗ rifiutato {label}: {reason}", fg="red")
+    if r.inserted:
+        f3.print_flags(conn, max(e.local_date for e in r.inserted))
+
+
 backup_app = typer.Typer(invoke_without_command=True, help="Backup del database, test di ripristino, agenti launchd.")
 app.add_typer(backup_app, name="backup")
 
@@ -408,6 +443,119 @@ def backup_agent(
         return
     for label in launchd.install(agents):
         typer.echo(f"✓ installato e caricato {label}")
+
+
+@metrics_app.command("compute")
+def metrics_compute(
+    from_: Annotated[str | None, typer.Option("--from")] = None,
+    to: Annotated[str | None, typer.Option("--to")] = None,
+) -> None:
+    """Calcola le metriche (default: tutto il periodo con dati)."""
+    from askesis.analytics import engine
+
+    cfg, conn = _ctx()
+    run_id, values, dg = engine.run(conn, date.fromisoformat(from_) if from_ else None,
+                                    date.fromisoformat(to) if to else None)
+    typer.echo(f"✓ run {run_id[-8:] if run_id else '—'} · {len(values)} valori · digest {dg[:12]}")
+
+
+@metrics_app.command("rebuild")
+def metrics_rebuild() -> None:
+    """Cancella la cache delle metriche, ricalcola tutto e verifica la riproducibilità."""
+    from askesis.analytics import engine
+
+    cfg, conn = _ctx()
+    run_id, n, dg, ok = engine.rebuild(conn)
+    typer.echo(f"{'✓' if ok else '✗'} rebuild · {n} valori · digest {dg[:12]} · "
+               f"{'riproducibile' if ok else 'NON riproducibile'}")
+    if not ok:
+        raise typer.Exit(1)
+
+
+def _save_validated(md: str, out: Path, conn, echo: bool = True) -> None:
+    """Generated reports pass the validator too: on failure the final file is not written (DA VERIFICARE)."""
+    from askesis.validation import textcheck
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    draft = out.with_name(f".{out.name}.draft")
+    draft.write_text(md + "\n")
+    res, target = textcheck.finalize(draft, out, conn)
+    draft.unlink()
+    if echo:
+        typer.echo(md)
+    if res.ok:
+        typer.echo(f"\n✓ validata e salvata in {target.relative_to(config_mod.ROOT)}")
+        return
+    typer.echo(f"\n✗ DA VERIFICARE — {len(res.issues)} punti non supportati → {target.relative_to(config_mod.ROOT)}")
+    for i in res.issues:
+        typer.echo(i.render())
+    raise typer.Exit(1)
+
+
+@app.command("review")
+def review_cmd(
+    date_: Annotated[
+        str | None, typer.Option("--date", "-d", help="Un giorno della settimana (default: settimana scorsa)")
+    ] = None,
+    stdout_only: Annotated[bool, typer.Option("--stdout", help="Non salvare su file")] = False,
+    month: Annotated[bool, typer.Option("--month", help="Retrospettiva mensile (default: mese scorso)")] = False,
+) -> None:
+    """Review settimanale (lun–dom) o retrospettiva mensile, in Markdown, salvata in reports/."""
+    from askesis.analytics import engine, review
+
+    if month:
+        md = f3.month_cmd(date_)
+        typer.echo(md)
+        if not stdout_only:
+            first = md.split("— ")[1][:7]
+            _save_validated(md, config_mod.ROOT / "reports" / f"retro-{first}.md", connect(config_mod.load().db_path),
+                            echo=False)
+        return
+    cfg, conn = _ctx()
+    d = date.fromisoformat(date_) if date_ else _day(None, cfg) - timedelta(days=7)
+    ws = d - timedelta(days=d.weekday())
+    _, values, _ = engine.run(conn, ws - timedelta(days=28), ws + timedelta(days=6))
+    issues = [(r["severity"], r["message"]) for r in conn.execute(
+        """SELECT i.severity, i.message FROM dq_issue i JOIN raw_record r ON r.id = i.record_id
+           WHERE i.status = 'open' AND i.severity != 'info' AND r.local_date BETWEEN ? AND ?""",
+        (ws.isoformat(), (ws + timedelta(days=6)).isoformat()))]
+    issues += [(f"safety {r['tier']}", f"{r['message']} [flag:{r['id'][-8:]}]") for r in conn.execute(
+        "SELECT id, tier, message FROM safety_flag WHERE local_date BETWEEN ? AND ?",  # only this week's flags
+        (ws.isoformat(), (ws + timedelta(days=6)).isoformat()))]
+    md = review.render(values, ws, issues)
+    if stdout_only:
+        typer.echo(md)
+        return
+    y, w, _ = ws.isocalendar()
+    out = config_mod.ROOT / "reports" / f"review-{y}-W{w:02d}.md"
+    _save_validated(md, out, conn)
+
+
+@app.command("validate")
+def validate_cmd(
+    draft: Path,
+    out: Annotated[
+        Path | None, typer.Option("--out", "-o", help="File definitivo (scritto solo se il controllo passa)")
+    ] = None,
+) -> None:
+    """Controlla un testo generato: numeri con riferimento verificato, id e fonti presenti nella KB.
+
+    Con --out: se passa scrive il file definitivo; altrimenti scrive <out>.DA-VERIFICARE.md con i punti non
+    supportati ed esce con codice 1."""
+    from askesis.validation import textcheck
+
+    cfg, conn = _ctx()
+    if out is None:
+        res, target = textcheck.validate(draft.read_text(), conn), None
+    else:
+        res, target = textcheck.finalize(draft, out, conn)
+    if res.ok:
+        typer.echo("✓ validazione superata" + (f": salvato {target}" if target else ""))
+        return
+    typer.echo(f"✗ DA VERIFICARE — {len(res.issues)} punti non supportati" + (f" → {target}" if target else ""))
+    for i in res.issues:
+        typer.echo(i.render())
+    raise typer.Exit(1)
 
 
 web_app = typer.Typer(no_args_is_help=True, help="Dashboard locale (solo questo Mac).")

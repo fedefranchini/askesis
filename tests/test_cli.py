@@ -135,3 +135,16 @@ def test_dashboard_agent_is_only_shown_and_binds_localhost(cli):
     out = cli("web", "agent").output
     assert "local.askesis.dashboard" in out and "<key>RunAtLoad</key><true/>" in out and "Nulla installato" in out
     assert "--host" not in out and "0.0.0.0" not in out  # serve binds 127.0.0.1 only
+
+
+@pytest.mark.parametrize("cmd", [
+    ["day"], ["fix"], ["retract"], ["review"], ["validate"], ["why"], ["import-staging"], ["import-health"],
+    ["metrics", "compute"], ["metrics", "rebuild"], ["backup", "verify"], ["backup", "agent"], ["web", "serve"],
+    ["web", "agent"], ["web", "set-password"], ["safety", "check"], ["plan", "show"], ["plan", "next"],
+    ["plan", "calorie-check"], ["plan", "calorie-apply"], ["intervention", "propose"], ["intervention", "approve"],
+    ["intervention", "activate"], ["intervention", "evaluate"], ["intervention", "list"], ["show", "week"],
+])
+def test_commands_used_by_routines_and_docs_exist(cmd):
+    """Regression guard: a refactoring must never silently drop a command."""
+    r = CliRunner().invoke(app, [*cmd, "--help"])
+    assert r.exit_code == 0, f"comando mancante: {' '.join(cmd)}"
