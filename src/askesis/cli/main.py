@@ -347,6 +347,7 @@ def import_health(
     path: Path,
     since: Annotated[str | None, typer.Option("--since", help="Importa solo dal giorno YYYY-MM-DD")] = None,
     yes: Annotated[bool, typer.Option("--yes", "-y", help="Salva (senza: solo anteprima)")] = False,
+    exclude_source: Annotated[list[str] | None, typer.Option("--exclude-source", help="Sorgente da ignorare")] = None,
 ) -> None:
     """Import dell'esportazione di Salute (export.zip): anteprima per tipo, poi salvataggio con --yes."""
     from askesis.ingestion import apple_health as ah
@@ -354,7 +355,8 @@ def import_health(
     cfg, conn = _ctx()
     typer.echo(f"Lettura di {path.name} (in streaming)…")
     data = ah.parse(path)
-    plan = ah.build(data, cfg, conn, date.fromisoformat(since) if since else None)
+    plan = ah.build(data, cfg, conn, date.fromisoformat(since) if since else None,
+                    exclude_sources=set(exclude_source or []))
     typer.echo(f"Esportazione del {data.export_at:%Y-%m-%d %H:%M}" if data.export_at
                else "Data di esportazione assente")
     for (entity, outcome), n in sorted(plan.counts.items()):

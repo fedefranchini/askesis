@@ -64,10 +64,13 @@ class HealthData:
 
 
 def _export_xml(zf: zipfile.ZipFile) -> str:
-    names = [n for n in zf.namelist() if n.endswith("export.xml") and "export_cda" not in n]
-    if not names:
-        raise ValueError("export.xml non trovato nello zip: è un'esportazione di Salute?")
-    return min(names, key=len)
+    """Main XML of the export. Its name is localised (export.xml, "dati esportati.xml", …): take the largest XML
+    in the export folder, excluding the clinical CDA document."""
+    infos = [i for i in zf.infolist() if i.filename.lower().endswith(".xml") and "cda" not in i.filename.lower()
+             and i.filename.count("/") <= 1]
+    if not infos:
+        raise ValueError("file XML principale non trovato nello zip: è un'esportazione di Salute?")
+    return max(infos, key=lambda i: i.file_size).filename
 
 
 def parse(path: Path) -> HealthData:
@@ -117,6 +120,29 @@ def _workout(el) -> dict:
             "max_hr": round(float(hr.get("maximum"))) if hr is not None and hr.get("maximum") else None}
 
 
+def _overlap(a: dict, b: dict) -> float:
+    inter = (min(a["end"], b["end"]) - max(a["start"], b["start"])).total_seconds()
+    shorter = min((a["end"] - a["start"]).total_seconds(), (b["end"] - b["start"]).total_seconds()) or 1
+    return max(0.0, inter) / shorter
+
+
+def _richness(w: dict) -> tuple:
+    return (w["avg_hr"] is not None, w["distance_m"] is not None, w["elapsed_s"])
+
+
+def dedup_workouts(workouts: list[dict], min_overlap: float = 0.5) -> list[dict]:
+    """Apps that also write to Health (e.g. a lifting or running app alongside the Watch) create the same session
+    twice. Workouts of the same kind overlapping for at least half of the shorter one are one session: the richest
+    copy is kept (heart rate, then distance, then duration)."""
+    kept: list[dict] = []
+    for w in sorted(workouts, key=_richness, reverse=True):
+        same = [k for k in kept if k["type"] == w["type"] or {k["type"], w["type"]} <= STRENGTH]
+        if any(_overlap(k, w) >= min_overlap for k in same):
+            continue
+        kept.append(w)
+    return sorted(kept, key=lambda w: w["start"])
+
+
 def _fp(*parts) -> str:
     return hashlib.sha256("|".join(str(p) for p in parts).encode()).hexdigest()[:32]
 
@@ -142,8 +168,13 @@ class Plan:
 
 
 def build(data: HealthData, cfg: Config, conn: sqlite3.Connection, since: date | None = None,
-          now: datetime | None = None) -> Plan:
+          now: datetime | None = None, exclude_sources: set[str] | None = None) -> Plan:
     now = now or now_utc()
+    if exclude_sources:  # e.g. a device that belongs to someone else
+        excl = {x.casefold() for x in exclude_sources}
+        data = HealthData(data.export_at,
+                          {k: [x for x in v if x[4].casefold() not in excl] for k, v in data.samples.items()},
+                          [w for w in data.workouts if w["source"].casefold() not in excl], data.not_imported)
     tz = cfg.timezone
     export_at = data.export_at or now
     open_day = local_date(export_at, tz)  # not closed at export time
@@ -249,7 +280,7 @@ def build(data: HealthData, cfg: Config, conn: sqlite3.Connection, since: date |
             {"samples": f["n"], "completeness_note": "non verificabile da Salute"}, True, open_nutrition_day,
             occurred_at=noon(day))
 
-    for w in data.workouts:
+    for w in dedup_workouts(data.workouts):
         day = local_date(w["start"], tz)
         if w["type"] == RUNNING and w["distance_m"]:
             payload = {"distance_m": round(w["distance_m"], 1), "elapsed_s": w["elapsed_s"]}

@@ -26,7 +26,8 @@ def sleep(stage, start, end, src="Watch"):
     return rec("HKCategoryTypeIdentifierSleepAnalysis", start, end, f"HKCategoryValueSleepAnalysis{stage}", src=src)
 
 
-def export(tmp_path, steps_iphone=(3000, 2000), name="esportazione.zip", export_date="2025-03-20 09:00:00 +0100"):
+def export(tmp_path, steps_iphone=(3000, 2000), name="esportazione.zip", export_date="2025-03-20 09:00:00 +0100",
+           xml_name="export.xml"):
     body = [
         f'<ExportDate value="{export_date}"/>',
         rec(f"{HK}BodyMass", "2025-03-10 07:00:00 +0100", "2025-03-10 07:00:00 +0100", "67.5", "kg", "Salute"),
@@ -62,7 +63,7 @@ def export(tmp_path, steps_iphone=(3000, 2000), name="esportazione.zip", export_
     xml = '<?xml version="1.0" encoding="UTF-8"?>\n<HealthData locale="it_IT">' + "".join(body) + "</HealthData>"
     path = tmp_path / name
     with zipfile.ZipFile(path, "w") as zf:
-        zf.writestr("apple_health_export/export.xml", xml)
+        zf.writestr(f"apple_health_export/{xml_name}", xml)
         zf.writestr("apple_health_export/export_cda.xml", "<x/>")
     return path
 
@@ -136,7 +137,7 @@ def test_not_imported_types_are_counted_and_bad_files_rejected(env, tmp_path):
     bad = tmp_path / "x.zip"
     with zipfile.ZipFile(bad, "w") as zf:
         zf.writestr("readme.txt", "nope")
-    with pytest.raises(ValueError, match="export.xml"):
+    with pytest.raises(ValueError, match="XML principale"):
         ah.parse(bad)
 
 
@@ -151,3 +152,29 @@ def test_cli_previews_then_saves(env, tmp_path):
     assert "ANTEPRIMA" in pv.output and "daily_activity" in pv.output and "HeartRate 1" in pv.output
     saved = runner.invoke(app, ["import-health", str(path), "--yes"])
     assert "inseriti" in saved.output and "rifiutati 0" in saved.output
+
+
+def test_localised_export_file_names(env, tmp_path):
+    cfg, conn = env
+    path = export(tmp_path, name="dati esportati.zip", xml_name="dati esportati.xml")
+    assert by(ah.build(ah.parse(path), cfg, conn), "daily_activity")[0]["payload"] == {"steps": 5000}
+
+
+def test_same_session_written_by_two_apps_is_kept_once():
+    from datetime import datetime, timedelta
+
+    t0 = datetime(2025, 3, 13, 18, 0).astimezone()
+    w = {"type": "HKWorkoutActivityTypeTraditionalStrengthTraining", "start": t0, "end": t0 + timedelta(minutes=55),
+         "source": "LiftApp", "elapsed_s": 3300, "distance_m": None, "avg_hr": None, "max_hr": None}
+    watch = w | {"source": "Watch", "start": t0 + timedelta(minutes=2), "avg_hr": 120,
+                 "type": "HKWorkoutActivityTypeFunctionalStrengthTraining"}
+    other_day = w | {"start": t0 + timedelta(days=1), "end": t0 + timedelta(days=1, minutes=50)}
+    kept = ah.dedup_workouts([w, watch, other_day])
+    assert [k["source"] for k in kept] == ["Watch", "LiftApp"]
+
+
+def test_excluded_source_is_ignored(env, tmp_path):
+    cfg, conn = env
+    plan = ah.build(ah.parse(export(tmp_path)), cfg, conn, exclude_sources={"iphone"})
+    (steps,) = by(plan, "daily_activity")
+    assert steps["payload"] == {"steps": 4500} and steps["device_id"] == "Watch"
