@@ -50,3 +50,10 @@ JSON per record, **solo in append** (`>>`). Formato envelope v0:
 - RIR non ricordato → campo assente, **mai** inventato. Giorno nutrizionale incompleto → `partial`.
 - Dopo ogni scrittura, mostrare all'atleta una ricevuta sintetica di cosa è stato registrato.
 
+
+## Import dall'app Salute (esportazione)
+`bin/ak import-health <esportazione.zip>` mostra un'anteprima per tipo di dato; `--yes` salva. Il file va solo in
+`data/imports/health/` (privato), trasferito con AirDrop. Regole: un dato di un'altra sorgente dello stesso giorno
+(es. manuale) vince; passi = sorgente con il totale più alto del giorno; sonno sul giorno del risveglio; cibo da Salute
+importato come `partial` (completezza non verificabile); il giorno dell'esportazione è escluso; reimportare è
+idempotente e un totale cambiato diventa una correzione. Dopo l'import il file si elimina o si archivia cifrato.

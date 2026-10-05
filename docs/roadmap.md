@@ -200,7 +200,8 @@ motore, con gli stessi controlli (validazione, rilettura, approvazioni, safety, 
 | vincoli | — | H — Porta aperta a un'app distribuibile |
 
 ### F4 · I. Dashboard web locale + sincronizzazione da Salute
-**Stato:** F4a (dashboard, solo da questo Mac) completata. Accesso dall'iPhone: scelto **Tailscale** con `serve`
+**Stato:** F4a (dashboard, solo da questo Mac, avvio automatico con launchd) e F4b (import dell'esportazione di
+Salute: `bin/ak import-health`) completate. Accesso dall'iPhone: scelto **Tailscale** con `serve`
 (mai `funnel`), Tailnet Lock e nomi generici, da implementare dopo F4a. Poi F4b (import storico di Salute) e F4c
 (sincronizzazione quotidiana con Comandi Rapidi).
 **Dashboard** (localhost, stesso stack Python; involucro sottile attorno al nucleo, nessuna logica di calcolo
