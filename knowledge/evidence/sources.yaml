@@ -134,6 +134,13 @@ sources:
     verified: {via: [crossref, pubmed], date: "2026-10-05"}
     read_level: abstract
     limitations: "11 studi; confronto soprattutto multiarticolari vs monoarticolari"
+  - id: weir2005
+    citation: "Weir JP. Quantifying test-retest reliability using the intraclass correlation coefficient and the SEM. J Strength Cond Res. 2005;19(1):231-40."
+    type: methodological_review
+    doi: 10.1519/15184.1
+    pmid: "15705040"
+    verified: {via: [crossref, pubmed], date: "2026-10-05"}
+    read_level: abstract
   - id: schoenfeld2016freq
     citation: "Schoenfeld BJ, Ogborn D, Krieger JW. Effects of Resistance Training Frequency on Measures of Muscle Hypertrophy: A Systematic Review and Meta-Analysis. Sports Med. 2016;46(11):1689-1697."
     type: systematic_review_meta_analysis

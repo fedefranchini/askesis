@@ -16,11 +16,11 @@ from askesis.core.ids import new_id
 from askesis.core.timeutil import iso, now_utc
 from askesis.store import repository as repo
 
-from . import body, energy, training
+from . import adherence, body, energy, training
 from .base import MetricValue, r6
 from .params import PARAMS_DIR, p
 
-ENGINE_VERSION = "0.2.0"
+ENGINE_VERSION = "0.3.0"
 
 
 @dataclass
@@ -34,6 +34,8 @@ class Inputs:
     context: list[tuple[date, str, float]] = field(default_factory=list)
     athlete: energy.AthleteBasics = field(default_factory=lambda: energy.AthleteBasics(None, None, None))
     attr_history: list[tuple[date, str, object]] = field(default_factory=list)  # (valid from, key, value)
+    sleep: list[tuple[date, float]] = field(default_factory=list)  # (wake day, seconds asleep)
+    plans: list[tuple[date, str, str, dict]] = field(default_factory=list)  # (valid from, recorded_at, kind, content)
     fingerprint: str = ""
     dates: list[date] = field(default_factory=list)
 
@@ -66,9 +68,17 @@ def load_inputs(conn: sqlite3.Connection, cutoff: datetime | None = None) -> Inp
             inp.steps[d] = pl["steps"]
         elif e == "daily_context":
             inp.context.append((d, pl["key"], pl["value"]))
+        elif e == "sleep_session" and pl.get("asleep_s"):
+            inp.sleep.append((d, float(pl["asleep_s"])))
         elif e == "athlete_attribute":
             valid = pl.get("valid_from")
             inp.attr_history.append((date.fromisoformat(str(valid)) if valid else d, pl["key"], pl["value"]))
+    plan_sql = "SELECT valid_from, recorded_at, kind, content, content_hash FROM plan_version"
+    plan_rows = conn.execute(plan_sql + (" WHERE recorded_at <= ?" if cutoff else "") + " ORDER BY id",
+                             (iso(cutoff),) if cutoff else ()).fetchall()
+    for r in plan_rows:  # plans as known at the cutoff (transaction time)
+        h.update(f"plan:{r['content_hash']}".encode())
+        inp.plans.append((_d(r["valid_from"]), r["recorded_at"], r["kind"], json.loads(r["content"])))
     inp.athlete = athlete_as_of(inp, max(inp.dates) if inp.dates else date.max)
     inp.fingerprint = h.hexdigest()
     return inp
@@ -131,6 +141,12 @@ def compute(inp: Inputs, start: date, end: date) -> list[MetricValue]:
     daily = body.daily_weights(inp.weighins)
     vals: list[MetricValue] = [m for m in body.weight_daily(daily) if start <= m.period_start <= end]
     vals += [m for m in body.waist_sessions(inp.waist) if start <= m.period_start <= end]
+    weekly_e1rm: dict[str, list[tuple[date, float]]] = {}
+    if inp.sets:
+        for ws, we in iso_weeks(min(s.day for s in inp.sets), end):
+            for m in training.strength_week(inp.sets, ws, we):
+                if m.metric_id == "e1rm_best_week" and m.value is not None:
+                    weekly_e1rm.setdefault(m.subject.split(":", 1)[1], []).append((we, m.value))
     for ws, we in iso_weeks(start, end):
         for m in (body.weight_ema(daily, we), body.weight_ma7(daily, we),
                   energy.adaptive_tdee(inp.nutrition, daily, athlete_as_of(inp, we), we),
@@ -144,6 +160,12 @@ def compute(inp: Inputs, start: date, end: date) -> list[MetricValue]:
         vals += training.running_week(inp.runs, ws, we)
         vals += training.context_week(inp.context, ws, we)
         vals += dq_week(inp, daily, ws, we)
+        vals += adherence.vs_target(inp.nutrition, inp.plans, ws, we)
+        sv = adherence.sessions_vs_plan(inp.sets, inp.plans, ws, we)
+        sl = adherence.sleep_week(inp.sleep, ws, we)
+        vals += [m for m in (sv, sl) if m]
+        vals += adherence.waist_change(inp.waist, ws, we)
+        vals += adherence.e1rm_change(weekly_e1rm, ws, we)
     return sorted(vals, key=lambda m: (m.metric_id, m.subject, m.period_start, m.period_end))
 
 

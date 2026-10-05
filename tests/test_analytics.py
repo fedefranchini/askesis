@@ -191,7 +191,28 @@ def test_review_cites_every_number(db):
 
 def test_review_without_data_is_honest(conn):
     md = review.render([], syn.START)
-    assert "dati insufficienti" in md and "Nessuna sessione" in md
+    assert "dati insufficienti" in md and "nessuna sessione" in md and "rumore non ancora stimabile" in md
+
+
+def test_review_with_plan_passes_the_validator(db):
+    from askesis.plan import store
+    from askesis.validation import textcheck
+
+    lift = {"exercise": "bench_press", "sets": 3, "rep_range": [6, 8], "target_rir": 2}
+    store.add_version(db, "nutrition_target", "t", {"energy_kcal": syn.KCAL - 100, "protein_g": syn.PROT,
+                                                    "protein_basis": {}, "method": "prior_only"}, syn.START, None)
+    store.add_version(db, "programme", "p", {"microcycle": [{"day": "mon", "name": "A", "lifts": [lift]},
+                                                            {"day": "thu", "name": "B", "lifts": [lift]}],
+                                             "minimal_week": [{"day": "mon", "name": "A", "lifts": [lift]}]},
+                      syn.START, None)
+    db.commit()
+    _, vals, _ = engine.run(db, syn.START, WEEK4_END)
+    md = review.render(vals, syn.START)
+    assert "## 1. Fondamentali" in md and "sopra il target, oltre il rumore" in md  # constant +100 kcal
+    assert "Energia: media +100 kcal/die" in md  # attention point
+    assert "2 pianificate" in md
+    res = textcheck.validate(md, db)
+    assert res.ok, [i.render() for i in res.issues]
 
 
 def test_engine_never_uses_wall_clock(db, monkeypatch):

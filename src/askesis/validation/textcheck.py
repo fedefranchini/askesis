@@ -8,6 +8,8 @@ Reference syntax inside texts:
   `metric_id@N`     derived metric (metric_value table)
   `rule_id@N`       versioned rule (knowledge/rules/*.yaml), e.g. its preconditions and limits
   [record:<id>]     RAW record (full id or its last 8 characters)
+  [flag:<id>]       safety flag (message and signals)
+Table rows inherit the references written in the table's header row.
 
 Rules (per segment = paragraph, list item or table row):
   1. every number with a unit (kg, kcal, g/kg, %, km, …) or a decimal must match the value of a reference in the
@@ -41,6 +43,7 @@ DECIMAL = re.compile(r"(?<![\w@./:-])(?P<a>\d+,\d+)(?![\w,/])")
 CLAIM_REF = re.compile(r"\[claim:([a-z0-9_.]+)\]", re.I)
 PARAM_REF = re.compile(r"\[param:([a-z0-9_]+)\]", re.I)
 RECORD_REF = re.compile(r"\[record:([0-9a-f-]{8,36})\]", re.I)
+FLAG_REF = re.compile(r"\[flag:([0-9a-f-]{8,36})\]", re.I)
 METRIC_REF = re.compile(r"`([a-z0-9_]+)@(\d+)`")
 DOI = re.compile(r"\b10\.\d{4,9}/[^\s)\]>,;]+", re.I)
 MONTHS = {"gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre",
@@ -58,7 +61,7 @@ STRIP = [
     re.compile(r"\b\d{1,2}:\d{2}\b"),  # times
     re.compile(r"\b\d{1,2}/\d{1,2}(?:/\d{2,4})?\b"),  # d/m dates
     re.compile(r"`[^`]*`"),  # code spans (metric refs captured before stripping)
-    re.compile(r"\[(?:claim|param|record):[^\]]*\]", re.I),
+    re.compile(r"\[(?:claim|param|record|flag):[^\]]*\]", re.I),
 ]
 
 
@@ -198,9 +201,21 @@ def validate(text: str, conn: sqlite3.Connection | None = None) -> Result:
     res = Result()
     dois = {str(s.get("doi", "")).lower() for s in sources.values() if s.get("doi")}
 
-    for seg in segments(text):
+    header_refs = ""
+    segs = segments(text)
+    for i, seg in enumerate(segs):
         if seg.startswith("#"):
             continue
+        if seg.startswith("|"):
+            if re.fullmatch(r"\|[\s:|-]+\|?", seg):
+                continue  # separator row
+            if i + 1 < len(segs) and re.fullmatch(r"\|[\s:|-]+\|?", segs[i + 1]):
+                header_refs = " ".join(m.group(0) for m in re.finditer(
+                    r"`[a-z0-9_]+@\d+`|\[(?:claim|param|record|flag):[^\]]*\]", seg, re.I))
+                continue  # header row: its references apply to the rows below
+            seg = f"{seg} {header_refs}" if header_refs else seg
+        else:
+            header_refs = ""
         support: list[tuple[str, list[float], bool]] = []  # (label, values, percent_scale)
         for cid in CLAIM_REF.findall(seg):
             c = claims.get(cid)
@@ -242,6 +257,16 @@ def validate(text: str, conn: sqlite3.Connection | None = None) -> Result:
                 res.issues.append(Issue(seg, f"record inesistente: {rid}"))
                 continue
             support.append((f"record:{rid}", _numbers_in(json.loads(row["payload"])), False))
+
+        for fid in FLAG_REF.findall(seg):
+            row = None
+            if conn is not None:
+                row = conn.execute("SELECT message, signals FROM safety_flag WHERE id = ? OR id LIKE ?",
+                                   (fid, f"%{fid}")).fetchone()
+            if row is None:
+                res.issues.append(Issue(seg, f"flag inesistente: {fid}"))
+                continue
+            support.append((f"flag:{fid}", _numbers_in([row["message"], json.loads(row["signals"])]), False))
 
         for doi in DOI.findall(seg):
             if doi.rstrip(".").lower() not in dois:

@@ -42,7 +42,7 @@ def build(rnd: random.Random, n: int) -> engine.Inputs:
         gaps = [(g, g + rnd.randint(3, 14)) for g in (rnd.randint(0, n) for _ in range(rnd.randint(0, 2)))]
         return start, gaps
 
-    streams = {k: plan() for k in ("w", "n", "s", "r", "st", "c", "v")}
+    streams = {k: plan() for k in ("w", "n", "s", "r", "st", "c", "v", "sl")}
     w = rnd.uniform(55, 80)
     for i in range(n):
         d = START + timedelta(days=i)
@@ -82,6 +82,8 @@ def build(rnd: random.Random, n: int) -> engine.Inputs:
             inp.context.append((d, "custom_key", float(rnd.randint(0, 10))))
         if active(*streams["v"], i, 0.2):
             inp.waist.append((d, [round(rnd.uniform(65, 90), 1) for _ in range(rnd.randint(1, 3))]))
+        if active(*streams["sl"], i, 0.65):
+            inp.sleep.append((d, float(rnd.randint(4 * 3600, 9 * 3600))))
     # attributes: some known from the start, some only later, some changing over time
     attr_day = lambda: START + timedelta(days=rnd.choice([0, rnd.randint(0, n - 1)]))  # noqa: E731
     inp.attr_history += [
@@ -91,6 +93,21 @@ def build(rnd: random.Random, n: int) -> engine.Inputs:
     ]
     for _ in range(rnd.randint(0, 3)):
         inp.attr_history.append((attr_day(), "activity_factor", rnd.choice([1.3, 1.5, 1.7])))
+    # plan versions valid from random days (some only later): targets, programmes, a minimal-week period
+    for _ in range(rnd.randint(0, 3)):
+        inp.plans.append((attr_day(), f"2025-01-0{rnd.randint(1, 9)}", "nutrition_target",
+                          {"energy_kcal": rnd.choice([1600, 1800, 2000]), "protein_g": rnd.choice([90, 110, 130])}))
+    lift = {"exercise": "bench_press", "sets": 3, "rep_range": [6, 8], "target_rir": 2}
+    for _ in range(rnd.randint(0, 2)):
+        days = rnd.sample(["mon", "tue", "wed", "thu", "fri", "sat"], rnd.randint(1, 4))
+        inp.plans.append((attr_day(), "2025-01-01", "programme",
+                          {"microcycle": [{"day": x, "name": x, "lifts": [lift]} for x in days],
+                           "minimal_week": [{"day": "mon", "name": "m", "lifts": [lift]}]}))
+    if rnd.random() < 0.5:
+        a = attr_day()
+        inp.plans.append((a, "2025-01-01", "scheduled_period", {"label": "p", "start": a.isoformat(),
+                          "end": (a + timedelta(days=rnd.randint(3, 20))).isoformat(),
+                          "modifiers": {"use_minimal_week": True}}))
     return inp
 
 
@@ -113,6 +130,8 @@ def truncate(inp: engine.Inputs, cut: date) -> engine.Inputs:
         steps={d: v for d, v in inp.steps.items() if d <= cut},
         context=[x for x in inp.context if x[0] <= cut],
         attr_history=[x for x in inp.attr_history if x[0] <= cut],
+        sleep=[x for x in inp.sleep if x[0] <= cut],
+        plans=[x for x in inp.plans if x[0] <= cut],
         dates=[d for d in inp.dates if d <= cut],
     )
 
@@ -159,6 +178,12 @@ def test_generic_test_covers_every_metric_kind():
         "context_mean_week",
         "waist_session",
         "dq_score",
+        "intake_vs_target_week",
+        "protein_vs_target_week",
+        "sessions_vs_plan_week",
+        "sleep_mean_week",
+        "waist_change",
+        "e1rm_change_week",
     }
     assert expected <= produced, expected - produced
 

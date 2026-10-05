@@ -126,3 +126,26 @@ parameters:
     unit: kg
     basis: engineering_choice
     rationale: "Day-to-day change above this opens a soft data-quality issue (not a rejection)."
+
+  # ---------------- adherence and noise (weekly review)
+  sleep_min_days_for_mean:
+    value: 4
+    unit: nights_of_7
+    basis: engineering_choice
+  noise_min_sessions:
+    value: 3
+    unit: sessions_with_repeated_readings
+    basis: engineering_choice
+    rationale: "Measurement noise (TEM) is estimated from within-session repeated readings only with at least this many sessions; before that it is reported as not yet estimable."
+  noise_min_points:
+    value: 4
+    unit: past_week_to_week_changes
+    basis: engineering_choice
+    rationale: "Week-to-week noise of a weekly best (e.g. e1RM) is estimated only with at least this many past changes."
+  minimal_difference_z:
+    value: 1.96
+    basis: expert_opinion
+    rationale: >-
+      Minimal detectable difference = z × √2 × SEM (SEM of a session mean = TEM/√k); a change beyond it is reported as
+      real. The SEM-based minimal difference is supported by the KB; the exact formula is not in the abstract read.
+    claims: [measure.sem_minimal_difference]

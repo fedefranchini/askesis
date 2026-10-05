@@ -21,6 +21,59 @@ def _interval(m: MetricValue, nd: int = 1) -> str:
     return "" if m.lo is None or m.hi is None else f" (IC {_fmt(m.lo, nd)}–{_fmt(m.hi, nd)})"
 
 
+NOT_ESTIMABLE = "rumore non ancora stimabile"
+
+
+def _beyond_noise(m: MetricValue | None) -> str:
+    """Change vs noise from the metric's interval: excludes zero → real; includes zero → within noise."""
+    if m is None or m.value is None or m.lo is None or m.hi is None:
+        return NOT_ESTIMABLE
+    return "cambiamento reale" if m.lo > 0 or m.hi < 0 else "dentro il rumore"
+
+
+def _vs_target(m: MetricValue | None) -> str:
+    if m is None or m.value is None or m.lo is None or m.hi is None:
+        return NOT_ESTIMABLE
+    if m.lo > 0:
+        return "sopra il target, oltre il rumore"
+    if m.hi < 0:
+        return "sotto il target, oltre il rumore"
+    return "compatibile con il target (dentro il rumore)"
+
+
+def _sign(v: float, nd: int = 0) -> str:
+    return ("+" if v > 0 else "") + _fmt(v, nd)
+
+
+def attention_points(values: list[MetricValue], week_start: date, issues: list[tuple[str, str]] | None) -> list[str]:
+    """Deterministic, ranked: safety → missing data → adherence beyond noise → sessions. At most 3."""
+    week_end = week_start + timedelta(days=6)
+
+    def get(metric: str) -> MetricValue | None:
+        return next((m for m in values if m.metric_id == metric and m.subject == "global"
+                     and m.period_end == week_end), None)
+
+    out = [f"Safety: {msg}" for sev, msg in (issues or []) if sev.startswith("safety")]
+    body = next((m for m in values if m.metric_id == "dq_score" and m.subject == "domain:body"
+                 and m.period_end == week_end), None)
+    nutr = next((m for m in values if m.metric_id == "dq_score" and m.subject == "domain:nutrition"
+                 and m.period_end == week_end), None)
+    for m, what in ((body, "pesate"), (nutr, "giorni di cibo completi")):
+        if m is not None and m.detail.get("grade") in ("C", "D"):
+            out.append(f"Dati: {what} al {_fmt(m.value * 100, 0)}% della settimana (grado {m.detail['grade']}) — "
+                       f"`{m.ref}`: senza dati le altre valutazioni restano incerte.")
+    for metric, what, unit in (("intake_vs_target_week", "Energia", "kcal/die"),
+                               ("protein_vs_target_week", "Proteine", "g/die")):
+        m = get(metric)
+        verdict = _vs_target(m)
+        if "oltre il rumore" in verdict:
+            out.append(f"{what}: media {_sign(m.value)} {unit} rispetto al target ({verdict}) — `{m.ref}`.")
+    sv = get("sessions_vs_plan_week")
+    if sv and sv.value < sv.detail.get("planned", 0):
+        out.append(f"Sedute: {_fmt(sv.value, 0)} su {sv.detail['planned']} pianificate — `{sv.ref}`.")
+    return out[:3]
+
+
 def render(values: list[MetricValue], week_start: date, issues: list[tuple[str, str]] | None = None) -> str:
     week_end = week_start + timedelta(days=6)
     iso_y, iso_w, _ = week_start.isocalendar()
@@ -34,98 +87,129 @@ def render(values: list[MetricValue], week_start: date, issues: list[tuple[str, 
                       key=lambda m: m.subject)
 
     L = [f"# Review settimanale — {iso_y}-W{iso_w:02d} ({week_start} → {week_end})", ""]
-    L += ["> Generata dal codice: ogni numero rimanda a `metrica@versione`. Nessuna raccomandazione: questa",
-          "> review descrive i dati; le decisioni si prendono separatamente e si registrano come interventi.", ""]
+    L += ["> Generata dal codice: ogni numero rimanda a `metrica@versione`. Ordine: fondamentali → indicatori",
+          "> ritardati → punti di attenzione. Esiti: *cambiamento reale* se l'intervallo della metrica esclude lo",
+          "> zero, *dentro il rumore* se lo include, *rumore non ancora stimabile* se mancano i dati per stimarlo.", ""]
 
-    L += ["## Qualità dei dati", "", "| Dominio | Copertura | Grado | Rif. |", "|---|---|---|---|"]
-    for m in many("dq_score"):
-        L.append(f"| {m.subject.split(':')[1]} | {_fmt(m.value * 100, 0)}% | {m.detail.get('grade')} | {_cite(m)} |")
+    flags = [msg for sev, msg in (issues or []) if sev.startswith("safety")]
+    if flags:
+        L += ["## Safety", ""] + [f"- ⚠ {f}" for f in flags] + [""]
+
+    # ---------------------------------------------------------------- 1. fundamentals
+    L += ["## 1. Fondamentali", "", "| Voce | Settimana | Esito | Rif. |", "|---|---|---|---|"]
+    for metric, label, unit, fallback in (("intake_vs_target_week", "Energia", "kcal/die", "intake_mean_7d"),
+                                          ("protein_vs_target_week", "Proteine", "g/die", "protein_mean_7d")):
+        m = get(metric)
+        if m is not None and m.value is not None:
+            ci = _interval(m, 0)
+            L.append(f"| {label} | media {_fmt(m.detail['actual_mean'], 0)} {unit} vs target "
+                     f"{_fmt(m.detail['target_mean'], 0)}: {_sign(m.value)}{ci} ({m.detail['complete_days']} giorni "
+                     f"completi) | {_vs_target(m)} | {_cite(m)} |")
+        elif m is not None:
+            L.append(f"| {label} | {m.detail.get('complete_days', 0)} giorni completi, media non calcolata | "
+                     f"{NOT_ESTIMABLE} | {_cite(m)} |")
+        else:
+            f = get(fallback)
+            if f is not None and f.value is not None:
+                L.append(f"| {label} | media {_fmt(f.value, 0)} {unit} (nessun target attivo) | — | {_cite(f)} |")
+            else:
+                L.append(f"| {label} | dati insufficienti | {NOT_ESTIMABLE} | — |")
+    sv = get("sessions_vs_plan_week")
+    if sv:
+        L.append(f"| Sedute di pesi | {_fmt(sv.value, 0)} su {sv.detail['planned']} pianificate | "
+                 f"{'come da piano' if sv.value >= sv.detail['planned'] else 'sotto il piano'} | {_cite(sv)} |")
+    else:
+        ss = get("sessions_strength")
+        L.append(f"| Sedute di pesi | {_fmt(ss.value, 0) if ss else 0} (nessun programma attivo) | — | "
+                 f"{_cite(ss) if ss else '—'} |")
+    sl = get("sleep_mean_week")
+    if sl and sl.value is not None:
+        L.append(f"| Sonno | {_fmt(sl.value, 1)} h/notte{_interval(sl, 1)} ({sl.n_obs} notti) | — | {_cite(sl)} |")
+    else:
+        L.append(f"| Sonno | {'dati insufficienti' if sl else 'nessun dato'} | — | {_cite(sl) if sl else '—'} |")
+    st = get("steps_mean_week")
+    if st and st.value is not None:
+        L.append(f"| Passi | {_fmt(st.value, 0)}/die ({st.n_obs} giorni) | — | {_cite(st)} |")
+    else:
+        L.append("| Passi | dati insufficienti | — | — |")
     L.append("")
 
-    L += ["## Corpo", ""]
+    # ---------------------------------------------------------------- 2. lagging indicators
+    L += ["## 2. Indicatori ritardati", ""]
     daily = [m for m in values if m.metric_id == "weight_daily" and week_start <= m.period_start <= week_end]
     L.append(f"- Pesate nella settimana: **{len(daily)}/7**")
-    for metric, label in (("weight_ema", "Peso di tendenza (EMA) a fine settimana"),
-                          ("weight_ma7", "Media mobile 7 giorni")):
-        m = get(metric)
-        L.append(f"- {label}: **{_fmt(m.value, 2)} kg** — {_cite(m)}" if m else f"- {label}: dati insufficienti")
+    ema = get("weight_ema")
+    L.append(f"- Peso di tendenza (EMA): **{_fmt(ema.value, 2)} kg** — {_cite(ema)}" if ema
+             else "- Peso di tendenza: dati insufficienti")
     for days in (14, 28):
         kg, pct = get(f"weight_rate_{days}d"), get(f"weight_rate_pct_{days}d")
         if kg and pct:
-            L.append(f"- Velocità {days} gg: **{_fmt(kg.value, 2)} kg/sett**{_interval(kg, 2)} = "
-                     f"**{_fmt(pct.value, 2)} %/sett**{_interval(pct, 2)} — {_cite(kg)}, n={kg.n_obs}")
+            L.append(f"- Velocità {days} gg: **{_fmt(pct.value, 2)} %/sett**{_interval(pct, 2)} "
+                     f"({_fmt(kg.value, 2)} kg/sett) → **{_beyond_noise(pct)}** (intervallo Theil–Sen, livello "
+                     f"`rate_ci_level`) — {_cite(pct)}, n={pct.n_obs}")
         else:
-            L.append(f"- Velocità {days} gg: dati insufficienti")
-    waist = [m for m in values if m.metric_id == "waist_session" and week_start <= m.period_start <= week_end]
-    for m in waist:
-        L.append(f"- Vita {m.period_start}: **{_fmt(m.value, 1)} cm** (letture {_fmt(m.lo, 1)}–{_fmt(m.hi, 1)}) "
-                 f"— {_cite(m)}")
-    L.append("")
-
-    L += ["## Nutrizione ed energia", ""]
-    m = get("intake_mean_7d")
-    if m and m.value is not None:
-        L.append(f"- Intake medio (giorni completi {m.detail['complete_days']}/7): **{_fmt(m.value, 0)} kcal/die**"
-                 f"{_interval(m, 0)} — {_cite(m)}")
+            L.append(f"- Velocità {days} gg: dati insufficienti → **{NOT_ESTIMABLE}**")
+    for m in [m for m in values if m.metric_id == "waist_session" and week_start <= m.period_start <= week_end]:
+        ch = next((c for c in values if c.metric_id == "waist_change" and c.period_start == m.period_start), None)
+        if ch is None:
+            L.append(f"- Vita {m.period_start}: **{_fmt(m.value, 1)} cm** (prima misura) — {_cite(m)}")
+            continue
+        md = ch.detail.get("minimal_difference_cm")
+        base = (f"differenza minima {_fmt(md, 1)} cm stimata da {ch.detail['noise_sessions']} sessioni con letture "
+                "ripetute" if md is not None else "letture ripetute insufficienti")
+        L.append(f"- Vita {m.period_start}: **{_fmt(m.value, 1)} cm**, {_sign(ch.value, 1)} cm dalla misura del "
+                 f"{ch.detail['previous_session']} → **{_beyond_noise(ch)}** ({base}) — {_cite(ch)}")
+    e1 = many("e1rm_best_week")
+    if e1:
+        L += ["", "| Esercizio | e1RM migliore | Variazione | Esito | Rif. |", "|---|---|---|---|---|"]
+        for v in e1:
+            ch = get("e1rm_change_week", v.subject)
+            change = f"{_sign(ch.value, 1)} kg" if ch else "prima settimana"
+            verdict = _beyond_noise(ch) if ch else NOT_ESTIMABLE
+            lb = " (limite inferiore)" if v.detail.get("lower_bound") else ""
+            L.append(f"| {v.subject.split(':', 1)[1]} | {_fmt(v.value, 1)} kg{lb} | {change} | {verdict} | "
+                     f"{_cite(ch or v)} |")
+        L.append("")
     else:
-        L.append(f"- Intake medio: dati insufficienti ({m.detail.get('complete_days', 0) if m else 0}/7 giorni "
-                 "completi)")
-    pm = get("protein_mean_7d")
-    if pm:
-        L.append(f"- Proteine medie: **{_fmt(pm.value, 0)} g/die** — {_cite(pm)}")
-    t = get("adaptive_tdee")
-    if t:
-        method = {"prior_only": "solo prior (formula), nessun dato osservato sufficiente",
-                  "adaptive": "adattivo, peso dei dati osservati "
-                              f"{_fmt(t.detail.get('weight_of_observed', 0) * 100, 0)}%",
-                  "observed_only": "solo dati osservati"}[t.detail["method"]]
-        L.append(f"- Mantenimento stimato (TDEE): **{_fmt(t.value, 0)} kcal/die**{_interval(t, 0)} — {method} — "
-                 f"{_cite(t)}")
-    L.append("")
-
-    L += ["## Allenamento", ""]
-    s = get("sessions_strength")
-    h = get("hard_sets")
-    if s:
-        L.append(f"- Sessioni pesi: **{_fmt(s.value, 0)}** · serie allenanti: **{_fmt(h.value, 0)}** "
-                 f"(serie senza RIR: {h.detail.get('proximity_unknown_sets', 0)}) — {_cite(h)}")
-        vol = many("volume_per_muscle_week")
-        if vol:
-            L += ["", "| Muscolo | Serie allenanti (frazionarie) |", "|---|---|"]
-            L += [f"| {v.subject.split(':')[1]} | {_fmt(v.value, 1)} |" for v in vol]
-            L.append(f"\n_Conteggio frazionario: `{vol[0].ref}` · stima_")
-        e1 = many("e1rm_best_week")
-        if e1:
-            L += ["", "| Esercizio | e1RM migliore | Nota |", "|---|---|---|"]
-            L += [f"| {v.subject.split(':', 1)[1]} | {_fmt(v.value, 1)} kg | "
-                  f"{'limite inferiore (RIR mancante)' if v.detail.get('lower_bound') else ''} |" for v in e1]
-            L.append(f"\n_`{e1[0].ref}` · stima (formula Epley, opinione esperta)_")
-    else:
-        L.append("- Nessuna sessione di pesi registrata")
+        L.append("- Forza: nessuna sessione di pesi registrata")
     km = get("run_volume_km")
     if km:
-        n, tm, hr = get("run_count"), get("run_time_min"), get("run_avg_hr")
-        L.append(f"- Corsa: **{_fmt(km.value, 1)} km** in **{_fmt(n.value, 0)}** uscite, **{_fmt(tm.value, 0)} min**"
-                 + (f", FC media {_fmt(hr.value, 0)}" if hr else "") + f" — {_cite(km)}")
+        n, tm = get("run_count"), get("run_time_min")
+        L.append(f"- Corsa: **{_fmt(km.value, 1)} km** in **{_fmt(n.value, 0)}** uscite, **{_fmt(tm.value, 0)} min** "
+                 f"— {_cite(km)}, `{tm.ref}`")
     else:
-        L.append("- Nessuna corsa registrata")
-    st = get("steps_mean_week")
-    if st:
-        L.append(f"- Passi medi: **{_fmt(st.value, 0)}/die** ({st.n_obs} giorni) — {_cite(st)}"
-                 if st.value is not None else f"- Passi: solo {st.n_obs} giorni registrati, media non calcolata")
-    else:
-        L.append("- Passi: nessun dato")
+        L.append("- Corsa: nessuna corsa registrata")
     L.append("")
 
+    # ---------------------------------------------------------------- 3. attention points
+    points = attention_points(values, week_start, issues)
+    L += ["## 3. Punti di attenzione", ""]
+    L += [f"{i}. {pt}" for i, pt in enumerate(points, 1)] if points else ["Nessun punto di attenzione dai dati."]
+    L.append("")
+
+    # ---------------------------------------------------------------- data quality and details
+    L += ["## Qualità dei dati", "", "| Dominio | Copertura | Grado | Rif. |", "|---|---|---|---|"]
+    for m in many("dq_score"):
+        L.append(f"| {m.subject.split(':')[1]} | {_fmt(m.value * 100, 0)}% | {m.detail.get('grade')} | {_cite(m)} |")
+    t = get("adaptive_tdee")
+    if t:
+        method = {"prior_only": "solo prior (formula)", "observed_only": "solo dati osservati",
+                  "adaptive": "adattivo"}[t.detail["method"]]
+        L += ["", f"- Mantenimento stimato (TDEE): **{_fmt(t.value, 0)} kcal/die**{_interval(t, 0)} — {method} — "
+                  f"{_cite(t)}"]
+    vol = many("volume_per_muscle_week")
+    if vol:
+        L += ["", "| Muscolo | Serie allenanti (frazionarie) | Rif. |", "|---|---|---|"]
+        L += [f"| {v.subject.split(':')[1]} | {_fmt(v.value, 1)} | {_cite(v)} |" for v in vol]
     ctx = many("context_mean_week")
     if ctx:
-        L += ["## Variabili di contesto", ""]
-        L += [f"- {c.subject.split(':', 1)[1]}: media **{_fmt(c.value, 1)}/die** ({c.n_obs} giorni) — {_cite(c)}"
-              for c in ctx]
-        L.append("")
-
-    if issues:
-        L += ["## Segnalazioni di qualità aperte", ""] + [f"- [{sev}] {msg}" for sev, msg in issues] + [""]
+        L += ["", "Variabili di contesto:"] + [
+            f"- {c.subject.split(':', 1)[1]}: media **{_fmt(c.value, 1)}/die** ({c.n_obs} giorni) — {_cite(c)}"
+            for c in ctx]
+    other = [(sev, msg) for sev, msg in (issues or []) if not sev.startswith("safety")]
+    if other:
+        L += ["", "Segnalazioni di qualità aperte:"] + [f"- [{sev}] {msg}" for sev, msg in other]
+    L.append("")
     return "\n".join(L)
 
 
@@ -138,28 +222,31 @@ def render_month(values: list[MetricValue], first: date, last: date, interventio
     def at(metric: str, end: date, subject: str = "global") -> MetricValue | None:
         return next((m for m in values if m.metric_id == metric and m.subject == subject and m.period_end == end), None)
 
+    cols = [("weight_ema", "Peso EMA", 2), ("weight_rate_pct_14d", "Vel. 14 gg %/sett", 2),
+            ("intake_mean_7d", "Intake medio", 0), ("adaptive_tdee", "TDEE", 0), ("hard_sets", "Serie allenanti", 0),
+            ("run_volume_km", "Corsa km", 1)]
+    present = {m.metric_id for m in values if m.value is not None}
+
+    def head(metric: str, label: str) -> str:
+        return f"{label} `{metric}@1`" if metric in present else label
+
     L = [f"# Retrospettiva mensile — {first:%Y-%m} ({first} → {last})", "",
-         "> Serie settimanali calcolate dal codice (`metrica@versione` nella legenda). Le conclusioni sugli",
-         "> interventi sono N-of-1: compatibili/non compatibili con l'esito atteso, mai prova causale.", "",
-         "| Settimana (fine) | Peso EMA | Vel. 14 gg %/sett | Intake medio | TDEE | Serie allenanti | Corsa km | DQ |",
-         "|---|---|---|---|---|---|---|---|"]
+         "> Serie settimanali calcolate dal codice (riferimento `metrica@versione` nell'intestazione di ogni colonna).",
+         "> Le conclusioni sugli interventi sono N-of-1: compatibili/non compatibili con l'esito atteso, mai prova",
+         "> causale.", "",
+         "| Settimana (fine) | " + " | ".join(head(m, lab) for m, lab, _ in cols) + " | DQ `dq_score@1` |",
+         "|---|" + "---|" * (len(cols) + 1)]
     for w in weeks:
-        cells = [
-            _fmt(getattr(at("weight_ema", w), "value", None), 2),
-            _fmt(getattr(at("weight_rate_pct_14d", w), "value", None), 2),
-            _fmt(getattr(at("intake_mean_7d", w), "value", None), 0),
-            _fmt(getattr(at("adaptive_tdee", w), "value", None), 0),
-            _fmt(getattr(at("hard_sets", w), "value", None), 0),
-            _fmt(getattr(at("run_volume_km", w), "value", None), 1),
-            (at("dq_score", w, "domain:overall").detail.get("grade") if at("dq_score", w, "domain:overall") else "—"),
-        ]
+        cells = [_fmt(getattr(at(m, w), "value", None), nd) for m, _, nd in cols]
+        dq = at("dq_score", w, "domain:overall")
+        cells.append(dq.detail.get("grade") if dq else "—")
         L.append(f"| {w} | " + " | ".join(cells) + " |")
-    L += ["", "_Legenda: `weight_ema@1`, `weight_rate_pct_14d@1`, `intake_mean_7d@1`, `adaptive_tdee@1`, "
-              "`hard_sets@1`, `run_volume_km@1`, `dq_score@1`_", "", "## Interventi"]
+    L += ["", "## Interventi"]
     L += [f"- n. {i['number']} — {i['title']}: {i['status']}" for i in interventions] or ["- nessuno"]
     L += ["", "## Profilo di risposta dell'atleta (N-of-1, specifico, non evidenza generale)"]
     L += [f"- {p['created_at'][:10]}: {p['finding']} — confidenza {p['confidence']}" for p in profile] or \
          ["- nessuna nuova conclusione nel mese"]
     L += ["", "## Safety"]
-    L += [f"- {f['local_date']} [{f['tier']}] {f['message']}" for f in flags] or ["- nessun flag nel mese"]
+    L += [f"- {f['local_date']} [{f['tier']}] {f['message']}" + (f" [flag:{f['id'][-8:]}]" if f.get("id") else "")
+          for f in flags] or ["- nessun flag nel mese"]
     return "\n".join(L)

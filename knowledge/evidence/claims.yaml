@@ -152,6 +152,14 @@ claims:
     basis: evidence
     certainty: low
     status: verified_abstract
+  - id: measure.sem_minimal_difference
+    domain: [measurement, data_quality]
+    claim: "L'errore standard di misura (SEM) permette di costruire intervalli di confidenza per i valori individuali e di stimare la differenza minima che un individuo deve mostrare per poter ritenere reale un cambiamento."
+    sources: [weir2005]
+    basis: evidence
+    certainty: moderate
+    status: verified_abstract
+    limitations: "la formula esatta della differenza minima non è riportata nell'abstract: nel sistema è un parametro con base opinione esperta"
   - id: rt.frequency
     domain: [resistance_training, hypertrophy, strength]
     claim: >-

@@ -377,6 +377,26 @@ def metrics_rebuild() -> None:
         raise typer.Exit(1)
 
 
+def _save_validated(md: str, out: Path, conn, echo: bool = True) -> None:
+    """Generated reports pass the validator too: on failure the final file is not written (DA VERIFICARE)."""
+    from askesis.validation import textcheck
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    draft = out.with_name(f".{out.name}.draft")
+    draft.write_text(md + "\n")
+    res, target = textcheck.finalize(draft, out, conn)
+    draft.unlink()
+    if echo:
+        typer.echo(md)
+    if res.ok:
+        typer.echo(f"\n✓ validata e salvata in {target.relative_to(config_mod.ROOT)}")
+        return
+    typer.echo(f"\n✗ DA VERIFICARE — {len(res.issues)} punti non supportati → {target.relative_to(config_mod.ROOT)}")
+    for i in res.issues:
+        typer.echo(i.render())
+    raise typer.Exit(1)
+
+
 @app.command("review")
 def review_cmd(
     date_: Annotated[
@@ -393,10 +413,8 @@ def review_cmd(
         typer.echo(md)
         if not stdout_only:
             first = md.split("— ")[1][:7]
-            out = config_mod.ROOT / "reports" / f"retro-{first}.md"
-            out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_text(md + "\n")
-            typer.echo(f"\n✓ salvata in {out.relative_to(config_mod.ROOT)}")
+            _save_validated(md, config_mod.ROOT / "reports" / f"retro-{first}.md", connect(config_mod.load().db_path),
+                            echo=False)
         return
     cfg, conn = _ctx()
     d = date.fromisoformat(date_) if date_ else _day(None, cfg) - timedelta(days=7)
@@ -406,8 +424,8 @@ def review_cmd(
         """SELECT i.severity, i.message FROM dq_issue i JOIN raw_record r ON r.id = i.record_id
            WHERE i.status = 'open' AND i.severity != 'info' AND r.local_date BETWEEN ? AND ?""",
         (ws.isoformat(), (ws + timedelta(days=6)).isoformat()))]
-    issues += [(f"safety {r['tier']}", r["message"]) for r in conn.execute(  # only flags of this week (no look-ahead)
-        "SELECT tier, message FROM safety_flag WHERE local_date BETWEEN ? AND ?",
+    issues += [(f"safety {r['tier']}", f"{r['message']} [flag:{r['id'][-8:]}]") for r in conn.execute(
+        "SELECT id, tier, message FROM safety_flag WHERE local_date BETWEEN ? AND ?",  # only this week's flags
         (ws.isoformat(), (ws + timedelta(days=6)).isoformat()))]
     md = review.render(values, ws, issues)
     if stdout_only:
@@ -415,10 +433,7 @@ def review_cmd(
         return
     y, w, _ = ws.isocalendar()
     out = config_mod.ROOT / "reports" / f"review-{y}-W{w:02d}.md"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(md + "\n")
-    typer.echo(md)
-    typer.echo(f"\n✓ salvata in {out.relative_to(config_mod.ROOT)}")
+    _save_validated(md, out, conn)
 
 
 @app.command("validate")

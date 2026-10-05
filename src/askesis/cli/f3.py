@@ -375,7 +375,7 @@ def month_cmd(date_: str | None) -> str:
     flags = [
         dict(r)
         for r in conn.execute(
-            "SELECT tier, local_date, message FROM safety_flag WHERE local_date BETWEEN ? AND ?",
+            "SELECT id, tier, local_date, message FROM safety_flag WHERE local_date BETWEEN ? AND ?",
             (first.isoformat(), last.isoformat()),
         )
     ]

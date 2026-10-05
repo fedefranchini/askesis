@@ -54,3 +54,10 @@ def test_prereg_with_unsupported_numbers_or_claims_is_rejected():
     bad = {**base, "reason": "proteine a 1,6–2,4 g/kg/die [claim:protein.general_range]"}
     assert not tc.check_prereg(bad).ok
     assert not tc.check_prereg({**base, "evidence_claims": ["protein.invented"]}).ok
+
+
+def test_table_rows_inherit_header_references_and_flags_are_checked():
+    ok = "| Settimana | Range `x@1` [claim:protein.general_range] |\n|---|---|\n| W1 | 1,4 g/kg |\n"
+    assert problems(ok.replace("`x@1` ", "")) == []
+    assert any("numero senza riferimento" in p for p in problems("| A | B |\n|---|---|\n| W1 | 1,4 g/kg |\n"))
+    assert any("flag inesistente" in p for p in problems("- Flag [flag:abcdef12]: calo 1,2 %"))
