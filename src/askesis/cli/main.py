@@ -95,11 +95,12 @@ def _print_receipt(r: Receipt) -> None:
 def _commit(records: list[dict], adapter: str, dry_run: bool = False, yes: bool = False) -> Receipt | None:
     """Save records. Workouts, runs and imports are previewed and saved only with --yes (decision 2026-10-04, b)."""
     cfg, conn = _ctx()
-    preview = dry_run or (readback.needs_confirmation(records) and not yes)
-    if preview:
-        rows = [Envelope.model_validate(rec).model_dump(mode="json") for rec in records]
+    from askesis import services
+
+    pv = services.preview(records)
+    if dry_run or (pv.needs_confirmation and not yes):
         typer.echo("ANTEPRIMA — nulla salvato:")
-        for line in readback.lines(rows):
+        for line in pv.lines:
             typer.echo(f"· {line}" if not line.startswith("  ") else f"  {line.strip()}")
         if not dry_run:
             typer.echo("Se è corretto, ripetere con --yes per salvare.")
@@ -114,7 +115,7 @@ def _commit(records: list[dict], adapter: str, dry_run: bool = False, yes: bool 
 def _build(intents: list[Intent], day: date) -> list[dict]:
     cfg = config_mod.load()
     now = now_utc()
-    return [rec for it in intents for rec in manual.build(it, cfg, day, now)]
+    return [rec for it in intents for rec in manual.build(it, cfg, day, now)]  # same path as services.build_day
 
 
 @app.command()
@@ -529,6 +530,38 @@ def validate_cmd(
     for i in res.issues:
         typer.echo(i.render())
     raise typer.Exit(1)
+
+
+web_app = typer.Typer(no_args_is_help=True, help="Dashboard locale (solo questo Mac).")
+app.add_typer(web_app, name="web")
+
+
+@web_app.command("set-password")
+def web_set_password() -> None:
+    """Imposta la password della dashboard (salvata solo come hash, in data/)."""
+    from askesis.web import auth
+    from askesis.web.app import paths
+
+    cfg = config_mod.load()
+    pw = typer.prompt("Nuova password", hide_input=True, confirmation_prompt=True)
+    try:
+        auth.set_password(paths(cfg)[0], pw)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo("✓ password impostata")
+
+
+@web_app.command("serve")
+def web_serve(port: Annotated[int, typer.Option("--port")] = 8765) -> None:
+    """Avvia la dashboard su http://127.0.0.1:<porta> (accessibile solo da questo Mac)."""
+    try:
+        import uvicorn
+
+        from askesis.web.app import create_app
+    except ImportError as exc:
+        raise typer.BadParameter("dipendenze mancanti: uv sync --extra dashboard") from exc
+    typer.echo(f"Dashboard su http://127.0.0.1:{port} — Ctrl+C per fermarla")
+    uvicorn.run(create_app(), host="127.0.0.1", port=port, log_level="warning")
 
 
 @app.command("init")

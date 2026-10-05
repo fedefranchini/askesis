@@ -34,3 +34,9 @@ def test_knowledge_and_reviewed_lines_are_not_scanned(tmp_path):
     assert rv.scan_diff(diff("knowledge/evidence/claims.yaml", "rate 0,4 %"), r) == []
     assert rv.scan_diff(diff("docs/a.md", "rate 0,4 %  <!-- real-values: ok -->"), r) == []
     assert rv.scan_diff(diff("docs/a.md", "rate 0,4 %"), r)
+
+
+def test_vendored_and_lock_files_are_not_scanned(tmp_path):
+    r = rules(tmp_path)
+    assert rv.scan_diff(diff("src/x/static/vendor/lib.min.js", "a=64.2"), r) == []
+    assert rv.scan_diff(diff("uv.lock", "version = 64.2"), r) == []

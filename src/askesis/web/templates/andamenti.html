@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Andamenti · Askesis{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/vendor/uplot/uPlot.min.css">{% endblock %}
+{% block main %}
+<h1>Andamenti</h1>
+<p class="hint">Punti: misure. Linea: tendenza calcolata. Banda: rumore stimato dai dati; un valore fuori dalla banda è un segnale, uno dentro è rumore.</p>
+<div id="charts" class="charts" data-empty="Nessun dato ancora: registra la prima pesata da Oggi.">
+  <figure><figcaption id="cap-weight">Peso</figcaption><div id="weight"></div></figure>
+  <figure><figcaption id="cap-energy">Energia: mantenimento stimato e intake medio settimanale</figcaption><div id="energy"></div></figure>
+  <figure><figcaption>Passi medi settimanali</figcaption><div id="steps"></div></figure>
+  <figure><figcaption>Sonno medio settimanale (ore)</figcaption><div id="sleep"></div></figure>
+  <figure><figcaption>Corsa: km settimanali</figcaption><div id="run"></div></figure>
+  <figure><figcaption>Forza: e1RM migliore della settimana</figcaption><div id="e1rm"></div></figure>
+  <figure><figcaption>Volume dell'ultima settimana (serie frazionarie per muscolo)</figcaption><div id="volume"></div></figure>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/vendor/uplot/uPlot.iife.min.js"></script>
+<script src="/static/charts.js"></script>
+{% endblock %}

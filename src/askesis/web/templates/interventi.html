@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Interventi · Askesis{% endblock %}
+{% block main %}
+<h1>Interventi</h1>
+{% if items %}
+<ul class="plain">{% for i in items %}<li><a href="/interventi?n={{ i.number }}">n. {{ i.number }}: {{ i.title }}</a> ({{ i.status }})</li>{% endfor %}</ul>
+{% else %}<p>Nessun intervento registrato.</p>{% endif %}
+{% if why %}<article class="report">{{ why|safe }}</article>{% endif %}
+{% endblock %}

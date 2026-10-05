@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Askesis{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="shell">
+    <nav class="nav" aria-label="Sezioni">
+      <span class="brand">Askesis</span>
+      {% if user %}
+      <ul>
+        {% for href, label in nav %}
+        <li><a href="{{ href }}"{% if path == href %} aria-current="page"{% endif %}>{{ label }}{% if href == "/safety" and open_flags %} <span class="flagcount" aria-label="{{ open_flags }} flag aperti">{{ open_flags }}</span>{% endif %}</a></li>
+        {% endfor %}
+      </ul>
+      <form method="post" action="/logout" class="logout">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button type="submit" class="link">Esci</button>
+      </form>
+      {% endif %}
+    </nav>
+    <main class="main">
+      {% block main %}{% endblock %}
+    </main>
+  </div>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

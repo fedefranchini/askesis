@@ -8,8 +8,8 @@ RULES_FILE is private (never in git). One rule per line, fields separated by "|"
 e.g. a weight range matched only with a decimal separator, or an integer matched only next to a unit word.
 Lines starting with "#" are comments.
 
-Not scanned: knowledge/ (general evidence: published values may coincide with a personal plan by design) and
-generated JSON schemas. A reviewed false positive can be accepted with the marker "real-values: ok" on the line.
+Not scanned: knowledge/ (general evidence: published values may coincide with a personal plan by design),
+generated JSON schemas, vendored third-party files (vendor/) and the dependency lock file. A reviewed false positive can be accepted with the marker "real-values: ok" on the line.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import re
 import sys
 from dataclasses import dataclass
 
-SKIP = re.compile(r"^(knowledge/|schemas/)")
+SKIP = re.compile(r"^(knowledge/|schemas/)|(^|/)vendor/|(^|/)uv\.lock$")
 NUMBER = re.compile(r"(?<![\w.,])(\d+(?:[.,]\d+)?)(?![\d]|[.,]\d)")
 THOUSANDS = re.compile(r"^\d{1,3}\.\d{3}$")  # Italian thousands separator: "2.450" is also read as 2450
 MARKER = "real-values: ok"
@@ -78,7 +78,7 @@ def scan_diff(diff: str, rules: list[Rule]) -> list[tuple[str, int, str]]:
         if h:
             line_no = int(h.group(1))
             continue
-        if path is None or SKIP.match(path):
+        if path is None or SKIP.search(path):
             continue
         if raw.startswith("+"):
             for name in hits_in_line(raw[1:], rules):

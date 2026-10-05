@@ -105,3 +105,14 @@ def waist_sessions(measurements: list[tuple[date, list[float]]]) -> list[MetricV
         out.append(MetricValue("waist_session", 1, "global", d, d, float(np.median(readings)), "cm", "MEASUREMENT",
                                len(readings), lo=min(readings), hi=max(readings)))
     return out
+
+
+def weight_noise_sd(daily: dict[date, float], end: date, days: int = 28) -> tuple[float, int] | None:
+    """Day-to-day scale noise: SD of daily weights around the EMA trend in the last `days` (data ≤ end only).
+    None when there are fewer points than the 28-day rate needs (weight_rate_min_points)."""
+    past = {d: w for d, w in daily.items() if d <= end}
+    ema = weight_ema_series(past)
+    res = [w - ema[d] for d, w in past.items() if end - timedelta(days=days - 1) <= d]
+    if len(res) < p("weight_rate_min_points")[str(days)]:
+        return None
+    return float(np.std(res, ddof=1)), len(res)

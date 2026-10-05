@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Oggi · Askesis{% endblock %}
+{% block main %}
+<h1>Oggi, {{ status.day.strftime("%d/%m") }}</h1>
+
+{% for f in status.flags %}
+<section class="flag tier-{{ f.tier }}" role="alert">
+  <p><strong>{{ f.message }}</strong></p>
+  <ul>{% for a in f.actions %}<li>{{ a }}</li>{% endfor %}</ul>
+</section>
+{% endfor %}
+
+<p class="missing">
+  {% if status.weight %}Pesata di oggi registrata.{% else %}Manca la pesata di oggi.{% endif %}
+  {% if status.food %}Cibo di ieri registrato.{% else %}Manca il cibo di ieri.{% endif %}
+</p>
+
+<form method="post" action="/" class="entry">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="line" class="lead">Riga del giorno</label>
+  <textarea id="line" name="line" rows="2" spellcheck="false" autocapitalize="off"
+            placeholder="p 68.4 · cibo 1850 115 · pesi: panca 50x8 r2, 50x7 r1">{{ line }}</textarea>
+  <div class="row">
+    <label for="day">Data</label>
+    <input id="day" name="day" type="date" value="{{ day_value }}">
+    <button type="submit" name="action" value="preview" class="secondary">Mostra anteprima</button>
+    <button type="submit" name="action" value="save">Salva</button>
+  </div>
+  <p class="hint">Cibo e passi si riferiscono al giorno prima. Pesi e corsa si salvano solo dopo l'anteprima.</p>
+
+  <details class="fields">
+    <summary>Campi pronti</summary>
+    <div class="grid">
+      <label>Peso (kg)<input name="peso" inputmode="decimal"></label>
+      <label>Energia di ieri (kcal)<input name="kcal" inputmode="numeric"></label>
+      <label>Proteine di ieri (g)<input name="proteine" inputmode="numeric"></label>
+      <label class="check"><input type="checkbox" name="parziale" value="1"> Giornata incompleta</label>
+      <label>Pasto libero (kcal stimate)<input name="libero_kcal" inputmode="numeric"></label>
+      <label>Pasto libero (proteine)<input name="libero_prot" inputmode="numeric"></label>
+      <label>Vita, lettura 1 (cm)<input name="vita1" inputmode="decimal"></label>
+      <label>Vita, lettura 2 (cm)<input name="vita2" inputmode="decimal"></label>
+      <label>Vita, lettura 3 (cm)<input name="vita3" inputmode="decimal"></label>
+      <label>Sonno (es. 7h30)<input name="sonno"></label>
+      <label>Passi di ieri<input name="passi" inputmode="numeric"></label>
+      <label>FC a riposo<input name="fcr" inputmode="numeric"></label>
+      <label class="wide">Pesi (es. panca 50x8 r2, 50x7 r1 · rematore 40x10 r2)<textarea name="pesi" rows="2"></textarea></label>
+      <label class="wide">Corsa (es. 5km 31:40 fc140)<input name="corsa"></label>
+    </div>
+    <p class="hint">I campi compilati diventano la stessa riga del giorno: lascia vuota la riga sopra per usarli.</p>
+  </details>
+</form>
+
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+{% if preview %}
+<section class="receipt" aria-live="polite">
+  <h2>Anteprima: nulla è stato salvato</h2>
+  <ul>{% for l in preview.lines %}<li>{{ l }}</li>{% endfor %}</ul>
+  <form method="post" action="/">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="line" value="{{ line }}">
+    <input type="hidden" name="day" value="{{ day_value }}">
+    <input type="hidden" name="confirmed" value="1">
+    <button type="submit" name="action" value="save">{% if preview.needs_confirmation %}Conferma e salva{% else %}Salva{% endif %}</button>
+  </form>
+</section>
+{% endif %}
+
+{% if saved %}
+<section class="receipt saved" aria-live="polite">
+  <h2>Salvato</h2>
+  <ul>{% for l in saved.lines %}<li>{{ l }}</li>{% endfor %}</ul>
+  {% if saved.receipt.duplicates %}<p class="hint">Già presenti: {{ saved.receipt.duplicates|join(", ") }}</p>{% endif %}
+  {% for label, reason in saved.receipt.rejected %}<p class="error">Rifiutato {{ label }}: {{ reason }}</p>{% endfor %}
+  {% for rid, sev, msg in saved.receipt.issues %}{% if sev != "info" %}<p class="warn">{{ msg }}</p>{% endif %}{% endfor %}
+</section>
+{% endif %}
+{% endblock %}

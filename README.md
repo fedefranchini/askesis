@@ -90,6 +90,14 @@ bin/ak review                # weekly review (Markdown) of the week just closed
 bin/ak backup
 ```
 
+Local dashboard (optional, this Mac only):
+
+```bash
+uv sync --extra dashboard
+bin/ak web set-password      # stored only as an scrypt hash under data/
+bin/ak web serve             # http://127.0.0.1:8765 — same core and checks as the CLI
+```
+
 `bin/ak` is a launcher for the `askesis` CLI. Personal settings (time zone, aliases for personal context
 variables) go in `private/askesis.toml`, which is never committed.
 

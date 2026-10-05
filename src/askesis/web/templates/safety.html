@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Safety · Askesis{% endblock %}
+{% block main %}
+<h1>Safety</h1>
+{% for f in flags %}
+<section class="flag tier-{{ f.tier }}">
+  <p><strong>{{ f.message }}</strong> ({{ f.local_date }}, {{ f.tier }})</p>
+  <ul>{% for a in f.actions %}<li>{{ a }}</li>{% endfor %}</ul>
+</section>
+{% else %}
+<p>Nessun flag di safety aperto.</p>
+{% endfor %}
+<p class="hint">Un flag si chiude solo con la sua risoluzione, nel terminale: bin/ak safety resolve.</p>
+{% endblock %}

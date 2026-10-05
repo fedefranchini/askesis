@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Accedi · Askesis{% endblock %}
+{% block main %}
+<h1>Accedi</h1>
+<form method="post" action="/login" class="stack narrow">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="password">Password</label>
+  <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <button type="submit">Accedi</button>
+</form>
+{% endblock %}

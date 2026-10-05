@@ -28,7 +28,8 @@ Questa repository è **pubblica**. I dati personali e sanitari dell'atleta non d
    misure, età, fuso, regioni del corpo con problemi noti). Prima di ogni commit controllare anche i
    valori di esempio, non solo la denylist. Rete di sicurezza: `privacy-guard` passa le righe aggiunte a
    `.githooks/real_values.py`, che blocca i numeri dentro gli intervalli reali dell'atleta (regole private in
-   `private/real_values.txt`: intervallo, solo decimali, contesto); `knowledge/` è esclusa (valori pubblicati).
+   `private/real_values.txt`: intervallo, solo decimali, contesto); esclusi `knowledge/` (valori pubblicati), file di terze
+   parti in `vendor/` e il lock delle dipendenze.
    Un falso positivo verificato si accetta con il marcatore `real-values: ok` sulla riga. Aggiornare le regole
    quando cambiano i valori reali o il piano.
 6. **Riscrittura dello storico** (con force push) **solo** se un contenuto pubblicato rivela un dato reale

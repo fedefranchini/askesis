@@ -233,3 +233,13 @@ def test_tdee_never_uses_weights_after_the_period(conn):
     daily = body.daily_weights(inp.weighins)
     assert energy.adaptive_tdee(inp.nutrition, daily, inp.athlete, syn.START + timedelta(days=6)) is None
     assert energy.adaptive_tdee(inp.nutrition, daily, inp.athlete, later) is not None
+
+
+def test_weight_noise_needs_enough_points_and_ignores_later_data():
+    daily = {syn.START + timedelta(days=i): 70 + (0.3 if i % 2 else -0.3) for i in range(28)}
+    end = syn.START + timedelta(days=27)
+    sd, n = body.weight_noise_sd(daily, end)
+    assert n == 28 and 0.2 < sd < 0.5
+    assert body.weight_noise_sd({d: w for d, w in list(daily.items())[:5]}, end) is None
+    later = daily | {end + timedelta(days=1): 50.0}
+    assert body.weight_noise_sd(later, end) == (sd, n)
