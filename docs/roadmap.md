@@ -250,6 +250,8 @@ gratuita a 7 giorni o a pagamento, decisione rimandata). Sostituirà la scheda i
 Invariato (stato, ultima review, why, prossima sessione, metriche e trend; sola lettura e aggregati di default;
 scritture con gli stessi controlli della CLI; prima locale, remoto solo dopo una progettazione di sicurezza;
 compatibile con qualsiasi client MCP).
+Strumento di sviluppo: la skill `mcp-builder` del repository ufficiale `anthropics/skills`, da installare a
+livello di progetto solo dopo audit di `SKILL.md` e script e approvazione dell'atleta.
 
 ### F. Backlog di precisione (continuo)
 Principio (`AGENTS.md`, regola 8): ogni funzione nuova migliora precisione o aderenza senza aumentare in modo
