@@ -5,7 +5,7 @@
 #             id_only = solo identificativo verificato, contenuto non letto. Grading preliminare.
 # Mai testi integrali o PDF in questa cartella (copyright).
 schema_version: "0.1"
-last_reviewed: "2026-10-03"
+last_reviewed: "2026-10-05"
 sources:
   - id: riebe2015
     citation: "Riebe D, et al. Updating ACSM's Recommendations for Exercise Preparticipation Health Screening. Med Sci Sports Exerc. 2015;47(11):2473-9."
@@ -118,6 +118,22 @@ sources:
     verified: {via: [crossref, pubmed], date: "2026-10-03"}
     read_level: abstract
     limitations: "15 studi; superata in ampiezza da pelland2025"
+  - id: bazvalle2022
+    citation: "Baz-Valle E, Balsalobre-Fernández C, Alix-Fages C, Santos-Concejero J. A Systematic Review of The Effects of Different Resistance Training Volumes on Muscle Hypertrophy. J Hum Kinet. 2022;81:199-210."
+    type: systematic_review_meta_analysis
+    doi: 10.2478/hukin-2022-0017
+    pmid: "35291645"
+    verified: {via: [crossref, pubmed], date: "2026-10-05"}
+    read_level: abstract
+    limitations: "7 RCT (6 nella meta-analisi), uomini giovani allenati; conteggio delle serie (dirette/indirette) non specificato nell'abstract"
+  - id: nunes2021order
+    citation: "Nunes JP, Grgic J, Cunha PM, Ribeiro AS, Schoenfeld BJ, de Salles BF, Cyrino ES. What influence does resistance exercise order have on muscular strength gains and muscle hypertrophy? A systematic review and meta-analysis. Eur J Sport Sci. 2021;21(2):149-157."
+    type: systematic_review_meta_analysis
+    doi: 10.1080/17461391.2020.1733672
+    pmid: "32077380"
+    verified: {via: [crossref, pubmed], date: "2026-10-05"}
+    read_level: abstract
+    limitations: "11 studi; confronto soprattutto multiarticolari vs monoarticolari"
   - id: schoenfeld2016freq
     citation: "Schoenfeld BJ, Ogborn D, Krieger JW. Effects of Resistance Training Frequency on Measures of Muscle Hypertrophy: A Systematic Review and Meta-Analysis. Sports Med. 2016;46(11):1689-1697."
     type: systematic_review_meta_analysis

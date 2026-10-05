@@ -53,10 +53,11 @@ def _run(r: dict) -> str:
     return " ".join(parts)
 
 
-def _session_lines(sessions: list[dict]) -> list[str]:
+def _session_lines(sessions: list[dict], minutes: bool = False) -> list[str]:
     out = []
     for s in sessions:
-        out.append(f"{DAYS[s['day']]} — {s['name']}")
+        dur = f" (~{session_minutes(s):.0f} min stimati)" if minutes and s.get("lifts") else ""
+        out.append(f"{DAYS[s['day']]} — {s['name']}{dur}")
         out += [f"  • {_lift(it)}" for it in s.get("lifts", [])]
         if s.get("run"):
             out.append(f"  • {_run(s['run'])}")
@@ -83,6 +84,26 @@ def planned_volume(sessions: list[dict]) -> dict[str, dict[str, float]]:
                 if frac >= 1.0:
                     v["direct"] += it["sets"]
     return dict(sorted(out.items(), key=lambda kv: -kv[1]["fractional"]))
+
+
+def session_minutes(session: dict) -> float:
+    """Planning estimate of a session's length from the session_* parameters (engineering choices)."""
+    by_id = {e["id"]: e for e in catalog()["exercises"]}
+    warm = p("session_warmup_sets")
+    total, compounds_seen = 0.0, 0
+    for it in session.get("lifts", []):
+        compound = by_id.get(it["exercise"], {}).get("compound", False)
+        rest = p("session_rest_compound_s") if compound else p("session_rest_isolation_s")
+        if compound:
+            n_warm = warm["first_two_compounds"] if compounds_seen < 2 else warm["other_compounds"]
+            compounds_seen += 1
+        else:
+            n_warm = warm["isolation"]
+        total += it["sets"] * p("session_set_duration_s") + (it["sets"] - 1) * rest
+        total += n_warm * p("session_warmup_set_s") + p("session_transition_s")
+    if session.get("run") and session["run"].get("duration_min"):
+        total += session["run"]["duration_min"] * 60
+    return total / 60
 
 
 def volume_table(sessions: list[dict]) -> list[str]:
@@ -184,8 +205,10 @@ def render_proposal(title: str, data: dict, preview: dict | None, preview_error:
                      f"{g['lookback_days']} giorni precedenti è registrato dolore ({', '.join(g['regions'])}) sopra "
                      f"{_dec(g['max_score'])}/10 (sotto la soglia di safety, che invece ferma il movimento).")
         L.append("")
-        L += _session_lines(pg["microcycle"])
-        L += ["", "**Volume settimanale pianificato** (serie allenanti; frazionarie = muscoli secondari contati 0,5, "
+        L += _session_lines(pg["microcycle"], minutes=True)
+        L += ["", "Durata stimata dal codice con i parametri `session_*` (scelte tecniche: recuperi, riscaldamento, "
+              "cambi di stazione), solo come stima.", "",
+              "**Volume settimanale pianificato** (serie allenanti; frazionarie = muscoli secondari contati 0,5, "
               "come in `rt.volume_dose_response`; esercizi e muscoli dal catalogo):", ""]
         L += volume_table(pg["microcycle"])
         L += ["", "**Settimana minima** (settimane difficili):"]

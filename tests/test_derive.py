@@ -219,3 +219,17 @@ def test_record_source_must_contain_the_value(tmp_path):
     rid = conn.execute("SELECT id FROM raw_record WHERE entity_type = 'nutrition_day' LIMIT 1").fetchone()["id"]
     assert tc.check_source(syn.KCAL, f"record:{rid[-8:]}", conn) is None
     assert tc.check_source(syn.KCAL + 300, f"record:{rid[-8:]}", conn)
+
+
+def test_session_length_estimate_follows_the_parameters():
+    from askesis.analytics.params import p
+    from askesis.interventions import present
+
+    one = {"lifts": [{"exercise": "lateral_raise", "sets": 2, "rep_range": [8, 12], "target_rir": 1}]}
+    expected = (2 * p("session_set_duration_s") + p("session_rest_isolation_s") + p("session_transition_s")) / 60
+    assert present.session_minutes(one) == pytest.approx(expected)
+    bench = {"exercise": "bench_press", "sets": 1, "rep_range": [6, 8], "target_rir": 2}
+    warm = p("session_warmup_sets")
+    third = present.session_minutes({"lifts": [bench] * 3}) - present.session_minutes({"lifts": [bench] * 2})
+    assert third * 60 == pytest.approx(p("session_set_duration_s") + warm["other_compounds"] * p("session_warmup_set_s")
+                                       + p("session_transition_s"))

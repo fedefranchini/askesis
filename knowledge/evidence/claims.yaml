@@ -5,7 +5,7 @@
 # status: verified_full_text | verified_abstract | unverified
 # population_scope: descrive SOLO dominio/popolazione degli studi. L'applicabilità a un atleta specifico è nei file privati.
 schema_version: "0.1"
-last_reviewed: "2026-10-03"
+last_reviewed: "2026-10-05"
 claims:
 
   # ---------- Screening ----------
@@ -135,6 +135,22 @@ claims:
     sources: [pelland2025, schoenfeld2017vol]
     basis: evidence
     certainty: moderate
+    status: verified_abstract
+  - id: rt.volume_range_12_20
+    domain: [training, hypertrophy, volume]
+    claim: "In giovani uomini allenati, 12–20 serie settimanali per gruppo muscolare sono indicate come raccomandazione standard per l'ipertrofia; tra volume moderato (12–20) e alto (oltre 20) non sono emerse differenze per quadricipiti e bicipiti, mentre per i tricipiti il volume alto è risultato migliore."
+    sources: [bazvalle2022]
+    basis: evidence
+    certainty: low
+    status: verified_abstract
+    population_scope: "uomini 18–35 anni con almeno un anno di allenamento con i pesi"
+    limitations: "pochi studi; conteggio delle serie dirette/indirette non specificato nell'abstract: il confronto con un programma va fatto sia sulle serie dirette sia su quelle frazionarie"
+  - id: rt.exercise_order
+    domain: [training, strength, hypertrophy]
+    claim: "Gli aumenti di forza sono maggiori negli esercizi eseguiti all'inizio della seduta; per l'ipertrofia l'ordine degli esercizi (multiarticolari prima o dopo i monoarticolari) produce risultati simili."
+    sources: [nunes2021order]
+    basis: evidence
+    certainty: low
     status: verified_abstract
   - id: rt.frequency
     domain: [resistance_training, hypertrophy, strength]

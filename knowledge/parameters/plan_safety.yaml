@@ -80,3 +80,34 @@ parameters:
     value: 1
     basis: engineering_choice
     rationale: "One change per outcome domain at a time keeps outcomes attributable (docs/architecture.md §8.3)."
+
+  # ---------------- session duration estimate (planning aid, not a prescription)
+  session_set_duration_s:
+    value: 40
+    unit: seconds_per_set
+    basis: engineering_choice
+    rationale: "Average time under load plus setup for one set, used only to estimate session length."
+  session_rest_compound_s:
+    value: 180
+    unit: seconds
+    basis: engineering_choice
+    rationale: "Planning assumption for rest between working sets of multi-joint exercises; the KB has no numeric rest claim (rt.progression_acsm only says longer rests for heavy loads)."
+  session_rest_isolation_s:
+    value: 90
+    unit: seconds
+    basis: engineering_choice
+    rationale: "Planning assumption for rest between working sets of single-joint exercises."
+  session_warmup_sets:
+    value: {first_two_compounds: 3, other_compounds: 1, isolation: 0}
+    unit: sets
+    basis: engineering_choice
+    rationale: "Ramp-up sets assumed for the estimate: more before the first two (heaviest) multi-joint exercises."
+  session_warmup_set_s:
+    value: 90
+    unit: seconds_including_rest
+    basis: engineering_choice
+  session_transition_s:
+    value: 60
+    unit: seconds_per_exercise
+    basis: engineering_choice
+    rationale: "Moving between stations and setting up."
