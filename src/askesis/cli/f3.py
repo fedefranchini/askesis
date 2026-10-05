@@ -150,8 +150,17 @@ def iv_propose(
     file: Path, title: Annotated[str, typer.Option("--title")], category: Annotated[str, typer.Option("--category")]
 ) -> None:
     """Registra una proposta (pre-registrazione da file YAML)."""
+    from askesis.validation import textcheck
+
     cfg, conn = _ctx()
-    iid = reg.propose(conn, title, category, yaml.safe_load(file.read_text()))
+    data = yaml.safe_load(file.read_text())
+    check = textcheck.check_prereg({**data, "title": title}, conn)
+    if not check.ok:  # an unsupported proposal is never registered
+        typer.echo(f"✗ proposta DA VERIFICARE — {len(check.issues)} punti non supportati, non registrata:")
+        for i in check.issues:
+            typer.echo(i.render())
+        raise typer.Exit(1)
+    iid = reg.propose(conn, title, category, data)
     typer.echo(f"✓ proposto intervento n. {reg.get(conn, iid)['number']} ({iid[-8:]})")
 
 

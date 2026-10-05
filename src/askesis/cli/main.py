@@ -421,6 +421,33 @@ def review_cmd(
     typer.echo(f"\n✓ salvata in {out.relative_to(config_mod.ROOT)}")
 
 
+@app.command("validate")
+def validate_cmd(
+    draft: Path,
+    out: Annotated[
+        Path | None, typer.Option("--out", "-o", help="File definitivo (scritto solo se il controllo passa)")
+    ] = None,
+) -> None:
+    """Controlla un testo generato: numeri con riferimento verificato, id e fonti presenti nella KB.
+
+    Con --out: se passa scrive il file definitivo; altrimenti scrive <out>.DA-VERIFICARE.md con i punti non
+    supportati ed esce con codice 1."""
+    from askesis.validation import textcheck
+
+    cfg, conn = _ctx()
+    if out is None:
+        res, target = textcheck.validate(draft.read_text(), conn), None
+    else:
+        res, target = textcheck.finalize(draft, out, conn)
+    if res.ok:
+        typer.echo("✓ validazione superata" + (f": salvato {target}" if target else ""))
+        return
+    typer.echo(f"✗ DA VERIFICARE — {len(res.issues)} punti non supportati" + (f" → {target}" if target else ""))
+    for i in res.issues:
+        typer.echo(i.render())
+    raise typer.Exit(1)
+
+
 @app.command("init")
 def init() -> None:
     """Crea o aggiorna il database."""

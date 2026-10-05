@@ -34,6 +34,29 @@ propone**; l'atleta decide. Ogni numero viene da `bin/ak`; ogni scelta metodolog
   doi.org/PubMed); dichiarare incertezza ed etichettare opinione esperta e preferenze personali.
 - Se un dato manca, dirlo e chiederlo; se una domanda richiede una valutazione medica, dirlo (vedi `safety.md`).
 
+## Validazione dei testi generati (obbligatoria)
+Commenti di review, retrospettive, report giornalieri e proposte di intervento passano da un controllo
+deterministico (`src/askesis/validation/textcheck.py`). In ogni paragrafo, voce di elenco o riga di tabella,
+ogni numero con unità (kg, kcal, g/kg, %, km, …) o con decimali deve stare accanto a un riferimento il cui
+valore registrato corrisponde:
+
+| Riferimento | Fonte del valore |
+|---|---|
+| `[claim:<id>]` | testo del claim nella evidence KB |
+| `[param:<id>]` | valore del parametro in `knowledge/parameters/` |
+| `` `metrica@N` `` | `metric_value` calcolato dal codice |
+| `` `regola@N` `` | regola versionata in `knowledge/rules/` |
+| `[record:<id>]` | payload del record RAW (id completo o ultimi 8 caratteri) |
+
+Inoltre id, DOI e citazioni autore-anno devono esistere nella KB. Date, settimane, orari e conteggi senza
+unità sono ignorati.
+
+- Testi: scrivere la bozza in `reports/.bozze/<nome>.md`, poi `bin/ak validate reports/.bozze/<nome>.md --out
+  reports/<nome>.md`. Se il controllo fallisce il file definitivo **non** viene scritto: il testo va in
+  `reports/<nome>.DA-VERIFICARE.md` con l'elenco dei punti non supportati e l'atleta riceve una notifica.
+- Proposte: `bin/ak intervention propose` rifiuta (e non registra) una pre-registrazione con claim inesistenti o
+  numeri non supportati nei campi di testo.
+
 ## Formati
 - Rilettura: `Panca piana: 80 kg × 8 @RIR 2 · 80 kg × 7 @RIR 1`
 - Flag: `⚠ [T1 · attenzione] <messaggio>` + azioni
