@@ -341,13 +341,81 @@ def import_staging(
     typer.echo(r.summary())
 
 
-@app.command("backup")
-def backup_cmd() -> None:
+backup_app = typer.Typer(invoke_without_command=True, help="Backup del database, test di ripristino, agenti launchd.")
+app.add_typer(backup_app, name="backup")
+
+
+@backup_app.callback()
+def backup_cmd(ctx: typer.Context) -> None:
     """Backup del database con rotazione (7 giornalieri + 4 settimanali)."""
+    if ctx.invoked_subcommand is not None:
+        return
     cfg, conn = _ctx()
     path = backup_mod.backup(conn, cfg.backup_dir, datetime.now())
     removed = backup_mod.rotate(cfg.backup_dir)
     typer.echo(f"✓ backup {path.name} · rimossi {len(removed)} vecchi backup")
+
+
+@backup_app.command("verify")
+def backup_verify(
+    snapshot: Annotated[Path | None, typer.Argument(help="Backup da verificare (default: il più recente)")] = None,
+    notify: Annotated[bool, typer.Option("--notify", help="Notifica macOS se il test fallisce")] = False,
+) -> None:
+    """Test di ripristino: integrità, nessun record perso o alterato, stesso digest delle metriche."""
+    cfg, conn = _ctx()
+    snap = snapshot or backup_mod.latest(cfg.backup_dir)
+    if snap is None:
+        typer.secho("✗ nessun backup da verificare", fg="red")
+        raise typer.Exit(1)
+    res = backup_mod.verify(conn, snap, cfg.backup_dir / "restore-tests")
+    res["verified_at"] = datetime.now().isoformat(timespec="seconds")
+    (cfg.backup_dir / "restore-test-last.json").write_text(json.dumps(res, indent=2))
+    typer.echo(("✓" if res["ok"] else "✗") + f" test di ripristino di {snap.name}: " + json.dumps(
+        {k: v for k, v in res.items() if k not in ("snapshot", "verified_at")}, ensure_ascii=False))
+    if not res["ok"]:
+        if notify:
+            import subprocess
+
+            subprocess.run(["osascript", "-e", 'display notification "Test di ripristino del backup fallito" '
+                            'with title "Askesis"'], check=False)
+        raise typer.Exit(1)
+
+
+@backup_app.command("agent")
+def backup_agent(
+    install: Annotated[bool, typer.Option("--install", help="Scrive e carica gli agenti (serve --yes)")] = False,
+    uninstall: Annotated[bool, typer.Option("--uninstall", help="Scarica e rimuove gli agenti")] = False,
+    yes: Annotated[bool, typer.Option("--yes")] = False,
+) -> None:
+    """Agenti launchd: backup giornaliero (02:30) e test di ripristino settimanale (domenica 03:00).
+    Senza opzioni mostra soltanto cosa verrebbe installato."""
+    import os
+    import shutil
+    import subprocess
+
+    cfg, _ = _ctx()
+    uv = shutil.which("uv") or "uv"
+    agents = backup_mod.launch_agents(config_mod.ROOT, uv, cfg.backup_dir)
+    target_dir = Path.home() / "Library" / "LaunchAgents"
+    domain = f"gui/{os.getuid()}"
+    if uninstall:
+        for label in agents:
+            subprocess.run(["launchctl", "bootout", f"{domain}/{label}"], check=False)
+            (target_dir / f"{label}.plist").unlink(missing_ok=True)
+            typer.echo(f"✓ rimosso {label}")
+        return
+    for label, xml in agents.items():
+        typer.echo(f"— {target_dir / (label + '.plist')}\n{xml}")
+    if not (install and yes):
+        typer.echo("Nulla installato. Per installare: bin/ak backup agent --install --yes")
+        return
+    target_dir.mkdir(parents=True, exist_ok=True)
+    for label, xml in agents.items():
+        path = target_dir / f"{label}.plist"
+        path.write_text(xml)
+        subprocess.run(["launchctl", "bootout", f"{domain}/{label}"], check=False, capture_output=True)
+        subprocess.run(["launchctl", "bootstrap", domain, str(path)], check=True)
+        typer.echo(f"✓ installato e caricato {label}")
 
 
 @metrics_app.command("compute")

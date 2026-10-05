@@ -104,3 +104,28 @@ def test_free_meal_estimate_end_to_end(cli):
     r = cli("day", "cibo 1500 95 +400/20", "--date", "2026-01-13")
     assert r.exit_code == 0, r.output
     assert "✓ Cibo 12/1: 1.900 kcal (di cui ~400 kcal stimate, pasto libero), 115 g proteine" in r.output
+
+
+def test_restore_test_passes_and_detects_tampering(cli, tmp_path):
+    import sqlite3
+
+    cli("day", "p 74.6 · cibo 1850 115", "--date", "2026-01-13")
+    cli("backup")
+    ok = cli("backup", "verify")
+    assert ok.exit_code == 0 and "✓ test di ripristino" in ok.output and '"metrics_digest_equal": true' in ok.output
+    snap = sorted((tmp_path / "backups").glob("askesis-*.db"))[-1]
+    raw = sqlite3.connect(snap)
+    raw.execute("DROP TRIGGER IF EXISTS raw_record_ro_u")
+    for (name,) in raw.execute("SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='raw_record'"):
+        raw.execute(f"DROP TRIGGER {name}")
+    raw.execute("UPDATE raw_record SET payload_hash = 'tampered' WHERE entity_type = 'body_weight'")
+    raw.commit()
+    raw.close()
+    bad = cli("backup", "verify")
+    assert bad.exit_code == 1 and '"raw_record": 1' in bad.output
+
+
+def test_launch_agents_are_only_shown_without_install(cli, tmp_path):
+    out = cli("backup", "agent").output
+    assert "local.askesis.backup" in out and "local.askesis.restore-test" in out and "Nulla installato" in out
+    assert "<key>StartCalendarInterval</key>" in out
