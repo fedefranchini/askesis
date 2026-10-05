@@ -162,7 +162,8 @@ def _print_derived(conn, data: dict, today: date) -> None:
         return
     for d in spec.values:
         v = res["values"][d.name]
-        src = f" [{v['source']}, {v['period_end']}]" if v.get("source") else ""
+        when = f", {v['period_end']}" if v.get("period_end") else ""
+        src = f" [{v['source']}{when}]" if v.get("source") else ""
         typer.echo(f"  - {d.name} = {v['value']:.1f} {d.unit}{src} — {d.description}")
 
 

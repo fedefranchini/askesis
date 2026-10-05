@@ -135,7 +135,10 @@ def render_proposal(title: str, data: dict, preview: dict | None, preview_error:
         for d in derived["values"]:
             v = (preview or {}).get("values", {}).get(d["name"])
             now = f"{_num(v['value'], UNIT_DECIMALS.get(d['unit'], 0))} {d['unit']}" if v else "—"
-            src = f"`{v['source'].split(' ')[0]}` al {v['period_end']}" if v and v.get("source") else "formula"
+            src = "formula"
+            if v and v.get("source"):
+                src = f"`{v['source'].split(' ')[0]}`" + (f" al {v['period_end']}" if v.get("period_end") else
+                                                          " (ripiego dichiarato)")
             L.append(f"| {d['name']} | {now} | {src} | {d['description']} |")
         if preview:
             tdee = preview["values"].get("start_tdee", {}).get("detail") or {}
@@ -146,6 +149,14 @@ def render_proposal(title: str, data: dict, preview: dict | None, preview_error:
                       f"{'predefinito' if default_factor else 'dichiarato'}"
                       "): incertezza ampia. Le pesate fino alla data limite cambiano il peso di partenza e quindi "
                       "target calorico e proteico; la regola calorica rivaluta il target dopo 3 settimane."]
+        starts = [d for d in derived["values"] if d["method"] == "energy_start"]
+        if starts and preview and starts[0]["name"] in preview["values"]:
+            st = preview["values"][starts[0]["name"]]
+            L += ["", "Target di partenza: il più basso tra " + " e ".join(
+                f"{'target da formula' if k == 'formula_target' else 'intake abituale − passo'} "
+                f"({_num(v)} kcal/die)" for k, v in st["candidates"].items())
+                + f" → oggi vincola **{'la formula' if st['bound'] == 'formula_target' else 'l intake abituale'}**."
+                .replace("l intake", "l'intake")]
         L.append("")
     for c in _changes(data, "phase"):
         ph = c["content"]
@@ -166,7 +177,13 @@ def render_proposal(title: str, data: dict, preview: dict | None, preview_error:
     for c in _changes(data, "programme"):
         pg = c["content"]
         L += ["## Allenamento", f"Progressione: `{pg.get('progression_rule')}` (L1, automatica). Deload pianificati: "
-              f"{', '.join(str(d) for d in pg.get('deload_weeks', [])) or '—'}.", ""]
+              f"{', '.join(str(d) for d in pg.get('deload_weeks', [])) or '—'}."]
+        if pg.get("pain_gate"):
+            g = pg["pain_gate"]
+            L.append(f"Blocco della progressione: sugli schemi {', '.join(g['patterns'])} il carico non aumenta se nei "
+                     f"{g['lookback_days']} giorni precedenti è registrato dolore ({', '.join(g['regions'])}) sopra "
+                     f"{_dec(g['max_score'])}/10 (sotto la soglia di safety, che invece ferma il movimento).")
+        L.append("")
         L += _session_lines(pg["microcycle"])
         L += ["", "**Volume settimanale pianificato** (serie allenanti; frazionarie = muscoli secondari contati 0,5, "
               "come in `rt.volume_dose_response`; esercizi e muscoli dal catalogo):", ""]
