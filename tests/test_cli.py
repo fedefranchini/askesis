@@ -139,6 +139,7 @@ def test_dashboard_agent_is_only_shown_and_binds_localhost(cli):
 
 @pytest.mark.parametrize("cmd", [
     ["day"], ["fix"], ["retract"], ["review"], ["validate"], ["why"], ["import-staging"], ["import-health"],
+    ["import-hevy"],
     ["metrics", "compute"], ["metrics", "rebuild"], ["backup", "verify"], ["backup", "agent"], ["web", "serve"],
     ["web", "agent"], ["web", "set-password"], ["safety", "check"], ["plan", "show"], ["plan", "next"],
     ["plan", "calorie-check"], ["plan", "calorie-apply"], ["intervention", "propose"], ["intervention", "approve"],

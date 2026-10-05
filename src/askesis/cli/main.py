@@ -379,6 +379,53 @@ def import_health(
         f3.print_flags(conn, max(e.local_date for e in r.inserted))
 
 
+@app.command("import-hevy")
+def import_hevy(
+    path: Path,
+    mapping: Annotated[Path | None, typer.Option("--mapping", help="Abbinamenti esercizi (default: privato)")] = None,
+    write_mapping: Annotated[bool, typer.Option("--write-mapping", help="Crea la bozza degli abbinamenti")] = False,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Salva (senza: solo anteprima)")] = False,
+) -> None:
+    """Import dell'esportazione degli allenamenti di Hevy: abbinamento esplicito degli esercizi, anteprima, --yes."""
+    from askesis.ingestion import hevy
+
+    cfg, conn = _ctx()
+    map_path = mapping or config_mod.ROOT / "private" / "hevy_map.yaml"
+    sessions = hevy.parse(path, cfg.timezone)
+    confirmed = hevy.load_mapping(map_path)
+    report = hevy.mapping_report(sessions, confirmed)
+    typer.echo(f"{len(sessions)} sedute, {sum(len(s.sets) for s in sessions)} serie, dal "
+               f"{sessions[0].start:%Y-%m-%d} al {sessions[-1].start:%Y-%m-%d}" if sessions else "nessuna seduta")
+    for title, n, done, prop in report:
+        typer.echo(f"  {title} ({n} serie) → " + (done if done else f"DA CONFERMARE (proposta: {prop or 'nessuna'})"))
+    if write_mapping:
+        if map_path.exists():
+            raise typer.BadParameter(f"{map_path} esiste già: modificalo a mano")
+        lines = ["# Abbinamenti esercizi Hevy → catalogo (PRIVATO). Valori: id del catalogo, ignore, raw.",
+                 "# Le proposte NON sono confermate: controlla ogni riga, poi togli il commento.", "exercises:"]
+        lines += [f"  # {json.dumps(t, ensure_ascii=False)}: {p or 'raw'}" for t, _, d, p in report if not d]
+        map_path.parent.mkdir(parents=True, exist_ok=True)
+        map_path.write_text("\n".join(lines) + "\n")
+        typer.echo(f"✓ bozza scritta in {map_path} (righe commentate: da confermare)")
+        return
+    plan = hevy.build(sessions, confirmed, cfg, conn)
+    if plan.unmapped:
+        typer.echo(f"✗ {len(plan.unmapped)} esercizi da abbinare: nulla importato (vedi --write-mapping)")
+        raise typer.Exit(1)
+    for (what, outcome), n in sorted(plan.counts.items()):
+        typer.echo(f"  {what}: {outcome}: {n}")
+    if not plan.records:
+        typer.echo("Nulla da salvare.")
+        return
+    if not yes:
+        typer.echo(f"ANTEPRIMA — nulla salvato ({len(plan.records)} record). Per salvare: ripetere con --yes")
+        return
+    r = ingest(conn, plan.records, "hevy_export", input_ref=path.name, source_kind="imported")
+    typer.echo(r.summary())
+    for label, reason in r.rejected[:10]:
+        typer.secho(f"✗ rifiutato {label}: {reason}", fg="red")
+
+
 backup_app = typer.Typer(invoke_without_command=True, help="Backup del database, test di ripristino, agenti launchd.")
 app.add_typer(backup_app, name="backup")
 
