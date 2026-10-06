@@ -1,0 +1,3 @@
+Barlow (SIL Open Font License 1.1) — https://github.com/google/fonts/tree/main/ofl/barlow
+commit: 6cdf01867df0813c2390f90dff7dc66c87f14cf7
+Files: Barlow-Regular.ttf, Barlow-SemiBold.ttf, Barlow-Bold.ttf, OFL.txt (unmodified)

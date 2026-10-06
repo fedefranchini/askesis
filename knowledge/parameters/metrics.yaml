@@ -128,6 +128,12 @@ parameters:
     rationale: "Day-to-day change above this opens a soft data-quality issue (not a rejection)."
 
   # ---------------- adherence and noise (weekly review)
+  sleep_recommended_min_h:
+    value: 7
+    unit: hours_per_night
+    basis: evidence
+    rationale: "Adults should regularly sleep 7 or more hours per night (AASM/SRS consensus). Used for the sleep status colour."
+    claims: [sleep.adult_recommendation]
   sleep_min_days_for_mean:
     value: 4
     unit: nights_of_7

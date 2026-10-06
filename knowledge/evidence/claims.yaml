@@ -289,12 +289,13 @@ claims:
     status: verified_abstract
   - id: sleep.adult_recommendation
     domain: [sleep]
-    claim: "AASM/SRS hanno pubblicato una raccomandazione di consenso sulla quantità di sonno per adulti sani."
-    sources: [watson2015]
-    basis: expert_opinion
-    certainty: low
-    status: unverified
-    notes: "il numero di ore raccomandato non compare nell'abstract e il full text non è stato letto"
+    claim: "Secondo il consenso AASM/SRS gli adulti dovrebbero dormire regolarmente 7 o più ore per notte per favorire una salute ottimale; più di 9 ore regolari possono essere appropriate per giovani adulti, chi recupera un debito di sonno o chi è malato."
+    sources: [watson2015jcsm, watson2015]
+    basis: evidence
+    certainty: moderate
+    status: verified_full_text
+    population_scope: "adulti sani 18–60 anni"
+    limitations: "dichiarazione di consenso di esperti basata su revisione della letteratura, non su un singolo studio; raccomandazione di popolazione, non un target individuale"
   - id: hrv.individual_longitudinal
     domain: [recovery, monitoring]
     claim: "L'HRV va interpretata longitudinalmente sul singolo atleta, con medie su più giorni; aumenti e cali non hanno un significato univoco."
