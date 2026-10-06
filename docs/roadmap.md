@@ -202,7 +202,8 @@ motore, con gli stessi controlli (validazione, rilettura, approvazioni, safety, 
 ### F4 · I. Dashboard web locale + sincronizzazione da Salute
 **Stato:** F4a (dashboard, avvio automatico con launchd), F4b (import dell'esportazione di Salute:
 `bin/ak import-health`) e accesso dall'iPhone tramite Meshnet (solo il telefono autorizzato) completati.
-Import di Hevy pronto (`bin/ak import-hevy`), in attesa dell'esportazione. Accesso dall'iPhone: **Meshnet di NordVPN** (decisione
+Hevy: nessun import dello storico (usato per poco, senza Pro: niente API per routine con carichi
+consigliati); in palestra resta la nota in Apple Notes. L'importatore (`bin/ak import-hevy`) resta disponibile. Accesso dall'iPhone: **Meshnet di NordVPN** (decisione
 del 2026-10-06). **Tailscale scartato** perché l'atleta usa NordVPN ogni giorno e le due VPN non
 risultavano utilizzabili insieme (sull'iPhone, da verificare), mentre Meshnet è integrata nella stessa app (la chiusura di Meshnet annunciata per
 dicembre 2025 è stata ritirata da NordVPN a settembre 2025). La dashboard resta indipendente dal fornitore:
