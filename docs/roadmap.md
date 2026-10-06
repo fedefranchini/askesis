@@ -202,8 +202,8 @@ motore, con gli stessi controlli (validazione, rilettura, approvazioni, safety, 
 ### F4 · I. Dashboard web locale + sincronizzazione da Salute
 **Stato:** F4a (dashboard, solo da questo Mac, avvio automatico con launchd) e F4b (import dell'esportazione di
 Salute: `bin/ak import-health`) completate. Accesso dall'iPhone: **Meshnet di NordVPN** (decisione
-del 2026-10-06). **Tailscale scartato** perché l'atleta usa NordVPN ogni giorno e sull'iPhone le due VPN non
-possono restare attive insieme, mentre Meshnet è integrata nella stessa app (la chiusura di Meshnet annunciata per
+del 2026-10-06). **Tailscale scartato** perché l'atleta usa NordVPN ogni giorno e le due VPN non
+risultavano utilizzabili insieme (sull'iPhone, da verificare), mentre Meshnet è integrata nella stessa app (la chiusura di Meshnet annunciata per
 dicembre 2025 è stata ritirata da NordVPN a settembre 2025). La dashboard resta indipendente dal fornitore:
 ascolta solo sugli indirizzi scelti (`web_bind`, mai jolly), accetta solo il Mac e i client autorizzati
 (`web_allowed_clients`) e gli host ammessi (`web_allowed_hosts`); cambiare fornitore = cambiare configurazione. Poi F4b (import storico di Salute) e F4c
