@@ -274,9 +274,9 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
     ]
     app = Starlette(routes=routes, middleware=[
         Middleware(SecurityHeaders),
-        Middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts or ["127.0.0.1", "localhost"]),
+        Middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts or cfg.web_allowed_hosts),
         Middleware(SessionMiddleware, secret_key=auth.session_secret(secret_file), session_cookie="askesis_session",
-                   max_age=12 * 3600, same_site="strict", https_only=False),
+                   max_age=12 * 3600, same_site="strict", https_only=cfg.web_secure_cookies),
     ])
     return app
 

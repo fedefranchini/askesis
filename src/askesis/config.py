@@ -25,6 +25,10 @@ class Config:
     staging_dir: Path
     source_id: str
     context_aliases: dict[str, str] = field(default_factory=dict)
+    # Dashboard access. The server always listens on 127.0.0.1 only; remote access is provided by a network layer
+    # in front of it (e.g. a mesh VPN that proxies HTTPS to localhost). Changing provider = changing these values.
+    web_allowed_hosts: list[str] = field(default_factory=lambda: ["127.0.0.1", "localhost"])
+    web_secure_cookies: bool = False  # true when the dashboard is reached through HTTPS
 
 
 def _read(path: Path) -> dict:
@@ -51,4 +55,6 @@ def load(private: Path | None = None) -> Config:
         staging_dir=path("staging_dir"),
         source_id=data["source_id"],
         context_aliases={k.lower(): v for k, v in aliases.items()},
+        web_allowed_hosts=list(data.get("web_allowed_hosts", ["127.0.0.1", "localhost"])),
+        web_secure_cookies=bool(data.get("web_secure_cookies", False)),
     )

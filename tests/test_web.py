@@ -141,3 +141,19 @@ def test_series_api_returns_engine_metrics(env):
     d = client.get("/api/series").json()
     assert len(d["weight"]["daily"]) == 21 and d["weight"]["refs"] == ["weight_daily@1", "weight_ema@1"]
     assert d["tdee"]["ref"] == "adaptive_tdee@1"
+
+
+def test_remote_access_is_configuration_only(tmp_path, monkeypatch):
+    """A network layer in front of 127.0.0.1 (any provider) only needs its host name and HTTPS cookies in config."""
+    private = tmp_path / "p.toml"
+    private.write_text('timezone = "Europe/Berlin"\nweb_allowed_hosts = ["127.0.0.1", "nodo-a.example.ts"]\n'
+                       "web_secure_cookies = true\n")
+    monkeypatch.setenv("ASKESIS_CONFIG", str(private))
+    monkeypatch.setenv("ASKESIS_DB_PATH", str(tmp_path / "r.db"))
+    cfg = config.load()
+    auth.set_password(paths(cfg)[0], secrets.token_urlsafe(16))
+    app = create_app(cfg)
+    assert TestClient(app, base_url="https://nodo-a.example.ts").get("/login").status_code == 200
+    assert TestClient(app, base_url="http://other.example").get("/login").status_code == 400
+    r = TestClient(app, base_url="https://nodo-a.example.ts").get("/login")
+    assert "secure" in r.headers.get("set-cookie", "").lower()

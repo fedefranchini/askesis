@@ -98,6 +98,10 @@ bin/ak web set-password      # stored only as an scrypt hash under data/
 bin/ak web serve             # http://127.0.0.1:8765 — same core and checks as the CLI
 ```
 
+The server only ever listens on 127.0.0.1. Remote access, if wanted, comes from a network layer in front of it
+(for example a mesh VPN proxying HTTPS to localhost); the dashboard only needs `web_allowed_hosts` and
+`web_secure_cookies` in the private config, so changing provider never requires code changes.
+
 `bin/ak` is a launcher for the `askesis` CLI. Personal settings (time zone, aliases for personal context
 variables) go in `private/askesis.toml`, which is never committed.
 
