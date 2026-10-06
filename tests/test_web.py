@@ -157,3 +157,20 @@ def test_remote_access_is_configuration_only(tmp_path, monkeypatch):
     assert TestClient(app, base_url="http://other.example").get("/login").status_code == 400
     r = TestClient(app, base_url="https://nodo-a.example.ts").get("/login")
     assert "secure" in r.headers.get("set-cookie", "").lower()
+
+
+def test_only_loopback_and_allowed_clients_may_connect(tmp_path, monkeypatch):
+    from askesis.web.app import check_bind
+
+    private = tmp_path / "p.toml"
+    private.write_text('timezone = "Europe/Berlin"\nweb_allowed_clients = ["100.64.0.2"]\n')
+    monkeypatch.setenv("ASKESIS_CONFIG", str(private))
+    monkeypatch.setenv("ASKESIS_DB_PATH", str(tmp_path / "c.db"))
+    cfg = config.load()
+    auth.set_password(paths(cfg)[0], secrets.token_urlsafe(16))
+    app = create_app(cfg)
+    ok = TestClient(app, base_url="http://127.0.0.1", client=("100.64.0.2", 5000)).get("/login")
+    other = TestClient(app, base_url="http://127.0.0.1", client=("192.168.1.50", 5000)).get("/login")
+    assert ok.status_code == 200 and other.status_code == 403
+    with pytest.raises(ValueError):
+        check_bind(["127.0.0.1", "0.0.0.0"])

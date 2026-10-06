@@ -29,6 +29,8 @@ class Config:
     # in front of it (e.g. a mesh VPN that proxies HTTPS to localhost). Changing provider = changing these values.
     web_allowed_hosts: list[str] = field(default_factory=lambda: ["127.0.0.1", "localhost"])
     web_secure_cookies: bool = False  # true when the dashboard is reached through HTTPS
+    web_bind: list[str] = field(default_factory=lambda: ["127.0.0.1"])  # addresses to listen on (never 0.0.0.0)
+    web_allowed_clients: list[str] = field(default_factory=list)  # extra client IPs besides this Mac (loopback)
 
 
 def _read(path: Path) -> dict:
@@ -57,4 +59,6 @@ def load(private: Path | None = None) -> Config:
         context_aliases={k.lower(): v for k, v in aliases.items()},
         web_allowed_hosts=list(data.get("web_allowed_hosts", ["127.0.0.1", "localhost"])),
         web_secure_cookies=bool(data.get("web_secure_cookies", False)),
+        web_bind=list(data.get("web_bind", ["127.0.0.1"])),
+        web_allowed_clients=list(data.get("web_allowed_clients", [])),
     )

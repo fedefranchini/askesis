@@ -635,8 +635,21 @@ def web_serve(port: Annotated[int, typer.Option("--port")] = 8765) -> None:
         from askesis.web.app import create_app
     except ImportError as exc:
         raise typer.BadParameter("dipendenze mancanti: uv sync --extra dashboard") from exc
-    typer.echo(f"Dashboard su http://127.0.0.1:{port} — Ctrl+C per fermarla")
-    uvicorn.run(create_app(), host="127.0.0.1", port=port, log_level="warning")
+    import socket
+
+    from askesis.web.app import check_bind
+
+    cfg = config_mod.load()
+    sockets = []
+    for addr in check_bind(cfg.web_bind):  # one listening socket per chosen address, never a wildcard
+        fam = socket.AF_INET6 if ":" in addr else socket.AF_INET
+        sock = socket.socket(fam, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((addr, port))
+        sockets.append(sock)
+        typer.echo(f"Dashboard su http://{addr if fam == socket.AF_INET else f'[{addr}]'}:{port}")
+    server = uvicorn.Server(uvicorn.Config(create_app(cfg), log_level="warning"))
+    server.run(sockets=sockets)
 
 
 @web_app.command("agent")

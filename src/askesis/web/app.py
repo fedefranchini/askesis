@@ -48,6 +48,14 @@ NAV = [("/", "Oggi"), ("/andamenti", "Andamenti"), ("/review", "Review"), ("/pia
        ("/interventi", "Interventi"), ("/safety", "Safety")]
 
 
+def check_bind(addresses: list[str]) -> list[str]:
+    """Refuse wildcard addresses: the dashboard listens only on explicitly chosen interfaces."""
+    for a in addresses:
+        if a in ("0.0.0.0", "::", "", "*"):
+            raise ValueError(f"indirizzo di ascolto non ammesso: {a!r} (esporrebbe la dashboard su ogni rete)")
+    return addresses
+
+
 def exercise_name(key: str) -> str:
     from askesis.reference import catalog
 
@@ -274,11 +282,29 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
     ]
     app = Starlette(routes=routes, middleware=[
         Middleware(SecurityHeaders),
+        Middleware(ClientAllowlist, allowed=cfg.web_allowed_clients),
         Middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts or cfg.web_allowed_hosts),
         Middleware(SessionMiddleware, secret_key=auth.session_secret(secret_file), session_cookie="askesis_session",
                    max_age=12 * 3600, same_site="strict", https_only=cfg.web_secure_cookies),
     ])
     return app
+
+
+LOOPBACK = {"127.0.0.1", "::1"}
+
+
+class ClientAllowlist(BaseHTTPMiddleware):
+    """Only this Mac (loopback) and the explicitly allowed client addresses may connect."""
+
+    def __init__(self, app, allowed: list[str]) -> None:
+        super().__init__(app)
+        self.allowed = LOOPBACK | set(allowed)
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        host = request.client.host if request.client else ""
+        if host not in self.allowed and host != "testclient":
+            return Response("Dispositivo non autorizzato.", status_code=403)
+        return await call_next(request)
 
 
 class SecurityHeaders(BaseHTTPMiddleware):
