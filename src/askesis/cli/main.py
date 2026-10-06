@@ -628,26 +628,38 @@ def web_set_password() -> None:
 
 @web_app.command("serve")
 def web_serve(port: Annotated[int, typer.Option("--port")] = 8765) -> None:
-    """Avvia la dashboard su http://127.0.0.1:<porta> (accessibile solo da questo Mac)."""
+    """Avvia la dashboard sugli indirizzi di web_bind (default solo 127.0.0.1, cioè solo da questo Mac)."""
     try:
         import uvicorn
 
         from askesis.web.app import create_app
     except ImportError as exc:
         raise typer.BadParameter("dipendenze mancanti: uv sync --extra dashboard") from exc
-    import socket
+    import os
+    import threading
+    import time
 
-    from askesis.web.app import check_bind
+    from askesis.web.app import bind_sockets
 
     cfg = config_mod.load()
-    sockets = []
-    for addr in check_bind(cfg.web_bind):  # one listening socket per chosen address, never a wildcard
-        fam = socket.AF_INET6 if ":" in addr else socket.AF_INET
-        sock = socket.socket(fam, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind((addr, port))
-        sockets.append(sock)
-        typer.echo(f"Dashboard su http://{addr if fam == socket.AF_INET else f'[{addr}]'}:{port}")
+    sockets, missing = bind_sockets(cfg.web_bind, port)
+    if not sockets:
+        raise typer.BadParameter(f"nessun indirizzo disponibile tra {cfg.web_bind}")
+    for sock in sockets:
+        typer.echo(f"Dashboard su http://{sock.getsockname()[0]}:{port}")
+    if missing:
+        typer.echo(f"In attesa di {', '.join(missing)} (interfaccia non attiva): riavvio quando compare")
+
+        def watch() -> None:  # when the address appears, exit non-zero so launchd restarts with all sockets
+            while True:
+                time.sleep(60)
+                probe, still = bind_sockets(missing, 0)
+                for p in probe:
+                    p.close()
+                if not still:
+                    os._exit(75)
+
+        threading.Thread(target=watch, daemon=True).start()
     server = uvicorn.Server(uvicorn.Config(create_app(cfg), log_level="warning"))
     server.run(sockets=sockets)
 

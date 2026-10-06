@@ -174,3 +174,14 @@ def test_only_loopback_and_allowed_clients_may_connect(tmp_path, monkeypatch):
     assert ok.status_code == 200 and other.status_code == 403
     with pytest.raises(ValueError):
         check_bind(["127.0.0.1", "0.0.0.0"])
+
+
+def test_missing_interfaces_do_not_stop_loopback():
+    from askesis.web.app import bind_sockets
+
+    socks, missing = bind_sockets(["127.0.0.1", "192.0.2.1"], 0)  # 192.0.2.1: documentation range, never local
+    try:
+        assert [s.getsockname()[0] for s in socks] == ["127.0.0.1"] and missing == ["192.0.2.1"]
+    finally:
+        for s in socks:
+            s.close()

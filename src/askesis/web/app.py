@@ -56,6 +56,26 @@ def check_bind(addresses: list[str]) -> list[str]:
     return addresses
 
 
+def bind_sockets(addresses: list[str], port: int) -> tuple[list, list[str]]:
+    """Listening sockets for the chosen addresses. Addresses not present right now (e.g. a VPN interface that is
+    down) are returned as missing instead of failing: loopback keeps working."""
+    import socket
+
+    sockets, missing = [], []
+    for addr in check_bind(addresses):
+        fam = socket.AF_INET6 if ":" in addr else socket.AF_INET
+        sock = socket.socket(fam, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind((addr, port))
+        except OSError:
+            sock.close()
+            missing.append(addr)
+            continue
+        sockets.append(sock)
+    return sockets, missing
+
+
 def exercise_name(key: str) -> str:
     from askesis.reference import catalog
 
