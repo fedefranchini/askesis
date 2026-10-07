@@ -557,7 +557,7 @@ def review_cmd(
         typer.echo(md)
         if not stdout_only:
             first = md.split("— ")[1][:7]
-            _save_validated(md, config_mod.ROOT / "reports" / f"retro-{first}.md", connect(config_mod.load().db_path),
+            _save_validated(md, config_mod.reports_dir() / f"retro-{first}.md", connect(config_mod.load().db_path),
                             echo=False)
         return
     cfg, conn = _ctx()
@@ -576,7 +576,7 @@ def review_cmd(
         typer.echo(md)
         return
     y, w, _ = ws.isocalendar()
-    out = config_mod.ROOT / "reports" / f"review-{y}-W{w:02d}.md"
+    out = config_mod.reports_dir() / f"review-{y}-W{w:02d}.md"
     _save_validated(md, out, conn)
 
 

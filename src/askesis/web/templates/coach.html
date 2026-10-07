@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Coach · Askesis{% endblock %}
+{% block main %}
+<header class="pagehead">
+  <div><span class="eyebrow">Testi e decisioni</span><h1>Coach</h1></div>
+</header>
+
+{% if done %}<p class="card notice ok" role="status">{{ icon("ok") }}<span>{{ done }}</span></p>{% endif %}
+{% if error %}<p class="card notice attn" role="alert">{{ icon("warn") }}<span>{{ error }}</span></p>{% endif %}
+
+{% if confirm %}
+<section class="card confirm" aria-labelledby="confirm-title">
+  <span class="eyebrow">Conferma la decisione</span>
+  <h2 id="confirm-title">{{ confirm.item.title }}</h2>
+  <p class="quote">«{{ confirm.text }}»{% if confirm.reason %}<span class="hint">Motivo: {{ confirm.reason }}</span>{% endif %}</p>
+  <p class="hint">
+    {% if confirm.action == "approve" %}Verrà registrata la tua approvazione e il piano cambierà come descritto nella proposta.
+    {% else %}Verrà registrato il tuo rifiuto: il piano non cambia.{% endif %}
+    Nulla è ancora stato registrato.
+  </p>
+  <form method="post" action="/coach/conferma" class="confirm-actions">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="nonce" value="{{ confirm.nonce }}">
+    <button type="submit" class="{{ 'danger-soft' if confirm.action == 'reject' else '' }}">Conferma: {{ "approvo" if confirm.action == "approve" else "rifiuto" }}</button>
+    <a href="/coach" class="button-link">Annulla</a>
+  </form>
+</section>
+{% endif %}
+
+{% if pending and not confirm %}
+<section aria-labelledby="pending-title">
+  <h2 id="pending-title" class="section-title">Da decidere <span class="count">{{ pending|length }}</span></h2>
+  {% for p in pending %}
+  {% set key = p.kind ~ ":" ~ p.ref %}
+  <article class="card proposal">
+    <h3>{{ p.title }}</h3>
+    <p class="hint">{{ p.summary }}</p>
+    {% if not p.validated %}
+    <div class="verify-banner" role="note">{{ icon("warn") }}<div><strong>Da verificare</strong> — il validatore non accetta {{ p.issues|length }} {{ 'punto' if p.issues|length == 1 else 'punti' }}: si può solo rifiutare.
+      <details><summary>Punti non supportati</summary><ul>{% for i in p.issues %}<li>{{ i }}</li>{% endfor %}</ul></details></div></div>
+    {% endif %}
+    <details class="proposal-body"><summary>Leggi la proposta</summary><div class="report">{{ md(p.body)|safe }}</div></details>
+    <form method="post" action="/coach/decisione" class="decide">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="kind" value="{{ p.kind }}">
+      <input type="hidden" name="ref" value="{{ p.ref }}">
+      <label for="text-{{ loop.index }}" class="lead">La tua risposta</label>
+      <input id="text-{{ loop.index }}" name="text" required autocomplete="off" autocapitalize="none" maxlength="500"
+             placeholder="scrivi «approvo» oppure «rifiuto»" value="{{ draft.text if draft and draft.key == key else '' }}">
+      <label for="reason-{{ loop.index }}" class="lead quiet">Motivo (facoltativo)</label>
+      <textarea id="reason-{{ loop.index }}" name="reason" rows="2" maxlength="1000">{{ draft.reason if draft and draft.key == key else '' }}</textarea>
+      <button type="submit" class="secondary">Continua</button>
+      <p class="hint">Ti chiederò una conferma prima di registrare.</p>
+    </form>
+  </article>
+  {% endfor %}
+</section>
+{% elif not confirm %}
+<p class="card done">{{ icon("ok") }}Nessuna proposta in attesa.</p>
+{% endif %}
+
+{% if current and not confirm %}
+<section aria-labelledby="texts-title">
+  <h2 id="texts-title" class="section-title">Testi</h2>
+  <nav class="doc-tabs" aria-label="Ultimi testi">
+    {% for d in latest %}
+    <a href="/coach?f={{ d.name|urlencode }}"{% if current and d.name == current.name %} aria-current="true"{% endif %}>
+      {{ d.label }}{% if not d.validated %} <span class="pill attn">da verificare</span>{% endif %}</a>
+    {% endfor %}
+  </nav>
+  <article class="card report reading{% if not current.validated %} unverified{% endif %}">
+    {% if current.validated %}
+    <p class="valid-tag">{{ icon("ok") }}Validato: numeri e fonti controllati dal codice</p>
+    {% else %}
+    <div class="verify-banner" role="note">{{ icon("warn") }}<div><strong>Da verificare</strong> — {{ current.issues|length }} {{ 'punto non supportato' if current.issues|length == 1 else 'punti non supportati' }} dal validatore. Non è un testo definitivo.
+      <details><summary>Punti non supportati</summary><ul>{% for i in current.issues %}<li>{{ i }}</li>{% endfor %}</ul></details></div></div>
+    {% endif %}
+    {{ current_html|safe }}
+  </article>
+  {% if docs|length > latest|length %}
+  <form method="get" action="/coach" class="row archive">
+    <label for="f">Archivio</label>
+    <select id="f" name="f">{% for d in docs %}<option value="{{ d.name }}"{% if d.name == current.name %} selected{% endif %}>{{ d.label }}{% if not d.validated %} (da verificare){% endif %}</option>{% endfor %}</select>
+    <button type="submit" class="secondary">Apri</button>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

@@ -283,3 +283,65 @@ def test_logout_forgets_this_device(env):
     assert len(auth.devices(paths(cfg)[2])) == 1
     client.post("/logout", data={"csrf": csrf_of(client.get("/").text)}, follow_redirects=False)
     assert auth.devices(paths(cfg)[2]) == []
+
+
+def _coach_env(env):
+    import os
+
+    from test_cli_f3 import SYNTHETIC_SOURCES
+    from test_f3 import prereg
+
+    from askesis.interventions import registry as reg
+
+    client, cfg, password = env
+    reg.propose(connect(cfg.db_path), "Fase di prova", "phase_start_fat_loss", prereg(value_sources=SYNTHETIC_SOURCES))
+    rep = Path(os.environ["ASKESIS_REPORTS_DIR"])
+    rep.mkdir(exist_ok=True)
+    (rep / "review-2025-W11.md").write_text("# Review\n\nSettimana regolare.\n")
+    (rep / "review-2025-W11-commento.md").write_text("# Commento\n\nIl peso è sceso di 4,7 kg.\n")
+    login(client, password)
+    return client, cfg
+
+
+def test_coach_shows_validated_and_flags_unverified_texts(env):
+    client, _ = _coach_env(env)
+    page = client.get("/coach")
+    assert "Da decidere" in page.text and "Fase di prova" in page.text
+    assert 'aria-label="1 proposte in attesa"' in page.text  # badge on the tab bar
+    flagged = client.get("/coach?f=review-2025-W11-commento.md").text
+    assert "Da verificare" in flagged and "4,7" in flagged
+    assert "Validato" in client.get("/coach?f=review-2025-W11.md").text
+    assert "pyproject" not in client.get("/coach?f=../../pyproject.toml").text.split("<main")[1]
+
+
+def test_decision_needs_explicit_word_and_confirmation(env):
+    from askesis.interventions import registry as reg
+
+    client, cfg = _coach_env(env)
+    token = csrf_of(client.get("/coach").text)
+    vague = client.post("/coach/decisione", data={"csrf": token, "kind": "intervention", "ref": "1", "text": "ok"})
+    assert "approvo" in vague.text and "Conferma la decisione" not in vague.text
+    step1 = client.post("/coach/decisione", data={"csrf": token, "kind": "intervention", "ref": "1",
+                                                  "text": "approvo", "reason": "pronto"})
+    assert "Conferma: approvo" in step1.text and "Nulla è ancora stato registrato" in step1.text
+    c = connect(cfg.db_path)
+    assert reg.status(c, reg.get(c, 1)["id"]) == "proposed"  # nothing recorded at step 1
+    nonce = re.search(r'name="nonce" value="([^"]+)"', step1.text).group(1)
+    forged = client.post("/coach/conferma", data={"csrf": token, "nonce": "x" + nonce})
+    assert "nulla è stato registrato" in forged.text.lower() and reg.status(c, reg.get(c, 1)["id"]) == "proposed"
+    step1 = client.post("/coach/decisione", data={"csrf": token, "kind": "intervention", "ref": "1", "text": "approvo"})
+    nonce = re.search(r'name="nonce" value="([^"]+)"', step1.text).group(1)
+    done = client.post("/coach/conferma", data={"csrf": token, "nonce": nonce})
+    assert "approvato" in done.text and reg.status(c, reg.get(c, 1)["id"]) == "activated"
+    replay = client.post("/coach/conferma", data={"csrf": token, "nonce": nonce})  # one confirmation, one decision
+    assert "nulla è stato registrato" in replay.text.lower()
+
+
+def test_decision_without_csrf_records_nothing(env):
+    from askesis.interventions import registry as reg
+
+    client, cfg = _coach_env(env)
+    r = client.post("/coach/decisione", data={"kind": "intervention", "ref": "1", "text": "approvo"})
+    assert "Sessione scaduta" in r.text
+    c = connect(cfg.db_path)
+    assert reg.status(c, reg.get(c, 1)["id"]) == "proposed"

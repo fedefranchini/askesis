@@ -233,6 +233,12 @@ duplicata):
   mai allungata), token casuale in cookie HttpOnly/SameSite=Strict e solo hash sul Mac; revoca da Accesso e da
   `bin/ak web devices`; cambiare password chiude sessioni e dispositivi; allowlist, host, CSRF e attesa
   progressiva restano attivi. Uscire fa dimenticare anche il dispositivo.
+- **Coach (fatto)**: i testi dell'assistente (controllo serale, review, retrospettiva, proposte) sono rivalidati dal
+  codice a ogni visualizzazione; ciò che non passa è mostrato "da verificare" con i punti non supportati. Le proposte
+  in attesa (interventi e regola calorica) si approvano o rifiutano scrivendo «approvo» o «rifiuto», con un secondo
+  passaggio di conferma monouso; registrazione tramite le stesse funzioni della CLI (safety e controllo delle
+  proposte inclusi); nessuna modifica calorica con un flag di safety aperto. Badge sulla barra con le proposte in
+  attesa.
 - **Passkey (nota, nessun lavoro ora)**: la Web Authentication API funziona solo in un contesto sicuro (HTTPS,
   oppure `localhost` sul Mac) e l'identificativo del sito (RP ID) deve essere un nome di dominio, non un indirizzo
   IP (W3C WebAuthn; MDN). Con l'accesso attuale (HTTP dentro Meshnet, verso un IP 100.x) **non sono possibili**.

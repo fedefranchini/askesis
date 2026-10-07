@@ -15,6 +15,11 @@ DEFAULT_FILE = ROOT / "config" / "askesis.default.toml"
 PRIVATE_FILE = ROOT / "private" / "askesis.toml"
 
 
+def reports_dir() -> Path:
+    """Where generated reports live (overridable for tests and synthetic instances: never mix real and test texts)."""
+    return Path(os.environ.get("ASKESIS_REPORTS_DIR", ROOT / "reports"))
+
+
 @dataclass
 class Config:
     timezone: str

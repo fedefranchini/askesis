@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import hmac
 import json
-import re
 import secrets
 from datetime import date, timedelta
 from pathlib import Path
+from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -26,6 +26,7 @@ from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Re
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
+from askesis import coach as coach_mod
 from askesis import config as config_mod
 from askesis import services
 from askesis.analytics import body, engine
@@ -44,10 +45,9 @@ from . import auth, md
 from .netwatch import bind_sockets, check_bind  # noqa: F401  (public: used by the CLI and tests)
 
 HERE = Path(__file__).parent
-REPORT_NAME = re.compile(r"^(review|retro|daily|proposta)[\w.-]*\.md$")
 CSP = ("default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; "
        "frame-ancestors 'none'; form-action 'self'; base-uri 'none'")
-NAV = [("/", "Oggi"), ("/andamenti", "Andamenti"), ("/review", "Review"), ("/piano", "Piano"),
+NAV = [("/", "Oggi"), ("/andamenti", "Andamenti"), ("/coach", "Coach"), ("/piano", "Piano"),
        ("/interventi", "Interventi"), ("/safety", "Safety")]
 
 
@@ -140,6 +140,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
     env = Environment(loader=FileSystemLoader(HERE / "templates"), autoescape=select_autoescape(["html"]))
     env.filters["num"] = fmt_num
     env.filters["date"] = fmt_date
+    env.globals["md"] = md.render
     asset_v = asset_version()
 
     def today() -> date:
@@ -155,8 +156,10 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
 
     def page(request: Request, template: str, **ctx) -> HTMLResponse:
         c = conn()
+        user = request.session.get("user")
         ctx |= {"nav": NAV, "asset_v": asset_v, "path": request.url.path, "csrf": csrf(request),
-                "open_flags": len(safety.open_flags(c)), "user": request.session.get("user")}
+                "open_flags": len(safety.open_flags(c)), "user": user,
+                "pending_count": len(coach_mod.pending(c)) if user else 0}
         return HTMLResponse(env.get_template(template).render(**ctx))
 
     async def form_checked(request: Request) -> dict | None:
@@ -382,15 +385,64 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         return JSONResponse(out)
 
     # ------------------------------------------------------------------ reports, plan, interventions, safety
-    async def review(request: Request) -> Response:
-        rdir = config_mod.ROOT / "reports"
-        files = sorted((p.name for p in rdir.glob("*.md") if REPORT_NAME.match(p.name)), reverse=True) \
-            if rdir.exists() else []
-        name = request.query_params.get("f") or next((f for f in files if f.startswith("review-")), None)
-        body_html = None
-        if name and name in files:  # only listed files: no path traversal
-            body_html = md.render((rdir / name).read_text())
-        return page(request, "review.html", files=files, name=name, body=body_html)
+    async def review(request: Request) -> Response:  # old address: the texts now live in Coach
+        f = request.query_params.get("f")
+        return RedirectResponse("/coach" + (f"?f={quote(f)}" if f else ""), status_code=303)
+
+    def coach_page(request: Request, **ctx) -> HTMLResponse:
+        c = conn()
+        docs = coach_mod.documents(config_mod.reports_dir(), c)
+        by_name = {d.name: d for d in docs}
+        name = request.query_params.get("f")
+        current = by_name.get(name) if name else None  # only listed files: no path traversal
+        latest = []
+        for kind in ("daily", "review", "retro"):
+            latest += [d for d in docs if d.kind == kind][:2 if kind == "review" else 1]
+        if current is None and not ctx.get("confirm"):
+            current = next((d for d in docs if d.kind == "review" and "commento" not in d.name),
+                           docs[0] if docs else None)
+        return page(request, "coach.html", pending=coach_mod.pending(c), docs=docs, latest=latest, current=current,
+                    current_html=md.render(current.body) if current else None, **ctx)
+
+    async def coach_view(request: Request) -> Response:
+        return coach_page(request)
+
+    async def coach_decision(request: Request) -> Response:
+        """Step 1: the typed answer is checked and a confirmation is asked (nothing is recorded yet)."""
+        form = await form_checked(request)
+        if form is None:
+            return coach_page(request, error="Sessione scaduta: ricarica la pagina e ripeti.")
+        kind, ref = str(form.get("kind", "")), str(form.get("ref", ""))
+        text, reason = str(form.get("text", "")).strip()[:500], str(form.get("reason", "")).strip()[:1000]
+        item = next((x for x in coach_mod.pending(conn()) if x.kind == kind and x.ref == ref), None)
+        if item is None:
+            return coach_page(request, error="Questa proposta non è più in attesa.")
+        try:
+            action = coach_mod.intent(text)
+        except coach_mod.DecisionError as exc:
+            return coach_page(request, error=f"{item.title}: {exc}.", draft={"key": f"{kind}:{ref}", "text": text,
+                                                                           "reason": reason})
+        if action == "approve" and not item.validated:
+            return coach_page(request, error="Questa proposta è da verificare: si può solo rifiutare.")
+        nonce = secrets.token_urlsafe(16)
+        request.session["decision"] = {"nonce": nonce, "kind": kind, "ref": ref, "text": text, "reason": reason,
+                                       "exp": now_utc().timestamp() + 600}
+        return coach_page(request, confirm={"nonce": nonce, "item": item, "action": action, "text": text,
+                                            "reason": reason})
+
+    async def coach_confirm(request: Request) -> Response:
+        """Step 2: only the confirmation issued for this exact answer, within 10 minutes, records the decision."""
+        form = await form_checked(request)
+        pending_d = request.session.pop("decision", None)
+        if form is None or not pending_d or not hmac.compare_digest(str(form.get("nonce", "")), pending_d["nonce"]) \
+                or pending_d["exp"] < now_utc().timestamp():
+            return coach_page(request, error="Conferma scaduta o non valida: nulla è stato registrato. Ripeti.")
+        try:
+            msg = coach_mod.decide(conn(), pending_d["kind"], pending_d["ref"], pending_d["text"], pending_d["reason"],
+                                   today=today())
+        except (coach_mod.DecisionError, ValueError) as exc:
+            return coach_page(request, error=f"Nulla è stato registrato: {exc}.")
+        return coach_page(request, done=msg)
 
     async def piano(request: Request) -> Response:
         c = conn()
@@ -422,6 +474,9 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         Route("/andamenti", guard(andamenti)),
         Route("/api/series", guard(api_series)),
         Route("/review", guard(review)),
+        Route("/coach", guard(coach_view)),
+        Route("/coach/decisione", guard(coach_decision), methods=["POST"]),
+        Route("/coach/conferma", guard(coach_confirm), methods=["POST"]),
         Route("/piano", guard(piano)),
         Route("/interventi", guard(interventi)),
         Route("/safety", guard(safety_page)),

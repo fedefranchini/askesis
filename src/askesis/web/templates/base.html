@@ -17,7 +17,7 @@
       <span class="brand">Askesis</span>
       <ul>
         {% for href, label in nav %}
-        <li><a href="{{ href }}"{% if path == href %} aria-current="page"{% endif %}>{{ icon(label|lower) }}<span>{{ label }}</span>{% if href == "/safety" and open_flags %}<span class="flagcount" aria-label="{{ open_flags }} flag aperti">{{ open_flags }}</span>{% endif %}</a></li>
+        <li><a href="{{ href }}"{% if path == href %} aria-current="page"{% endif %}>{{ icon(label|lower) }}<span>{{ label }}</span>{% if href == "/safety" and open_flags %}<span class="flagcount" aria-label="{{ open_flags }} flag aperti">{{ open_flags }}</span>{% endif %}{% if href == "/coach" and pending_count %}<span class="flagcount badge-pending" aria-label="{{ pending_count }} proposte in attesa">{{ pending_count }}</span>{% endif %}</a></li>
         {% endfor %}
       </ul>
       <div class="logout">

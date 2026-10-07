@@ -8,6 +8,12 @@ from askesis.store.db import connect
 ZONE = "Europe/Berlin"
 
 
+@pytest.fixture(autouse=True)
+def _synthetic_reports(tmp_path, monkeypatch):
+    """Tests never read the real reports/ (private texts): each test gets its own empty folder."""
+    monkeypatch.setenv("ASKESIS_REPORTS_DIR", str(tmp_path / "reports"))
+
+
 @pytest.fixture
 def conn(tmp_path):
     c = connect(tmp_path / "test.db")
