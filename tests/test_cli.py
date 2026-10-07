@@ -135,13 +135,15 @@ def test_dashboard_agent_is_only_shown_and_binds_localhost(cli):
     out = cli("web", "agent").output
     assert "local.askesis.dashboard" in out and "<key>RunAtLoad</key><true/>" in out and "Nulla installato" in out
     assert "--host" not in out and "0.0.0.0" not in out  # serve binds 127.0.0.1 only
+    assert "local.askesis.web-check" in out and "<key>StartInterval</key><integer>600</integer>" in out
 
 
 @pytest.mark.parametrize("cmd", [
     ["day"], ["fix"], ["retract"], ["review"], ["validate"], ["why"], ["import-staging"], ["import-health"],
     ["import-hevy"],
     ["metrics", "compute"], ["metrics", "rebuild"], ["backup", "verify"], ["backup", "agent"], ["web", "serve"],
-    ["web", "agent"], ["web", "set-password"], ["safety", "check"], ["plan", "show"], ["plan", "next"],
+    ["web", "agent"], ["web", "set-password"], ["web", "check"], ["safety", "check"], ["plan", "show"],
+    ["plan", "next"],
     ["plan", "calorie-check"], ["plan", "calorie-apply"], ["intervention", "propose"], ["intervention", "approve"],
     ["intervention", "activate"], ["intervention", "evaluate"], ["intervention", "list"], ["show", "week"],
 ])

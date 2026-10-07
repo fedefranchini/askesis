@@ -13,12 +13,14 @@ AGENTS_DIR = Path.home() / "Library" / "LaunchAgents"
 
 
 def plist(label: str, args: list[str], path_env: str, log: Path, calendar: dict[str, int] | None = None,
-          run_at_load: bool = False, keep_alive: bool = False) -> str:
+          run_at_load: bool = False, keep_alive: bool = False, interval: int | None = None) -> str:
     argv = "".join(f"\n        <string>{a}</string>" for a in args)
     extra = ""
     if calendar:
         cal = "".join(f"\n        <key>{k}</key><integer>{v}</integer>" for k, v in calendar.items())
         extra += f"\n    <key>StartCalendarInterval</key>\n    <dict>{cal}\n    </dict>"
+    if interval:
+        extra += f"\n    <key>StartInterval</key><integer>{interval}</integer>"
     if run_at_load:
         extra += "\n    <key>RunAtLoad</key><true/>"
     if keep_alive:  # restart after a crash, never in a tight loop
@@ -51,9 +53,22 @@ def install(agents: dict[str, str]) -> list[str]:
         path = AGENTS_DIR / f"{label}.plist"
         path.write_text(xml)
         subprocess.run(["launchctl", "bootout", f"{domain}/{label}"], check=False, capture_output=True)
-        subprocess.run(["launchctl", "bootstrap", domain, str(path)], check=True)
+        _bootstrap(domain, label, path)
         done.append(label)
     return done
+
+
+def _bootstrap(domain: str, label: str, path: Path, attempts: int = 20) -> None:
+    """bootout returns before the old job is gone: retry bootstrap ("Input/output error") until it is."""
+    import time
+
+    for i in range(attempts):
+        r = subprocess.run(["launchctl", "bootstrap", domain, str(path)], capture_output=True, text=True)
+        if r.returncode == 0:
+            return
+        if i == attempts - 1:
+            raise RuntimeError(f"launchctl bootstrap {label}: {r.stderr.strip() or r.returncode}")
+        time.sleep(0.5)
 
 
 def uninstall(labels: list[str]) -> None:

@@ -635,33 +635,58 @@ def web_serve(port: Annotated[int, typer.Option("--port")] = 8765) -> None:
         from askesis.web.app import create_app
     except ImportError as exc:
         raise typer.BadParameter("dipendenze mancanti: uv sync --extra dashboard") from exc
-    import os
     import threading
-    import time
 
-    from askesis.web.app import bind_sockets
+    from askesis.web import netwatch
 
     cfg = config_mod.load()
-    sockets, missing = bind_sockets(cfg.web_bind, port)
+    addresses = netwatch.resolve(cfg.web_bind)
+    sockets, missing = netwatch.bind_sockets(addresses, port)
     if not sockets:
         raise typer.BadParameter(f"nessun indirizzo disponibile tra {cfg.web_bind}")
-    for sock in sockets:
-        typer.echo(f"Dashboard su http://{sock.getsockname()[0]}:{port}")
-    if missing:
-        typer.echo(f"In attesa di {', '.join(missing)} (interfaccia non attiva): riavvio quando compare")
-
-        def watch() -> None:  # when the address appears, exit non-zero so launchd restarts with all sockets
-            while True:
-                time.sleep(60)
-                probe, still = bind_sockets(missing, 0)
-                for p in probe:
-                    p.close()
-                if not still:
-                    os._exit(75)
-
-        threading.Thread(target=watch, daemon=True).start()
-    server = uvicorn.Server(uvicorn.Config(create_app(cfg), log_level="warning"))
+    served = {s.getsockname()[0] for s in sockets}
+    for addr in sorted(served):
+        typer.echo(f"Dashboard su http://{addr}:{port}")
+    if missing or len(served) < len(cfg.web_bind):
+        typer.echo(f"In attesa di {', '.join(missing) or 'indirizzi della VPN'} (interfaccia non attiva): "
+                   "riavvio quando compare")
+    # Always watching: Meshnet may start after login, reconnect, or change address; a restart rebinds cleanly.
+    threading.Thread(target=netwatch.watch, args=(cfg.web_bind, served), daemon=True).start()
+    hosts = cfg.web_allowed_hosts + [a for a in served if a not in cfg.web_allowed_hosts]
+    server = uvicorn.Server(uvicorn.Config(create_app(cfg, allowed_hosts=hosts), log_level="warning"))
     server.run(sockets=sockets)
+
+
+@web_app.command("check")
+def web_check(
+    port: Annotated[int, typer.Option("--port")] = 8765,
+    notify: Annotated[bool, typer.Option("--notify", help="Notifica macOS quando lo stato cambia")] = False,
+) -> None:
+    """Controlla dal Mac che la dashboard sia raggiungibile via VPN: agente, ascolto, indirizzi, firewall,
+    client rifiutati nelle ultime 24 ore. Non può vedere il lato iPhone."""
+    from askesis.web import health
+
+    cfg = config_mod.load()
+    since = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%S")
+    rep = health.check(cfg, port, since)
+    if notify and not rep.ok:  # a planned restart (address change) takes ~30 s: confirm before alerting
+        import time
+
+        time.sleep(45)
+        rep = health.check(cfg, port, since)
+    for line in rep.info:
+        typer.echo(f"✓ {line}")
+    for line in rep.problems:
+        typer.secho(f"✗ {line}", fg="red")
+    if rep.ok:
+        typer.echo("✓ dashboard raggiungibile dal lato Mac")
+    if notify:
+        health.notify_on_change(rep, cfg.db_path.parent / "web-check.json")
+    if not rep.ok:
+        raise typer.Exit(1)
+
+
+CHECK_LABEL = "local.askesis.web-check"
 
 
 @web_app.command("agent")
@@ -671,8 +696,8 @@ def web_agent(
     uninstall: Annotated[bool, typer.Option("--uninstall", help="Scarica e rimuove l'agente")] = False,
     yes: Annotated[bool, typer.Option("--yes")] = False,
 ) -> None:
-    """Agente launchd: avvia la dashboard al login (solo 127.0.0.1) e la riavvia se si ferma per errore.
-    Senza opzioni mostra soltanto cosa verrebbe installato."""
+    """Agenti launchd: la dashboard (avvio al login, riavvio se si ferma per errore o cambiano gli indirizzi) e il
+    controllo di raggiungibilità ogni 10 minuti. Senza opzioni mostra soltanto cosa verrebbe installato."""
     import shutil
 
     from askesis import launchd
@@ -680,18 +705,24 @@ def web_agent(
     cfg = config_mod.load()
     label = "local.askesis.dashboard"
     uv = shutil.which("uv") or "uv"
-    xml = launchd.plist(label, [str(config_mod.ROOT / "bin" / "ak"), "web", "serve", "--port", str(port)],
-                        str(Path(uv).parent), cfg.db_path.parent / "web.log", run_at_load=True, keep_alive=True)
+    ak = str(config_mod.ROOT / "bin" / "ak")
+    agents = {
+        label: launchd.plist(label, [ak, "web", "serve", "--port", str(port)], str(Path(uv).parent),
+                             cfg.db_path.parent / "web.log", run_at_load=True, keep_alive=True),
+        CHECK_LABEL: launchd.plist(CHECK_LABEL, [ak, "web", "check", "--port", str(port), "--notify"],
+                                   str(Path(uv).parent), cfg.db_path.parent / "web-check.log", interval=600),
+    }
     if uninstall:
-        launchd.uninstall([label])
-        typer.echo(f"✓ rimosso {label}")
+        launchd.uninstall(list(agents))
+        typer.echo("✓ agenti rimossi")
         return
-    typer.echo(f"— {launchd.AGENTS_DIR / (label + '.plist')}\n{xml}")
+    for name, xml in agents.items():
+        typer.echo(f"— {launchd.AGENTS_DIR / (name + '.plist')}\n{xml}")
     if not (install and yes):
         typer.echo("Nulla installato. Per installare: bin/ak web agent --install --yes")
         return
-    launchd.install({label: xml})
-    typer.echo(f"✓ installato e caricato {label}: http://127.0.0.1:{port}")
+    for name in launchd.install(agents):
+        typer.echo(f"✓ installato e caricato {name}")
 
 
 @app.command("init")

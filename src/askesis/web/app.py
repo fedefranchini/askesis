@@ -39,6 +39,7 @@ from askesis.safety import rules as safety
 from askesis.store.db import connect
 
 from . import auth, md
+from .netwatch import bind_sockets, check_bind  # noqa: F401  (public: used by the CLI and tests)
 
 HERE = Path(__file__).parent
 REPORT_NAME = re.compile(r"^(review|retro|daily|proposta)[\w.-]*\.md$")
@@ -46,34 +47,6 @@ CSP = ("default-src 'self'; img-src 'self' data:; style-src 'self'; script-src '
        "frame-ancestors 'none'; form-action 'self'; base-uri 'none'")
 NAV = [("/", "Oggi"), ("/andamenti", "Andamenti"), ("/review", "Review"), ("/piano", "Piano"),
        ("/interventi", "Interventi"), ("/safety", "Safety")]
-
-
-def check_bind(addresses: list[str]) -> list[str]:
-    """Refuse wildcard addresses: the dashboard listens only on explicitly chosen interfaces."""
-    for a in addresses:
-        if a in ("0.0.0.0", "::", "", "*"):
-            raise ValueError(f"indirizzo di ascolto non ammesso: {a!r} (esporrebbe la dashboard su ogni rete)")
-    return addresses
-
-
-def bind_sockets(addresses: list[str], port: int) -> tuple[list, list[str]]:
-    """Listening sockets for the chosen addresses. Addresses not present right now (e.g. a VPN interface that is
-    down) are returned as missing instead of failing: loopback keeps working."""
-    import socket
-
-    sockets, missing = [], []
-    for addr in check_bind(addresses):
-        fam = socket.AF_INET6 if ":" in addr else socket.AF_INET
-        sock = socket.socket(fam, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            sock.bind((addr, port))
-        except OSError:
-            sock.close()
-            missing.append(addr)
-            continue
-        sockets.append(sock)
-    return sockets, missing
 
 
 def exercise_name(key: str) -> str:
@@ -311,6 +284,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
 
 
 LOOPBACK = {"127.0.0.1", "::1"}
+REJECTED = "client rifiutato:"
 
 
 class ClientAllowlist(BaseHTTPMiddleware):
@@ -319,10 +293,24 @@ class ClientAllowlist(BaseHTTPMiddleware):
     def __init__(self, app, allowed: list[str]) -> None:
         super().__init__(app)
         self.allowed = LOOPBACK | set(allowed)
+        self.logged: dict[str, float] = {}
+
+    def _log(self, host: str) -> None:
+        """One line per address per hour in the server log: `web check` reports it (e.g. a peer whose address
+        changed). The address is never added automatically."""
+        import sys
+        import time
+
+        now = time.time()
+        if now - self.logged.get(host, 0) >= 3600:
+            self.logged[host] = now
+            stamp = time.strftime("%Y-%m-%dT%H:%M:%S")
+            print(f"{stamp} {REJECTED} {host}", file=sys.stderr, flush=True)
 
     async def dispatch(self, request: Request, call_next) -> Response:
         host = request.client.host if request.client else ""
         if host not in self.allowed and host != "testclient":
+            self._log(host)
             return Response("Dispositivo non autorizzato.", status_code=403)
         return await call_next(request)
 

@@ -208,7 +208,12 @@ del 2026-10-06). **Tailscale scartato** perché l'atleta usa NordVPN ogni giorno
 risultavano utilizzabili insieme (sull'iPhone, da verificare), mentre Meshnet è integrata nella stessa app (la chiusura di Meshnet annunciata per
 dicembre 2025 è stata ritirata da NordVPN a settembre 2025). La dashboard resta indipendente dal fornitore:
 ascolta solo sugli indirizzi scelti (`web_bind`, mai jolly), accetta solo il Mac e i client autorizzati
-(`web_allowed_clients`) e gli host ammessi (`web_allowed_hosts`); cambiare fornitore = cambiare configurazione. Poi F4b (import storico di Salute) e F4c
+(`web_allowed_clients`) e gli host ammessi (`web_allowed_hosts`); cambiare fornitore = cambiare configurazione.
+Robustezza: `web_bind` accetta `tunnel:<CIDR>` (l'indirizzo attuale del Mac in quel range, solo su interfacce
+punto-punto); un watcher riavvia la dashboard quando l'interfaccia compare, si riconnette o cambia indirizzo. I client
+ammessi restano IP espliciti, mai derivati dalla rete; i rifiutati finiscono nel log. `bin/ak web check` (agente ogni
+10 minuti) verifica dal Mac agente, ascolto, indirizzi, firewall e client rifiutati, con notifica solo al cambio di
+stato; il lato telefono non è osservabile dal Mac. Poi F4b (import storico di Salute) e F4c
 (sincronizzazione quotidiana con Comandi Rapidi).
 **Dashboard** (localhost, stesso stack Python; involucro sottile attorno al nucleo, nessuna logica di calcolo
 duplicata):
