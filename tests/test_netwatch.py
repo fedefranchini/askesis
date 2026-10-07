@@ -85,3 +85,31 @@ def test_rejected_client_is_logged_once(tmp_path, monkeypatch, capsys):
     other = TestClient(create_app(cfg), base_url="http://127.0.0.1", client=("100.64.0.9", 5000))
     assert other.get("/login").status_code == 403 and other.get("/login").status_code == 403
     assert capsys.readouterr().err.count("client rifiutato: 100.64.0.9") == 1
+
+
+ROUTES_VPN = """Routing tables
+
+Internet:
+Destination        Gateway            Flags               Netif Expire
+default            link#22            UCSg                utun4
+default            10.0.0.1           UGScIg                en0
+"""
+ROUTES_MESH_ONLY = """Internet:
+Destination        Gateway            Flags               Netif Expire
+default            10.0.0.1           UGScg                 en0
+default            link#22            UCSIg               utun4
+"""
+
+
+def test_vpn_carrying_all_traffic_through_the_mesh_tunnel_is_detected():
+    ifaces = netwatch.interfaces(IFCONFIG)
+    assert health.vpn_default_route(["100.64.0.1"], ROUTES_VPN, ifaces) == "utun4"
+    assert health.vpn_default_route(["100.64.0.1"], ROUTES_MESH_ONLY, ifaces) is None
+
+
+def test_half_open_connections_from_allowed_clients_are_reported():
+    text = ("tcp4  0  0  100.64.0.1.8765  100.64.0.2.53600  SYN_RCVD\n"
+            "tcp4  0  0  100.64.0.1.8765  100.64.0.9.53601  SYN_RCVD\n"
+            "tcp4  0  0  100.64.0.1.8765  100.64.0.2.53602  ESTABLISHED\n")
+    assert health.half_open(8765, ["100.64.0.2"], text) == ["100.64.0.2"]
+    assert health.half_open(8443, ["100.64.0.2"], text) == []

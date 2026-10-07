@@ -69,6 +69,35 @@ def firewall_blocks(executable: str) -> bool:
     return "is permitted" not in _run([tool, "--getappblocked", os.path.realpath(executable)])
 
 
+def vpn_default_route(served: list[str], routes: str | None = None, ifaces=None) -> str | None:
+    """Interface carrying the primary default route, if it is the tunnel that holds a served address: the whole
+    internet traffic goes through the VPN. Observed with the VPN connected on top of the mesh: replies to connections
+    opened by the phone are lost (handshake stuck), while connections opened by the Mac work."""
+    if routes is None:
+        routes = _run(["/usr/sbin/netstat", "-rn", "-f", "inet"])
+    ifaces = netwatch.interfaces() if ifaces is None else ifaces
+    tunnel_ifs = {name for name, p2p, addr in ifaces if p2p and addr in served}
+    for line in routes.splitlines():
+        cols = line.split()
+        if len(cols) >= 4 and cols[0] == "default" and "I" not in cols[2]:  # I = interface-scoped, not primary
+            return cols[-1] if cols[-1] in tunnel_ifs else None
+    return None
+
+
+def half_open(port: int, clients: list[str], netstat_text: str | None = None) -> list[str]:
+    """Allowed clients with connections stuck in SYN_RCVD: their request arrives, the reply never completes."""
+    if netstat_text is None:
+        netstat_text = _run(["/usr/sbin/netstat", "-an", "-p", "tcp"])
+    found = []
+    for line in netstat_text.splitlines():
+        cols = line.split()
+        if len(cols) >= 6 and cols[3].endswith(f".{port}") and cols[5] == "SYN_RCVD":
+            peer = cols[4].rsplit(".", 1)[0]
+            if peer in clients and peer not in found:
+                found.append(peer)
+    return found
+
+
 def rejected_clients(log: Path, since: str) -> list[str]:
     """Addresses refused by the client allowlist after `since` (ISO timestamp), from the server log."""
     from .app import REJECTED
@@ -102,6 +131,12 @@ def check(cfg, port: int, since: str = "", executable: str = sys.executable) -> 
             r.problems.append(f"{a} è attivo ma la dashboard non è in ascolto lì (riavvio in corso?)")
         else:
             r.info.append(f"in ascolto su {a}:{port}")
+    via = vpn_default_route(remote) if remote else None
+    if via:
+        r.problems.append(f"la VPN di NordVPN è connessa sul Mac (tutto il traffico passa da {via}): con Meshnet "
+                          "le connessioni dall'iPhone restano bloccate; disconnetti la VPN sul Mac")
+    for host in half_open(port, cfg.web_allowed_clients):
+        r.problems.append(f"connessioni da {host} bloccate a metà (la risposta del Mac non arriva)")
     if remote and firewall_blocks(executable):
         r.problems.append("il firewall di macOS blocca le connessioni in entrata verso Python")
     for host in rejected_clients(cfg.db_path.parent / "web.log", since):
