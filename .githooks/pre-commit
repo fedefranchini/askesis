@@ -1,3 +1,15 @@
 #!/usr/bin/env bash
-# Controllo privacy sul contenuto in staging (vedi privacy-guard).
-exec "$(dirname "$0")/privacy-guard" --staged
+# 1) Controllo privacy sul contenuto in staging (vedi privacy-guard).
+# 2) Lint (ruff, stessa configurazione della CI) sulla versione in staging dei file Python modificati.
+set -euo pipefail
+"$(dirname "$0")/privacy-guard" --staged
+files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.py')
+[ -z "$files" ] && exit 0
+status=0
+while IFS= read -r f; do
+  git show ":$f" | uv run --quiet ruff check --stdin-filename "$f" - || status=1
+done <<< "$files"
+if [ "$status" -ne 0 ]; then
+  echo "✗ ruff: correggi gli errori sopra (uv run ruff check --fix per quelli automatici). Non usare --no-verify." >&2
+fi
+exit $status
