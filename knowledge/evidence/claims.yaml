@@ -298,6 +298,43 @@ claims:
     certainty: low
     status: unverified
     notes: "identificativo verificato, contenuto non letto"
+  - id: load.monotony_strain
+    domain: [monitoring, load]
+    claim: >-
+      Con il carico di seduta (RPE × durata) si calcolano la monotonia (media del carico giornaliero diviso la sua
+      deviazione standard) e lo strain (carico × monotonia); in atleti esperti gran parte delle malattie banali si
+      è presentata oltre soglie individuali, soprattutto di strain.
+    sources: [foster1998]
+    basis: evidence
+    certainty: very_low
+    status: verified_abstract
+    population_scope: "25 atleti esperti di sport di resistenza"
+    limitations: "studio osservazionale piccolo; soglie individuali, non generalizzabili"
+  - id: monitor.subjective_measures
+    domain: [monitoring, wellbeing]
+    claim: >-
+      Le misure soggettive di benessere riferite dall'atleta riflettono il carico acuto e cronico con sensibilità e
+      coerenza maggiori delle misure oggettive comuni, con cui in genere non correlano: il benessere peggiora con
+      un aumento acuto del carico e migliora con una riduzione. Possono essere usate da sole o insieme a misure
+      oggettive.
+    sources: [saw2016]
+    basis: evidence
+    certainty: low
+    status: verified_abstract
+    population_scope: "atleti di vari sport, studi con misure soggettive e oggettive concomitanti"
+    limitations: "revisione senza meta-analisi; questionari e scale diversi tra gli studi"
+  - id: monitor.wellbeing_ratings_staleness
+    domain: [monitoring, wellbeing]
+    claim: >-
+      Valutazioni quotidiane di benessere riferite dall'atleta (tra cui fatica e stress) hanno predetto lo stato di
+      sovrallenamento e il miglioramento dopo lo scarico in una stagione di nuoto d'élite: sono un mezzo efficiente
+      per monitorare sovrallenamento e recupero.
+    sources: [hooper1995markers]
+    basis: evidence
+    certainty: very_low
+    status: verified_abstract
+    population_scope: "14 nuotatori d'élite, uomini e donne"
+    limitations: "campione molto piccolo; l'indice a somma di voci (\"indice di Hooper\") non è descritto nell'abstract: un indice ispirato a questo resta una scelta tecnica"
 
   # ---------- Recovery e sonno ----------
   - id: sleep.athletes_individualise

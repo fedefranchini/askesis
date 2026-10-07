@@ -4,7 +4,8 @@ Gym:   "panca 80x8 r2, 80x7 r1 · rematore 60x10 r2"   (sets separated by comma 
        set = [w]LOADxREPS[*N] [rRIR | @RPE];  LOAD may be "bw", "bw+10"; "w" marks a warm-up set
 Run:   "5.2km 31:40 fc145 fcmax178 rpe6 stop:fiato"
 Day:   "p 68.4 · cibo 1850 115 [parz] [+600[/30]] · vita 74.1 74.3 · pesi: <gym> · corsa <run> · passi 8200 ·
-        sonno 7h30 · fcr 55 · dolore spalla 3/10 · <alias> <value>"
+        sonno 7h30 · fcr 55 · dolore spalla 3/10 · checkin sonno 7 stanchezza 4 … ·
+        seduta pesi fatica 7 qualità 8 70min · <alias> <value>"   (questionnaire items and scales: askesis.checkin)
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from askesis import checkin
 from askesis.core.units import UnitError, parse_duration_s
 
 
@@ -134,7 +136,7 @@ def parse_run(text: str) -> dict:
 # ------------------------------------------------------------------ day line
 @dataclass
 class Intent:
-    kind: str  # weight | food | waist | gym | run | steps | sleep | rhr | pain | context
+    kind: str  # weight | food | waist | gym | run | steps | sleep | rhr | pain | checkin | session_feedback | context
     data: dict
 
 
@@ -154,7 +156,8 @@ def parse_day(text: str, context_aliases: dict[str, str] | None = None) -> list[
     aliases = {k.lower(): v for k, v in (context_aliases or {}).items()}
     intents: list[Intent] = []
     # A "pesi:" segment uses "·" between exercises: split only where a known keyword follows.
-    keywords = ["p", "peso", "cibo", "vita", "pesi", "corsa", "passi", "sonno", "fcr", "dolore", *aliases]
+    keywords = ["p", "peso", "cibo", "vita", "pesi", "corsa", "passi", "sonno", "fcr", "dolore", "checkin", "check-in",
+                "seduta", *aliases]
     lookahead = "|".join(re.escape(k) for k in sorted(keywords, key=len, reverse=True))
     segments = re.split(rf"\s*(?:·|;|\n)\s*(?=(?:{lookahead})\b)", text.strip(), flags=re.I)
     for seg in filter(None, (s.strip() for s in segments)):
@@ -194,6 +197,16 @@ def parse_day(text: str, context_aliases: dict[str, str] | None = None) -> list[
             if not m:
                 raise ParseError("dolore: formato 'dolore <zona> <0-10>/10'")
             intents.append(Intent("pain", {"region": m[1], "score_0_10": _num(m[2])}))
+        elif key in ("checkin", "check-in"):
+            try:
+                intents.append(Intent("checkin", checkin.parse_morning(rest)))
+            except checkin.CheckinError as exc:
+                raise ParseError(str(exc)) from exc
+        elif key == "seduta":
+            try:
+                intents.append(Intent("session_feedback", checkin.parse_session(rest)))
+            except checkin.CheckinError as exc:
+                raise ParseError(str(exc)) from exc
         elif key in aliases:
             value = rest
             try:

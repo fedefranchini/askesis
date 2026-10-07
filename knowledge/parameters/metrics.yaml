@@ -176,3 +176,13 @@ parameters:
       Minimal detectable difference = z × √2 × SEM (SEM of a session mean = TEM/√k); a change beyond it is reported as
       real. The SEM-based minimal difference is supported by the KB; the exact formula is not in the abstract read.
     claims: [measure.sem_minimal_difference]
+  checkin_quality_window_days:
+    value: 28
+    unit: days
+    basis: engineering_choice
+    rationale: "Window for the response-quality summary of the morning questionnaire (how many days answered)."
+  checkin_identical_streak_days:
+    value: 5
+    unit: consecutive_answered_days
+    basis: engineering_choice
+    rationale: "Identical answers (at least three items) on this many consecutive answered days are pointed out as possibly automatic; a hint to answer how one feels today, never a judgement."

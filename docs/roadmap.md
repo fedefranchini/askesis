@@ -98,6 +98,10 @@ di questa fase.
 | Corsa: intensità | Seiler, 2010 — training intensity distribution | review | [10.1123/ijspp.5.3.276](https://doi.org/10.1123/ijspp.5.3.276) | ✅ Crossref |
 | Corsa: talk-test | Persinger et al., 2004 — consistency of the talk test (MSSE) | studio | [PMID 15354048](https://pubmed.ncbi.nlm.nih.gov/15354048/) | ✅ PubMed (senza DOI) |
 | Corsa: talk-test | Reed & Pipe, 2014 — the talk test (Curr Opin Cardiol) | review | [10.1097/HCO.0000000000000097](https://doi.org/10.1097/HCO.0000000000000097) | ✅ PubMed |
+| Carico | Foster, 1998 — monotony and strain | osservazionale | [10.1097/00005768-199807000-00023](https://doi.org/10.1097/00005768-199807000-00023) | ✅ Crossref + PubMed |
+| Benessere soggettivo | Saw, Main & Gastin, 2016 — subjective vs objective measures | revisione sistematica | [10.1136/bjsports-2015-094758](https://doi.org/10.1136/bjsports-2015-094758) | ✅ Crossref + PubMed |
+| Benessere soggettivo | Hooper et al., 1995 — markers of overtraining and recovery | osservazionale | [10.1249/00005768-199501000-00019](https://doi.org/10.1249/00005768-199501000-00019) | ✅ Crossref + PubMed |
+| Benessere soggettivo | Hooper & Mackinnon, 1995 — monitoring overtraining, recommendations | review | [10.2165/00007256-199520050-00003](https://doi.org/10.2165/00007256-199520050-00003) | ✅ Crossref + PubMed (contenuto non letto) |
 | Carico | Foster et al., 2001 — session-RPE | studio | [10.1519/00124278-200102000-00019](https://doi.org/10.1519/00124278-200102000-00019) | ✅ Crossref |
 | Carico | Impellizzeri et al., 2020 — ACWR pitfalls | critica metodologica | [10.1123/ijspp.2019-0864](https://doi.org/10.1123/ijspp.2019-0864) | ✅ Crossref |
 | Safety: REDs | Mountjoy et al., 2023 — IOC consensus on REDs | consensus | [10.1136/bjsports-2023-106994](https://doi.org/10.1136/bjsports-2023-106994) | ✅ PubMed |
@@ -255,6 +259,14 @@ duplicata):
   proprio con un nome che punta all'IP Meshnet e un certificato ottenuto con la verifica DNS (nessuna porta aperta
   su internet). Da rivalutare solo se il login con portachiavi risulta scomodo; lo stesso passaggio a HTTPS
   permetterebbe anche `web_secure_cookies = true`.
+- **Questionario soggettivo, raccolta (fatto, A1)**: mattino (sonno, stanchezza, indolenzimento, stress, umore, fame
+  di ieri, voglia di allenarsi) e dopo la seduta (fatica CR-10 di Foster, qualità, durata); scale 1–10 ancorate a
+  parole, ognuna misura "quanto" della sua voce e il verso negli indici è dichiarato nel codice (`askesis/checkin.py`).
+  Tutte saltabili; compilazione dalla pagina Oggi (scale da toccare) o in chat (`checkin …`, `seduta …`); una
+  risposta successiva nello stesso giorno diventa una nuova versione unita. Qualità delle risposte: giorni compilati
+  e risposte identiche ripetute (parametri, scelte tecniche). Analisi (baseline personale, indice ispirato a Hooper,
+  carico di Foster con monotonia e strain, convergenza, collegamenti nel tempo, segnali di safety) nelle fasi
+  successive, quando ci sono abbastanza risposte.
 - **Recuperi tra le serie (fatto)**: nella scheda della palestra e nella pagina Piano, una riga per esercizio
   (multiarticolari 2–3 min, monoarticolari 1,5–2 min) da parametri con base dichiarata (`rest_compound_range_s`,
   `rest_isolation_range_s`; claim `rt.rest_strength`, `rt.rest_hypertrophy`, evidenza di bassa certezza).

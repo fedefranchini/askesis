@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon %}
-{% from "_ui.html" import ring %}
+{% from "_ui.html" import ring, scale %}
 {% block title %}Oggi · Askesis{% endblock %}
 
 
@@ -71,7 +71,7 @@
     {% if S.todo %}
     <ul class="chips">{% for x in S.todo %}<li>{{ x }}</li>{% endfor %}</ul>
     {% else %}
-    <p class="done">{{ icon("ok") }}Pesata e cibo di ieri registrati.</p>
+    <p class="done">{{ icon("ok") }}Pesata, cibo di ieri e check-in registrati.</p>
     {% endif %}
   </section>
   <section class="card">
@@ -96,6 +96,43 @@
     {% endif %}
   </section>
 </div>
+
+{% set K = status.checkin %}
+<section class="card checkin" aria-labelledby="ck-title">
+  <details{% if not K.answers.morning %} open{% endif %}>
+    <summary><h2 id="ck-title">Check-in del mattino</h2>
+      <span class="ck-state">{% if K.answers.morning %}{{ icon("ok") }}{{ K.n_morning }} {{ 'risposta' if K.n_morning == 1 else 'risposte' }} · modifica{% else %}20–30 secondi · tutte saltabili{% endif %}</span></summary>
+    <form method="post" action="/" class="ck-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="day" value="{{ status.day.isoformat() }}">
+      {% for it in K.morning %}{{ scale(it, "ck_", K.answers.morning.get(it.field)) }}{% endfor %}
+      <p class="hint">Ogni scala misura quanto di quella cosa senti oggi. Le voci senza risposta restano come sono.</p>
+      <button type="submit" name="action" value="save">Salva check-in</button>
+    </form>
+  </details>
+  {% set Q = K.quality %}
+  {% if Q.answered %}<p class="hint ck-quality">Compilato {{ Q.last7 }} giorni su 7 · {{ Q.answered }} negli ultimi {{ Q.window_days }}.</p>{% endif %}
+  {% if Q.identical_warning %}<p class="warn">Le risposte sono identiche da {{ Q.identical_streak }} giorni: se ti senti davvero così va benissimo, altrimenti rispondi a come ti senti oggi.</p>{% endif %}
+</section>
+
+<section class="card checkin" aria-labelledby="sd-title">
+  <details{% if K.post_open %} open{% endif %}>
+    <summary><h2 id="sd-title">Dopo l'allenamento</h2>
+      <span class="ck-state">{% if K.current_post %}{{ icon("ok") }}registrato · modifica{% else %}circa 30 minuti dopo la seduta{% endif %}</span></summary>
+    <form method="post" action="/" class="ck-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="day" value="{{ status.day.isoformat() }}">
+      <fieldset class="kind">
+        <legend class="q-label">Seduta</legend>
+        {% for k in ("pesi", "corsa") %}<input type="radio" id="sd_kind-{{ k }}" name="sd_kind" value="{{ k }}"{% if K.kind == k %} checked{% endif %}><label for="sd_kind-{{ k }}">{{ k|capitalize }}</label>{% endfor %}
+      </fieldset>
+      {% for it in K.post %}{{ scale(it, "sd_", K.current_post.get(it.field)) }}{% endfor %}
+      <label class="minutes">Durata (minuti)<input name="sd_min" inputmode="numeric" pattern="[0-9]*" value="{{ K.minutes if K.minutes else '' }}"></label>
+      <p class="hint">La durata è precompilata dalla stima del piano o dalla corsa registrata: correggila se serve.</p>
+      <button type="submit" name="action" value="save">Salva</button>
+    </form>
+  </details>
+</section>
 
 <section class="card entry-card">
 <form method="post" action="/" class="entry">
@@ -161,3 +198,4 @@
 </section>
 {% endif %}
 {% endblock %}
+{% block scripts %}<script src="/static/checkin.js?v={{ asset_v }}"></script>{% endblock %}

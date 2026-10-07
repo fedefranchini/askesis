@@ -26,9 +26,9 @@ from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Re
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
+from askesis import checkin, services
 from askesis import coach as coach_mod
 from askesis import config as config_mod
-from askesis import services
 from askesis.analytics import body, engine, trends
 from askesis.analytics import today as today_mod
 from askesis.analytics.params import p
@@ -327,7 +327,8 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
                                   (entity, d.isoformat())).fetchone())
         return {"day": day, "weight": has("body_weight", day), "food": has("nutrition_day", day - timedelta(days=1)),
                 "flags": [dict(f) | {"actions": json.loads(f["actions"])} for f in safety.open_flags(c)],
-                "summary": today_mod.summary(c, day), "spark": sparkline(c, day)}
+                "summary": (s := today_mod.summary(c, day)), "spark": sparkline(c, day),
+                "checkin": checkin_ctx(c, day, s)}
 
     def compose_line(f: dict) -> str:
         """Ready-made fields → the same dictation line the CLI parses (one path for every interface)."""
@@ -350,7 +351,36 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
             parts.append("pesi: " + " ".join(str(f["pesi"]).split()))
         if f.get("corsa"):
             parts.append(f"corsa {f['corsa']}")
+        answers = [f"{it.key} {f['ck_' + it.key]}" for it in checkin.MORNING if f.get("ck_" + it.key)]
+        if answers:
+            parts.append("checkin " + " ".join(answers))
+        session = [f"{it.key} {f['sd_' + it.key]}" for it in checkin.POST if f.get("sd_" + it.key)]
+        session += [f"{f['sd_min']}min"] if str(f.get("sd_min") or "").strip() else []
+        if session and f.get("sd_kind"):
+            parts.append(f"seduta {f['sd_kind']} " + " ".join(session))
         return " · ".join(parts)
+
+    def checkin_ctx(c, day: date, summary: dict) -> dict:
+        """What the questionnaire cards need: items, today's answers, response quality, a duration to prefill."""
+        ans = checkin.today_answers(c, day)
+        run = c.execute("SELECT json_extract(payload, '$.elapsed_s') s FROM v_current WHERE entity_type = "
+                        "'running_session' AND local_date = ? ORDER BY start_at DESC LIMIT 1",
+                        (day.isoformat(),)).fetchone()
+        nx = summary["session"]
+        kind = "corsa" if run and not summary["session_done"] else "pesi"
+        current = ans["strength" if kind == "pesi" else "run"]
+        if current.get("session_minutes"):
+            minutes = current["session_minutes"]
+        elif kind == "corsa" and run and run["s"]:
+            minutes = round(run["s"] / 60)
+        elif nx.get("status") == "session" and nx.get("sessions"):
+            minutes = round(present.session_minutes(nx["sessions"][0]))
+        else:
+            minutes = None
+        return {"morning": checkin.MORNING, "post": checkin.POST, "answers": ans, "kind": kind,
+                "n_morning": sum(1 for k in ans["morning"] if k in checkin.BY_FIELD),
+                "current_post": current, "minutes": minutes, "quality": checkin.response_quality(c, day),
+                "post_open": bool(summary["session_done"] or run or current)}
 
     async def oggi(request: Request) -> Response:
         c = conn()
@@ -368,7 +398,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
                 ctx["day_value"] = day.isoformat()
                 if not line:
                     raise ParseError("scrivi una riga oppure compila almeno un campo")
-                records = services.build_day(line, cfg, day)
+                records = services.prepare(c, services.build_day(line, cfg, day))
             except (ParseError, ValueError) as exc:
                 ctx["error"] = f"Riga non valida: {exc}"
                 return page(request, "oggi.html", **ctx)

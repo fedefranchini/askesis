@@ -97,6 +97,7 @@ def _commit(records: list[dict], adapter: str, dry_run: bool = False, yes: bool 
     cfg, conn = _ctx()
     from askesis import services
 
+    records = services.prepare(conn, records)
     pv = services.preview(records)
     if dry_run or (pv.needs_confirmation and not yes):
         typer.echo("ANTEPRIMA — nulla salvato:")
@@ -202,23 +203,31 @@ def log_context(key: str, value: str, date_: DateOpt = None) -> None:
 
 @log_app.command("checkin")
 def log_checkin(
-    fatigue: Annotated[int | None, typer.Option(min=1, max=5)] = None,
-    soreness: Annotated[int | None, typer.Option(min=1, max=5)] = None,
-    stress: Annotated[int | None, typer.Option(min=1, max=5)] = None,
-    readiness: Annotated[int | None, typer.Option(min=1, max=10)] = None,
-    illness: Annotated[bool, typer.Option("--illness")] = False,
+    answers: Annotated[str, typer.Argument(help="Voci e valori 1–10, es. 'sonno 7 stanchezza 4 umore 6'")],
     date_: DateOpt = None,
 ) -> None:
-    """Check-in soggettivo (scale 1–5, readiness 1–10)."""
+    """Questionario del mattino (scale 1–10 ancorate: bin/ak checkin-scales). Equivale a «day 'checkin …'»."""
     cfg = config_mod.load()
-    payload = {k: v for k, v in dict(fatigue_1_5=fatigue, soreness_1_5=soreness, stress_1_5=stress,
-                                     readiness_1_10=readiness, illness=illness or None).items() if v is not None}
-    if not payload:
-        raise typer.BadParameter("indica almeno un valore")
-    d = _day(date_, cfg)
-    rec = manual._env("subjective_checkin", cfg, now_utc(), d, payload,
-                      occurred_at=at_local(d, manual.NOON, cfg.timezone))
-    _commit([rec], "manual_cli")
+    try:
+        intents = parse_day(f"checkin {answers}", cfg.context_aliases)
+    except ParseError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    _commit(_build(intents, _day(date_, cfg)), "manual_cli")
+
+
+@app.command("checkin-scales")
+def checkin_scales() -> None:
+    """Testo delle domande e delle scale del questionario (mattino e dopo la seduta)."""
+    from askesis import checkin
+
+    for moment, title in (("morning", "Mattina: checkin <voce> <valore> …"),
+                          ("post_session", "Dopo la seduta: seduta pesi|corsa <voce> <valore> … <minuti>min")):
+        typer.echo(title)
+        for it in (i for i in checkin.ITEMS if i.moment == moment):
+            anchors = " · ".join(f"{k} {v}" for k, v in it.anchors.items())
+            typer.echo(f"  {it.key}: {it.question} ({it.lo}–{it.hi}) {anchors}")
+            if it.note:
+                typer.echo(f"    {it.note}")
 
 
 @app.command("why")

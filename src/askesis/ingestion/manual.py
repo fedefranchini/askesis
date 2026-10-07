@@ -100,6 +100,12 @@ def build(intent: Intent, cfg: Config, day: date, now: datetime) -> list[dict]:
     if k == "pain":
         return [_env("subjective_checkin", cfg, now, day, {"pain": [d]},
                      occurred_at=at_local(day, NOON, cfg.timezone))]
+    if k == "checkin":
+        return [_env("subjective_checkin", cfg, now, day, {"moment": "morning", **d},
+                     occurred_at=at_local(day, NOON, cfg.timezone))]
+    if k == "session_feedback":
+        return [_env("subjective_checkin", cfg, now, day, {"moment": "post_session", **d},
+                     occurred_at=at_local(day, NOON, cfg.timezone))]
     if k == "context":
         return [_env("daily_context", cfg, now, day, {"key": d["key"], "value": d["value"]},
                      occurred_at=at_local(day, NOON, cfg.timezone))]

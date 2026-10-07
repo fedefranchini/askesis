@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from askesis import checkin
 from askesis.core.units import format_duration
 from askesis.reference import find_exercise
 
@@ -68,6 +69,10 @@ def lines(records: list[dict]) -> list[str]:
             out.append(f"Sonno (risveglio {_d(d)}): {format_duration(p['asleep_s'])}")
         elif e == "resting_hr_daily":
             out.append(f"FC a riposo {_d(d)}: {p['bpm']}")
+        elif e == "subjective_checkin" and p.get("moment") == "morning":
+            out.append(f"Check-in {_d(d)}: {checkin.describe(p)}")
+        elif e == "subjective_checkin" and p.get("moment") == "post_session":
+            out.append(f"Seduta di {checkin.KIND_LABEL[p['session_kind']]} {_d(d)}: {checkin.describe(p)}")
         elif e == "subjective_checkin":
             pains = "; ".join(f"dolore {x.get('region')} {_n(x.get('score_0_10'))}/10" for x in p.get("pain", []) or [])
             out.append(f"Check-in {_d(d)}: " + (pains or ", ".join(f"{k} {v}" for k, v in p.items())))

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import secrets
 from datetime import date
@@ -391,3 +392,31 @@ def test_plan_page_shows_rest_with_its_basis(env):
     page = client.get("/piano").text
     assert "Seduta di oggi" in page and "recupero 2–3 min" in page
     assert "rt.rest_strength" in page and "rt.rest_hypertrophy" in page
+
+
+def test_checkin_cards_save_merge_and_prefill(env):
+    client, cfg, password = env
+    login(client, password)
+    page = client.get("/").text
+    assert "Check-in del mattino" in page and "Come hai dormito stanotte?" in page
+    assert "Pessimo, quasi non ho dormito" in page and "Massimale" in page  # anchors written on the page
+    assert page.count('name="ck_sonno"') == 10 and page.count('name="sd_fatica"') == 11
+    token = csrf_of(page)
+    day = re.search(r'class="ck-form">\s*<input type="hidden" name="csrf" value="[^"]+">\s*'
+                    r'<input type="hidden" name="day" value="([0-9-]+)"', page).group(1)  # the server's today
+    r = client.post("/", data={"csrf": token, "day": day, "action": "save", "ck_sonno": "8", "ck_umore": "6"})
+    assert "Salvato" in r.text and "sonno 8 (" in r.text
+    assert 'id="ck_sonno-8" name="ck_sonno" value="8" checked' in r.text  # prefilled with today's answers
+    r = client.post("/", data={"csrf": token, "day": day, "action": "save", "ck_fame": "4"})
+    assert "3 risposte" in r.text
+    r = client.post("/", data={"csrf": token, "day": day, "action": "save", "sd_kind": "corsa", "sd_fatica": "5",
+                               "sd_qualita": "7", "sd_min": "40"})
+    assert "Seduta di corsa" in r.text and "40 min" in r.text
+    c = connect(cfg.db_path)
+    rows = [json.loads(x[0]) for x in c.execute(
+        "SELECT payload FROM v_current WHERE entity_type = 'subjective_checkin'")]
+    assert {"moment": "morning", "sleep_quality_1_10": 8, "mood_1_10": 6, "hunger_1_10": 4} in rows
+    r = client.post("/", data={"csrf": token, "day": day, "action": "save", "ck_sonno": "11"})
+    assert "Riga non valida" in r.text  # out of scale: refused, nothing guessed
+    r = client.post("/", data={"csrf": "wrong", "day": day, "action": "save", "ck_sonno": "5"})
+    assert "Sessione scaduta" in r.text

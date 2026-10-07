@@ -263,6 +263,37 @@ sources:
     verified: {via: [crossref], date: "2026-10-03"}
     read_level: id_only
     notes: "titolo/autore/anno/rivista verificati su Crossref; abstract non disponibile su PubMed"
+  - id: foster1998
+    citation: "Foster C. Monitoring training in athletes with reference to overtraining syndrome. Med Sci Sports Exerc. 1998;30(7):1164-8."
+    type: observational_study
+    doi: 10.1097/00005768-199807000-00023
+    pmid: "9662690"
+    verified: {via: [crossref, pubmed], date: "2026-10-07"}
+    read_level: abstract
+    limitations: "25 atleti esperti; esito: malattie banali, non prestazione"
+  - id: saw2016
+    citation: "Saw AE, Main LC, Gastin PB. Monitoring the athlete training response: subjective self-reported measures trump commonly used objective measures: a systematic review. Br J Sports Med. 2016;50(5):281-91."
+    type: systematic_review
+    doi: 10.1136/bjsports-2015-094758
+    pmid: "26423706"
+    verified: {via: [crossref, pubmed], date: "2026-10-07"}
+    read_level: abstract
+    limitations: "56 studi eterogenei per sport, misure e popolazioni; nessuna meta-analisi"
+  - id: hooper1995markers
+    citation: "Hooper SL, Mackinnon LT, Howard A, Gordon RD, Bachmann AW. Markers for monitoring overtraining and recovery. Med Sci Sports Exerc. 1995;27(1):106-12."
+    type: observational_study
+    doi: 10.1249/00005768-199501000-00019
+    pmid: "7898325"
+    verified: {via: [crossref, pubmed], date: "2026-10-07"}
+    read_level: abstract
+    limitations: "14 nuotatori d'élite, una stagione; scale e voci esatte non descritte nell'abstract"
+  - id: hooper1995rec
+    citation: "Hooper SL, Mackinnon LT. Monitoring overtraining in athletes. Recommendations. Sports Med. 1995;20(5):321-7."
+    type: narrative_review
+    doi: 10.2165/00007256-199520050-00003
+    pmid: "8571005"
+    verified: {via: [crossref, pubmed], date: "2026-10-07"}
+    read_level: id_only   # PubMed non riporta abstract
   - id: impellizzeri2020
     citation: "Impellizzeri FM, et al. Acute:Chronic Workload Ratio: Conceptual Issues and Fundamental Pitfalls. Int J Sports Physiol Perform. 2020;15(6):907-913."
     type: methodological_critique

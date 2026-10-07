@@ -147,6 +147,33 @@ class SubjectiveCheckin(Strict):
     readiness_1_10: int | None = Field(default=None, ge=1, le=10)
     illness: bool | None = None
     pain: list[dict[str, Any]] | None = None  # [{"region": str, "score_0_10": float}]
+    # Daily questionnaire (askesis.checkin): every scale measures "how much" of its item; direction is in ITEMS.
+    moment: Literal["morning", "post_session"] | None = None
+    sleep_quality_1_10: int | None = Field(default=None, ge=1, le=10)
+    fatigue_1_10: int | None = Field(default=None, ge=1, le=10)
+    soreness_1_10: int | None = Field(default=None, ge=1, le=10)
+    stress_1_10: int | None = Field(default=None, ge=1, le=10)
+    mood_1_10: int | None = Field(default=None, ge=1, le=10)
+    hunger_1_10: int | None = Field(default=None, ge=1, le=10)
+    motivation_1_10: int | None = Field(default=None, ge=1, le=10)
+    session_kind: Literal["strength", "run"] | None = None
+    session_rpe_cr10: int | None = Field(default=None, ge=0, le=10)
+    session_quality_1_10: int | None = Field(default=None, ge=1, le=10)
+    session_minutes: int | None = Field(default=None, ge=1, le=600)
+
+    @model_validator(mode="after")
+    def _moment_fields(self):
+        morning = ("sleep_quality_1_10", "fatigue_1_10", "soreness_1_10", "stress_1_10", "mood_1_10", "hunger_1_10",
+                   "motivation_1_10")
+        post = ("session_kind", "session_rpe_cr10", "session_quality_1_10", "session_minutes")
+        has = lambda names: any(getattr(self, n) is not None for n in names)  # noqa: E731
+        if has(morning) and self.moment != "morning":
+            raise ValueError("le voci del mattino richiedono moment = morning")
+        if has(post) and self.moment != "post_session":
+            raise ValueError("le voci della seduta richiedono moment = post_session")
+        if self.moment == "post_session" and self.session_kind is None:
+            raise ValueError("check-in dopo la seduta senza tipo di seduta")
+        return self
 
 
 class DailyContext(Strict):

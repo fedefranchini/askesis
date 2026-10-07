@@ -11,6 +11,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
+from askesis import checkin
 from askesis.config import Config
 from askesis.core.timeutil import now_utc
 from askesis.ingestion import manual, readback
@@ -38,6 +39,11 @@ def build_day(line: str, cfg: Config, day: date, now: datetime | None = None) ->
     """Records for a dictation line (raises ParseError on invalid input)."""
     now = now or now_utc()
     return [rec for it in parse_day(line, cfg.context_aliases) for rec in manual.build(it, cfg, day, now)]
+
+
+def prepare(conn: sqlite3.Connection, records: list[dict]) -> list[dict]:
+    """Questionnaire answers for a day and moment already answered become a merged new version (supersession)."""
+    return checkin.merge(conn, records)
 
 
 def preview(records: list[dict]) -> DayPreview:

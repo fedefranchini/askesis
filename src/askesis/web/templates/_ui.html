@@ -16,3 +16,19 @@
   {% if t.sub %}<span class="sub">{{ t.sub }}</span>{% endif %}
 </div>
 {%- endmacro %}
+
+{# One anchored scale as radio buttons; the readout under it shows the words for the chosen value (checkin.js). #}
+{% macro scale(it, prefix, current) %}
+<fieldset class="scale" data-desc='{{ it.descriptions()|tojson }}'>
+  <legend><span class="q-label">{{ it.label }}</span><span class="q-text">{{ it.question }}</span></legend>
+  <div class="dots n{{ it.hi - it.lo + 1 }}">
+    {% for v in range(it.lo, it.hi + 1) %}
+    <input type="radio" id="{{ prefix }}{{ it.key }}-{{ v }}" name="{{ prefix }}{{ it.key }}" value="{{ v }}"{% if current == v %} checked{% endif %}>
+    <label for="{{ prefix }}{{ it.key }}-{{ v }}" title="{{ it.describe(v) }}">{{ v }}</label>
+    {% endfor %}
+  </div>
+  <ul class="anchors">{% for k, words in it.anchors.items() %}<li><b>{{ k }}</b> {{ words }}</li>{% endfor %}</ul>
+  <p class="picked{% if current is none %} none{% endif %}" aria-live="polite">{% if current is not none %}{{ current }} · {{ it.describe(current) }}{% else %}Non risposto: puoi saltarla.{% endif %}</p>
+  {% if it.note %}<p class="hint">{{ it.note }}</p>{% endif %}
+</fieldset>
+{% endmacro %}

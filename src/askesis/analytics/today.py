@@ -194,6 +194,9 @@ def todo(conn: sqlite3.Connection, day: date) -> list[str]:
         out.append("Pesata di oggi")
     if not has("nutrition_day", day - timedelta(days=1)):
         out.append("Cibo di ieri")
+    if not conn.execute("SELECT 1 FROM v_current WHERE entity_type = 'subjective_checkin' AND local_date = ? AND "
+                        "json_extract(payload, '$.moment') = 'morning' LIMIT 1", (day.isoformat(),)).fetchone():
+        out.append("Check-in del mattino")
     return out
 
 

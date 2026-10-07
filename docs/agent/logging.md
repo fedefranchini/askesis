@@ -20,6 +20,20 @@ bin/ak day "p 68.4 · cibo 1850 115 · pesi: panca 80x8 r2, 80x7 r1 · corsa 5.2
   presentarla all'atleta e salvare con `--yes` solo dopo la sua conferma.
 - `bin/ak` è il launcher (non dipende dall'installazione editable).
 
+## Questionario soggettivo (mattino e dopo la seduta)
+
+Testo delle domande e delle scale: `bin/ak checkin-scales` (definizione unica in `src/askesis/checkin.py`).
+Ogni scala misura "quanto" di quella voce (1–10; la fatica della seduta è CR-10, 0–10); il verso negli indici
+lo gestisce il codice. Tutte le voci sono facoltative: registrare solo quelle dettate, **mai** dedurre un valore.
+
+```bash
+bin/ak day "checkin sonno 7 stanchezza 4 indolenzimento 3 stress 5 umore 7 fame 5 voglia 8"
+bin/ak day "seduta pesi fatica 7 qualità 8 70min"      # circa 30 minuti dopo la seduta; corsa: "seduta corsa …"
+```
+
+Una nuova risposta per lo stesso giorno (e tipo di seduta) diventa una nuova versione con le risposte unite: le voci
+non dette restano invariate. Si salva subito con rilettura compatta.
+
 ## Staging (formato v0 — fallback)
 
 Usato prima della CLI; resta valido come fallback se la CLI non è disponibile. Importazione idempotente con
@@ -45,7 +59,8 @@ JSON per record, **solo in append** (`>>`). Formato envelope v0:
   - `daily_context` {key, value} — variabili di contesto personalizzabili; chiavi e formato di dettatura
     definiti solo nelle istruzioni locali private dell'assistente
   - `sleep_session` / `resting_hr_daily` (opzionali)
-  - `subjective_checkin` {fatigue_1_5?, soreness_1_5?, stress_1_5?, readiness_1_10?, illness?, pain?}
+  - `subjective_checkin` {moment: morning|post_session, voci 1–10 del questionario (`askesis/checkin.py`),
+    session_kind?, session_rpe_cr10?, session_minutes?, illness?, pain?}; i campi `*_1_5` restano solo per record vecchi
   - `athlete_attribute`, `goal`, `health_event`, `context_event` (es. `exam_period`), `test_result`
 - RIR non ricordato → campo assente, **mai** inventato. Giorno nutrizionale incompleto → `partial`.
 - Dopo ogni scrittura, mostrare all'atleta una ricevuta sintetica di cosa è stato registrato.

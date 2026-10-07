@@ -82,7 +82,7 @@ def test_login_log_and_charts_without_console_errors(server):
         page.wait_for_load_state("networkidle")
         page.fill("#line", "p 66.2")
         page.fill("#day", "2025-03-31")
-        page.click("button[value=save]")
+        page.click("form.entry button[value=save]")
         page.wait_for_load_state("networkidle")
         assert "Salvato" in page.content()
         page.goto(f"{url}/andamenti")
@@ -129,6 +129,38 @@ def test_coach_decision_flow_on_a_phone(server):
         page.wait_for_load_state("networkidle")
         assert "approvato" in page.locator(".notice.ok").inner_text()
         assert page.locator(".nav .badge-pending").count() == 0
+        scroll = page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
+        assert scroll <= 0  # no horizontal scrolling on a phone
+        browser.close()
+    assert errors == []
+
+
+def test_checkin_on_a_phone_by_tapping_the_scales(server):
+    url, password = server
+    errors = []
+    with playwright.sync_playwright() as p:
+        try:
+            browser = p.chromium.launch(headless=True)
+        except Exception as exc:  # browser binary not installed
+            pytest.skip(f"chromium non installato: {exc}")
+        page = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True).new_page()
+        page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.goto(f"{url}/login")
+        page.fill("#password", password)
+        page.click("button[type=submit]")
+        page.wait_for_load_state("networkidle")
+        form = page.locator("section.checkin form").first
+        assert form.is_visible()  # open when today's check-in is missing
+        box = form.locator("label[for='ck_sonno-10']").bounding_box()
+        assert box["height"] >= 44 and box["width"] >= 28  # tappable on a phone, ten in a row
+        form.locator("label[for='ck_sonno-6']").tap()
+        assert form.locator("fieldset.scale").first.locator(".picked").inner_text() == "6 · tra «Discreto» e «Buono»"
+        form.locator("label[for='ck_stress-3']").tap()
+        form.locator("button[value=save]").tap()
+        page.wait_for_load_state("networkidle")
+        assert "sonno 6 (" in page.locator(".receipt.saved").inner_text()
+        assert page.locator("#ck_sonno-6").is_checked()  # prefilled after saving
         scroll = page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
         assert scroll <= 0  # no horizontal scrolling on a phone
         browser.close()

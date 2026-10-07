@@ -117,8 +117,8 @@ def test_no_look_ahead(conn, tmp_path):
 
 
 def test_todo_lists_missing_entries(conn):
-    assert today.todo(conn, MON + timedelta(days=10)) == []
-    assert today.todo(conn, MON + timedelta(days=30)) == ["Pesata di oggi", "Cibo di ieri"]
+    assert today.todo(conn, MON + timedelta(days=10)) == ["Check-in del mattino"]
+    assert today.todo(conn, MON + timedelta(days=30)) == ["Pesata di oggi", "Cibo di ieri", "Check-in del mattino"]
 
 
 def test_session_done_today(conn):
