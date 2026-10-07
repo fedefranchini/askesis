@@ -521,6 +521,11 @@ def metrics_rebuild() -> None:
         raise typer.Exit(1)
 
 
+def _shown(path: Path) -> Path:
+    """Path relative to the project when inside it (reports may live elsewhere, e.g. a rehearsal folder)."""
+    return path.relative_to(config_mod.ROOT) if path.is_relative_to(config_mod.ROOT) else path
+
+
 def _save_validated(md: str, out: Path, conn, echo: bool = True) -> None:
     """Generated reports pass the validator too: on failure the final file is not written (DA VERIFICARE)."""
     from askesis.validation import textcheck
@@ -533,9 +538,9 @@ def _save_validated(md: str, out: Path, conn, echo: bool = True) -> None:
     if echo:
         typer.echo(md)
     if res.ok:
-        typer.echo(f"\n✓ validata e salvata in {target.relative_to(config_mod.ROOT)}")
+        typer.echo(f"\n✓ validata e salvata in {_shown(target)}")
         return
-    typer.echo(f"\n✗ DA VERIFICARE — {len(res.issues)} punti non supportati → {target.relative_to(config_mod.ROOT)}")
+    typer.echo(f"\n✗ DA VERIFICARE — {len(res.issues)} punti non supportati → {_shown(target)}")
     for i in res.issues:
         typer.echo(i.render())
     raise typer.Exit(1)

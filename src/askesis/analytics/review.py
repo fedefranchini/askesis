@@ -146,7 +146,7 @@ def render(values: list[MetricValue], week_start: date, issues: list[tuple[str, 
         if kg and pct:
             L.append(f"- Velocità {days} gg: **{_fmt(pct.value, 2)} %/sett**{_interval(pct, 2)} "
                      f"({_fmt(kg.value, 2)} kg/sett) → **{_beyond_noise(pct)}** (intervallo Theil–Sen, livello "
-                     f"`rate_ci_level`) — {_cite(pct)}, n={pct.n_obs}")
+                     f"`rate_ci_level`) — {_cite(pct)} · {_cite(kg)}, n={pct.n_obs}")
         else:
             L.append(f"- Velocità {days} gg: dati insufficienti → **{NOT_ESTIMABLE}**")
     for m in [m for m in values if m.metric_id == "waist_session" and week_start <= m.period_start <= week_end]:

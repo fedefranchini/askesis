@@ -5,9 +5,22 @@ First use triggers the macOS prompt "… wants to control Notes" (Privacy & Secu
 
 from __future__ import annotations
 
+import os
+import re
 import subprocess
+from pathlib import Path
 
 FOLDER = "Askesis"
+
+
+def _file_mode() -> Path | None:
+    """ASKESIS_NOTES_DIR: notes are written as HTML files there instead of Apple Notes (rehearsals, tests)."""
+    d = os.environ.get("ASKESIS_NOTES_DIR")
+    return Path(d) if d else None
+
+
+def _file_for(title: str) -> Path:
+    return _file_mode() / (re.sub(r"[^\w .·-]", "_", title) + ".html")
 
 
 class NotesError(RuntimeError):
@@ -33,6 +46,11 @@ def _run(script: str) -> str:
 
 def upsert(title: str, body_html: str, account: str = "iCloud") -> str:
     """Create or replace the note with this title in the Askesis folder. Returns the note id."""
+    if _file_mode() is not None:
+        f = _file_for(title)
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(body_html)
+        return str(f)
     script = f"""
     tell application "Notes"
         tell account {_q(account)}
@@ -52,6 +70,9 @@ def upsert(title: str, body_html: str, account: str = "iCloud") -> str:
 
 
 def read(title: str, account: str = "iCloud") -> str | None:
+    if _file_mode() is not None:
+        f = _file_for(title)
+        return f.read_text() if f.exists() else None
     script = f"""
     tell application "Notes"
         tell account {_q(account)}

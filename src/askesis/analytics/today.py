@@ -173,7 +173,7 @@ def phase_progress(conn: sqlite3.Connection, inp: engine.Inputs, day: date) -> d
         daily = {d: v for d, v in body.daily_weights(inp.weighins).items() if d <= day}
         ema = body.weight_ema_series(daily)
         base = [d for d in ema if d < start]
-        change = ema[max(ema)] - ema[max(base)] if base and ema else None
+        change = ema[max(ema)] - ema[max(base)] if base and ema and week >= 2 else None  # week 1: nothing to say
         return {"phase": c["phase"], "week": week, "of": c["max_duration_weeks"], "start": start.isoformat(),
                 "weight_change_kg": change, "ref": "weight_ema@1"}
     nxt = conn.execute(
@@ -203,4 +203,5 @@ def summary(conn: sqlite3.Connection, day: date, inp: engine.Inputs | None = Non
     tiles = [weight_tile(inp, day), energy, protein, sleep_tile(inp, day), sessions_tile(inp, day),
              steps_tile(inp, day)]
     return {"day": day.isoformat(), "tiles": [asdict(t) for t in tiles], "phase": phase_progress(conn, inp, day),
-            "todo": todo(conn, day), "session": plan_rules.next_session(conn, day, record=False)}
+            "todo": todo(conn, day), "session": plan_rules.next_session(conn, day, record=False),
+            "session_done": any(x.day == day and x.set_type != "warmup" for x in inp.sets)}

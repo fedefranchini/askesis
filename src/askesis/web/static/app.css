@@ -357,3 +357,4 @@ button.danger-soft { background: transparent; border-color: var(--warn); color: 
   .confirm-actions button, .button-link { width: 100%; justify-content: center; }
   .decide button { align-self: stretch; }
 }
+.st-done { color: var(--ok); margin-left: 6px; vertical-align: middle; }

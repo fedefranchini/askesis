@@ -78,10 +78,10 @@
     {% set nx = S.session %}
     {% if nx.status == "session" %}
       {% for s in nx.sessions %}
-      <h2>Seduta di oggi · {{ s.name }}{% if nx.deload %} · scarico{% endif %}</h2>
+      <h2>Seduta di oggi · {{ s.name }}{% if nx.deload %} · scarico{% endif %}{% if S.session_done %} <span class="status st-done">{{ icon("ok") }}registrata</span>{% endif %}</h2>
       <ul class="lifts">
         {% for l in s.lifts %}
-        <li><span class="ex">{{ l.exercise }}</span>
+        <li><span class="ex">{{ l.exercise|exercise }}</span>
             <span class="rx">{{ l.sets }} × {{ l.rep_target }}{% if l.load_kg %} · {{ l.load_kg|num(1) if l.load_kg % 1 else l.load_kg|num }} kg{% endif %}</span>
             <span class="why">RIR {{ "%g"|format(l.target_rir) }} · {{ l.reason }}</span></li>
         {% endfor %}

@@ -119,3 +119,10 @@ def test_no_look_ahead(conn, tmp_path):
 def test_todo_lists_missing_entries(conn):
     assert today.todo(conn, MON + timedelta(days=10)) == []
     assert today.todo(conn, MON + timedelta(days=30)) == ["Pesata di oggi", "Cibo di ieri"]
+
+
+def test_session_done_today(conn):
+    day = MON + timedelta(days=10)
+    assert today.summary(conn, day)["session_done"] is False
+    ingest(conn, syn.strength_session(day), "s")
+    assert today.summary(conn, day)["session_done"] is True

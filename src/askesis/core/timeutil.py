@@ -8,7 +8,9 @@ Rules (docs/architecture.md §3):
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, date, datetime, time, timedelta
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 
@@ -17,6 +19,16 @@ def tz(name: str) -> ZoneInfo:
 
 
 def now_utc() -> datetime:
+    """Current instant. ASKESIS_NOW fixes it for rehearsals on a synthetic database: it is refused unless
+    ASKESIS_DB_PATH points to a database outside data/, so the real database never sees a fake clock."""
+    fake = os.environ.get("ASKESIS_NOW")
+    if fake:
+        db = os.environ.get("ASKESIS_DB_PATH", "")
+        real_data = Path(__file__).resolve().parents[3] / "data"  # the real database lives here
+        if not db or Path(db).resolve().is_relative_to(real_data):
+            raise RuntimeError("ASKESIS_NOW è ammesso solo con ASKESIS_DB_PATH verso un database di prova")
+        dt = datetime.fromisoformat(fake)
+        return (dt if dt.tzinfo else dt.replace(tzinfo=UTC)).astimezone(UTC)
     return datetime.now(UTC)
 
 

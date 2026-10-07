@@ -65,3 +65,27 @@ def test_unknown_unit_rejected():
 
 def test_pace():
     assert units.pace_s_per_km(5000, 1500) == 300
+
+
+def test_fake_clock_only_on_a_test_database(tmp_path, monkeypatch):
+    from askesis.config import ROOT
+    from askesis.core import timeutil
+
+    monkeypatch.setenv("ASKESIS_NOW", "2026-10-12T07:30:00+02:00")
+    monkeypatch.delenv("ASKESIS_DB_PATH", raising=False)
+    with pytest.raises(RuntimeError):
+        timeutil.now_utc()
+    monkeypatch.setenv("ASKESIS_DB_PATH", str(ROOT / "data" / "askesis.db"))
+    with pytest.raises(RuntimeError):
+        timeutil.now_utc()
+    monkeypatch.setenv("ASKESIS_DB_PATH", str(tmp_path / "prova.db"))
+    assert timeutil.now_utc().isoformat() == "2026-10-12T05:30:00+00:00"
+
+
+def test_notes_can_be_written_to_files(tmp_path, monkeypatch):
+    from askesis import notes_bridge
+
+    monkeypatch.setenv("ASKESIS_NOTES_DIR", str(tmp_path / "note"))
+    notes_bridge.upsert("Askesis · Prova 12/10", "<div>ok</div>")
+    assert notes_bridge.read("Askesis · Prova 12/10") == "<div>ok</div>"
+    assert notes_bridge.read("altra") is None

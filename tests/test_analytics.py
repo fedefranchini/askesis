@@ -189,6 +189,18 @@ def test_review_cites_every_number(db):
     assert "adattivo" in md and "IC" in md
 
 
+def test_review_with_weight_rate_passes_the_validator(db):
+    """Regression: the kg/week rate printed next to the %/week rate must cite its own metric."""
+    from askesis.validation import textcheck
+
+    ws = syn.START + timedelta(days=21)
+    _, vals, _ = engine.run(db, syn.START, WEEK4_END)
+    md = review.render(vals, ws)
+    assert "Velocità 14 gg: **" in md and "kg/sett" in md
+    res = textcheck.validate(md, db)
+    assert res.ok, [i.render() for i in res.issues]
+
+
 def test_review_without_data_is_honest(conn):
     md = review.render([], syn.START)
     assert "dati insufficienti" in md and "nessuna sessione" in md and "rumore non ancora stimabile" in md

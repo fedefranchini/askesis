@@ -141,6 +141,9 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
     env.filters["num"] = fmt_num
     env.filters["date"] = fmt_date
     env.globals["md"] = md.render
+    env.filters["exercise"] = exercise_name
+    env.filters["phase"] = lambda k: present.PHASES.get(k, k)
+    env.filters["it_date"] = lambda d: date.fromisoformat(str(d)[:10]).strftime("%d/%m/%Y") if d else "—"
     asset_v = asset_version()
 
     def today() -> date:

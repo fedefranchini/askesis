@@ -147,6 +147,7 @@ def test_dashboard_agent_is_only_shown_and_binds_localhost(cli):
     ["plan", "next"],
     ["plan", "calorie-check"], ["plan", "calorie-apply"], ["intervention", "propose"], ["intervention", "approve"],
     ["intervention", "activate"], ["intervention", "evaluate"], ["intervention", "list"], ["show", "week"],
+    ["gym-note", "create"], ["gym-note", "import"],
 ])
 def test_commands_used_by_routines_and_docs_exist(cmd):
     """Regression guard: a refactoring must never silently drop a command."""

@@ -9,13 +9,13 @@
 <section class="card">
   <dl class="kv">
     {% if content.phase %}
-    <dt>Fase</dt><dd>{{ content.phase.phase }} dal {{ rows.phase.valid_from }}, al massimo {{ content.phase.max_duration_weeks }} settimane, poi {{ content.phase.next_phase }}</dd>
+    <dt>Fase</dt><dd>{{ content.phase.phase|phase|capitalize }} dal {{ rows.phase.valid_from|it_date }}, al massimo {{ content.phase.max_duration_weeks }} settimane, poi {{ content.phase.next_phase|phase }}</dd>
     {% endif %}
     {% if content.nutrition_target %}
     <dt>Energia</dt><dd>{{ content.nutrition_target.energy_kcal|num }} kcal/die</dd>
     <dt>Proteine</dt><dd>{{ content.nutrition_target.protein_g|num }} g/die</dd>
     {% if content.nutrition_target.steps_target %}<dt>Passi</dt><dd>{{ content.nutrition_target.steps_target|num }} al giorno</dd>{% endif %}
-    <dt>Dal</dt><dd>{{ rows.nutrition_target.valid_from }}</dd>
+    <dt>Dal</dt><dd>{{ rows.nutrition_target.valid_from|it_date }}</dd>
     {% endif %}
   </dl>
 </section>
@@ -24,7 +24,7 @@
 {% for s in nxt.sessions %}
 <section class="card">
   <h2>Seduta di oggi · {{ s.name }}</h2>
-  <ul class="lifts">{% for l in s.lifts %}<li><span class="ex">{{ l.exercise }}</span><span class="rx">{{ l.sets }} × {{ l.rep_target }}{% if l.load_kg %} · {{ "%g"|format(l.load_kg) }} kg{% endif %}</span><span class="why">RIR {{ "%g"|format(l.target_rir) }} · {{ l.reason }}</span></li>{% endfor %}</ul>
+  <ul class="lifts">{% for l in s.lifts %}<li><span class="ex">{{ l.exercise|exercise }}</span><span class="rx">{{ l.sets }} × {{ l.rep_target }}{% if l.load_kg %} · {{ "%g"|format(l.load_kg) }} kg{% endif %}</span><span class="why">RIR {{ "%g"|format(l.target_rir) }} · {{ l.reason }}</span></li>{% endfor %}</ul>
   {% if s.run %}<p class="hint">Corsa: {{ s.run.kind }}{% if s.run.duration_min %}, {{ "%g"|format(s.run.duration_min) }} min{% endif %}</p>{% endif %}
 </section>
 {% endfor %}
