@@ -213,8 +213,10 @@ Robustezza: `web_bind` accetta `tunnel:<CIDR>` (l'indirizzo attuale del Mac in q
 punto-punto); un watcher riavvia la dashboard quando l'interfaccia compare, si riconnette o cambia indirizzo. I client
 ammessi restano IP espliciti, mai derivati dalla rete; i rifiutati finiscono nel log. `bin/ak web check` (agente ogni
 10 minuti) verifica dal Mac agente, ascolto, indirizzi, firewall, client rifiutati, connessioni bloccate a metà e
-VPN che instrada tutto il traffico nel tunnel della mesh (osservato: con la VPN connessa sul Mac le connessioni
-aperte dal telefono non si completano), con notifica solo al cambio di stato; il lato telefono non è osservabile dal Mac. Poi F4b (import storico di Salute) e F4c
+Kill Switch attivo su una VPN collegata (`includeAllNetworks`: tutto il traffico forzato nel tunnel). Osservato
+(2026-10-07, cattura dei pacchetti): con il Kill Switch acceso la richiesta del telefono arriva ma macOS scarta la
+risposta prima di qualsiasi interfaccia; con la VPN accesa e il Kill Switch spento la dashboard funziona. Notifica
+solo al cambio di stato; il lato telefono non è osservabile dal Mac. Poi F4b (import storico di Salute) e F4c
 (sincronizzazione quotidiana con Comandi Rapidi).
 **Dashboard** (localhost, stesso stack Python; involucro sottile attorno al nucleo, nessuna logica di calcolo
 duplicata):

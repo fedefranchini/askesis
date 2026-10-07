@@ -87,24 +87,40 @@ def test_rejected_client_is_logged_once(tmp_path, monkeypatch, capsys):
     assert capsys.readouterr().err.count("client rifiutato: 100.64.0.9") == 1
 
 
-ROUTES_VPN = """Routing tables
-
-Internet:
-Destination        Gateway            Flags               Netif Expire
-default            link#22            UCSg                utun4
-default            10.0.0.1           UGScIg                en0
-"""
-ROUTES_MESH_ONLY = """Internet:
-Destination        Gateway            Flags               Netif Expire
-default            10.0.0.1           UGScg                 en0
-default            link#22            UCSIg               utun4
+NC_LIST = """Available network connection services in the current set (*=enabled):
+* (Connected)      AAAA VPN (com.example.vpn) "Esempio - Tunnel"   [VPN:com.example.vpn]
+* (Disconnected)   BBBB VPN (com.example.vpn) "Esempio Vecchio"    [VPN:com.example.vpn]
 """
 
 
-def test_vpn_carrying_all_traffic_through_the_mesh_tunnel_is_detected():
-    ifaces = netwatch.interfaces(IFCONFIG)
-    assert health.vpn_default_route(["100.64.0.1"], ROUTES_VPN, ifaces) == "utun4"
-    assert health.vpn_default_route(["100.64.0.1"], ROUTES_MESH_ONLY, ifaces) is None
+def test_kill_switch_is_reported_only_on_a_connected_vpn():
+    assert health.connected_vpns(NC_LIST) == ["Esempio - Tunnel"]
+    on = {"Esempio - Tunnel": True, "Esempio Vecchio": True}
+    assert health.full_tunnel_vpns(NC_LIST, on) == ["Esempio - Tunnel"]
+    off = {"Esempio - Tunnel": False, "Esempio Vecchio": True}  # a stale flag on a disconnected profile is ignored
+    assert health.full_tunnel_vpns(NC_LIST, off) == []
+
+
+def test_include_all_networks_is_read_from_the_archived_configuration(tmp_path):
+    import plistlib
+
+    def archive(name: str, flag: bool) -> list:
+        return [{"Name": plistlib.UID(1), "VPN": plistlib.UID(2)}, name, {"Protocol": plistlib.UID(3)},
+                {"IncludeAllNetworks": flag}]
+
+    objs = ["$null"]
+    for name, flag in (("Uno", True), ("Due", False)):
+        base = len(objs)
+        chunk = archive(name, flag)
+        fix = {1: base + 1, 2: base + 2, 3: base + 3}
+        for o in chunk:
+            if isinstance(o, dict):
+                o = {k: plistlib.UID(fix[v.data]) if isinstance(v, plistlib.UID) else v for k, v in o.items()}
+            objs.append(o)
+    f = tmp_path / "ne.plist"
+    f.write_bytes(plistlib.dumps({"$objects": objs}, fmt=plistlib.FMT_BINARY))
+    assert health.include_all_networks(f) == {"Uno": True, "Due": False}
+    assert health.include_all_networks(tmp_path / "manca.plist") == {}
 
 
 def test_half_open_connections_from_allowed_clients_are_reported():

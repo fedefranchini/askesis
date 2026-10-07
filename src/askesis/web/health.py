@@ -69,19 +69,50 @@ def firewall_blocks(executable: str) -> bool:
     return "is permitted" not in _run([tool, "--getappblocked", os.path.realpath(executable)])
 
 
-def vpn_default_route(served: list[str], routes: str | None = None, ifaces=None) -> str | None:
-    """Interface carrying the primary default route, if it is the tunnel that holds a served address: the whole
-    internet traffic goes through the VPN. Observed with the VPN connected on top of the mesh: replies to connections
-    opened by the phone are lost (handshake stuck), while connections opened by the Mac work."""
-    if routes is None:
-        routes = _run(["/usr/sbin/netstat", "-rn", "-f", "inet"])
-    ifaces = netwatch.interfaces() if ifaces is None else ifaces
-    tunnel_ifs = {name for name, p2p, addr in ifaces if p2p and addr in served}
-    for line in routes.splitlines():
-        cols = line.split()
-        if len(cols) >= 4 and cols[0] == "default" and "I" not in cols[2]:  # I = interface-scoped, not primary
-            return cols[-1] if cols[-1] in tunnel_ifs else None
-    return None
+NE_PREFS = Path("/Library/Preferences/com.apple.networkextension.plist")
+
+
+def connected_vpns(nc_list: str | None = None) -> list[str]:
+    """Names of the VPN configurations macOS reports as connected."""
+    if nc_list is None:
+        nc_list = _run(["/usr/sbin/scutil", "--nc", "list"])
+    return re.findall(r'^\*?\s*\(Connected\).*?"([^"]+)"', nc_list, re.M)
+
+
+def include_all_networks(prefs: Path = NE_PREFS) -> dict[str, bool]:
+    """VPN configuration name -> includeAllNetworks ("all traffic through the tunnel", how VPN apps implement a
+    system-wide kill switch on macOS). Read-only; unknown when the file cannot be read."""
+    import plistlib
+
+    try:
+        data = plistlib.loads(prefs.read_bytes())
+    except (OSError, plistlib.InvalidFileException, ValueError):
+        return {}
+    objs = data.get("$objects", [])
+
+    def res(x):
+        return objs[x.data] if isinstance(x, plistlib.UID) else x
+
+    def parent_of(target):
+        return next((o for o in objs if isinstance(o, dict) and any(
+            isinstance(v, plistlib.UID) and objs[v.data] is target for v in o.values())), None)
+
+    out = {}
+    for o in objs:
+        if isinstance(o, dict) and "IncludeAllNetworks" in o:
+            proto = parent_of(o)
+            conf = parent_of(proto) if proto is not None else None
+            if conf is not None and "Name" in conf:
+                out[str(res(conf["Name"]))] = bool(res(o["IncludeAllNetworks"]))
+    return out
+
+
+def full_tunnel_vpns(nc_list: str | None = None, flags: dict[str, bool] | None = None) -> list[str]:
+    """Connected VPNs that force all traffic through the tunnel. Observed (NordVPN, Kill Switch on): the phone's
+    request reaches the Mac but macOS drops the reply before any interface, so connections opened by the phone never
+    complete; with the VPN connected and the kill switch off, they do."""
+    flags = include_all_networks() if flags is None else flags
+    return [n for n in connected_vpns(nc_list) if flags.get(n)]
 
 
 def half_open(port: int, clients: list[str], netstat_text: str | None = None) -> list[str]:
@@ -131,10 +162,9 @@ def check(cfg, port: int, since: str = "", executable: str = sys.executable) -> 
             r.problems.append(f"{a} è attivo ma la dashboard non è in ascolto lì (riavvio in corso?)")
         else:
             r.info.append(f"in ascolto su {a}:{port}")
-    via = vpn_default_route(remote) if remote else None
-    if via:
-        r.problems.append(f"la VPN di NordVPN è connessa sul Mac (tutto il traffico passa da {via}): con Meshnet "
-                          "le connessioni dall'iPhone restano bloccate; disconnetti la VPN sul Mac")
+    for name in (full_tunnel_vpns() if remote else []):
+        r.problems.append(f"Kill Switch attivo sulla VPN «{name}» (tutto il traffico forzato nel tunnel): macOS scarta "
+                          "le risposte alle connessioni dall'iPhone; spegni il Kill Switch, la VPN può restare accesa")
     for host in half_open(port, cfg.web_allowed_clients):
         r.problems.append(f"connessioni da {host} bloccate a metà (la risposta del Mac non arriva)")
     if remote and firewall_blocks(executable):
