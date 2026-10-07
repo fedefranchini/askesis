@@ -1,24 +1,26 @@
 {% extends "base.html" %}
-{% block title %}Accedi · Askesis{% endblock %}
+{% block title %}Askesis{% endblock %}
+{% block body_class %}page-login{% endblock %}
 {% block main %}
 <div class="login">
-  <form method="post" action="/login" class="card login-card" id="login" data-wait="{{ wait or 0 }}">
-    <p class="wordmark">Askesis</p>
-    <p class="tagline">Il tuo coach, sui tuoi dati.</p>
+  <header>
+    <h1 class="mark">ASKESIS</h1>
+    <p class="mark-sub"><span class="greek" lang="grc">ἄσκησις</span><span class="meaning">allenamento costante</span></p>
+  </header>
+  <form method="post" action="/login" id="login" data-wait="{{ wait or 0 }}">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     {# A username field lets the iPhone and Mac Keychain save and fill the password (hidden from view, not from autofill). #}
     <input class="visually-hidden" type="text" name="username" value="atleta" autocomplete="username" tabindex="-1" aria-hidden="true" readonly>
-    <label for="password" class="lead">Password</label>
-    <input id="password" name="password" type="password" autocomplete="current-password" autocapitalize="none"
-           autocorrect="off" spellcheck="false" enterkeyhint="go" required {% if not wait %}autofocus{% endif %}>
+    <label for="password" class="visually-hidden">Password</label>
+    <input id="password" name="password" type="password" placeholder="Password" autocomplete="current-password"
+           autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" required>
+    {% if error %}<p class="error" role="alert" id="login-error">{{ error }}</p>{% endif %}
+    <p class="wait" id="login-wait" aria-live="polite">{% if wait_text %}Puoi riprovare tra {{ wait_text }}.{% endif %}</p>
+    <button type="submit" id="login-submit">Entra</button>
     <label class="remember">
       <input type="checkbox" name="remember" value="1">
-      <span>Ricorda questo dispositivo per {{ remember_days }} giorni
-        <small>Solo su un dispositivo tuo. Si revoca da Accesso o dal terminale; la scadenza non si allunga.</small></span>
+      <span>Ricorda questo dispositivo · <small>{{ remember_days }} giorni, revocabile</small></span>
     </label>
-    {% if error %}<p class="error" role="alert" id="login-error">{{ error }}</p>{% endif %}
-    <button type="submit" id="login-submit">Accedi</button>
-    <p class="hint" id="login-wait" aria-live="polite">{% if wait_text %}Puoi riprovare tra {{ wait_text }}.{% endif %}</p>
   </form>
 </div>
 {% endblock %}

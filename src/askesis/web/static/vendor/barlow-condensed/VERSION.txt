@@ -1,0 +1,3 @@
+Barlow Condensed (SIL Open Font License 1.1) — https://github.com/google/fonts/tree/main/ofl/barlowcondensed
+commit: 6cdf01867df0813c2390f90dff7dc66c87f14cf7
+Files: BarlowCondensed-SemiBold.ttf, BarlowCondensed-Bold.ttf, OFL.txt (unmodified)

@@ -3,6 +3,8 @@
 @font-face { font-family: "Barlow"; src: url("vendor/barlow/Barlow-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
 @font-face { font-family: "Barlow"; src: url("vendor/barlow/Barlow-SemiBold.ttf") format("truetype"); font-weight: 600; font-display: swap; }
 @font-face { font-family: "Barlow"; src: url("vendor/barlow/Barlow-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Barlow Condensed"; src: url("vendor/barlow-condensed/BarlowCondensed-SemiBold.ttf") format("truetype"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Barlow Condensed"; src: url("vendor/barlow-condensed/BarlowCondensed-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
 
 :root {
   --bg: #0F1317;
@@ -217,7 +219,6 @@ button.link { border: 0; background: none; color: var(--text-2); padding: 0; min
 .kv dd { margin: 0; font-weight: 600; }
 .narrow { max-width: 360px; }
 .stack { display: flex; flex-direction: column; gap: 10px; }
-.login { min-height: 70vh; display: flex; align-items: center; }
 
 /* ------------------------------------------------------------------ phone */
 @media (max-width: 900px) {
@@ -252,20 +253,6 @@ button.link { border: 0; background: none; color: var(--text-2); padding: 0; min
 
 /* ------------------------------------------------------------------ login and access */
 .visually-hidden { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-.login { min-height: calc(100vh - 64px); display: flex; align-items: center; justify-content: center; }
-.login-card { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; padding: 32px 28px 28px; }
-.wordmark { margin: 0; font-size: 44px; font-weight: 700; line-height: 1; letter-spacing: 0.01em; }
-.wordmark::after { content: ""; display: block; width: 40px; height: 4px; border-radius: 2px; background: var(--accent); margin-top: 14px; }
-.tagline { margin: 0 0 14px; color: var(--text-2); }
-.login-card input[type="password"] { font-size: 18px; }
-.login-card button { margin-top: 6px; min-height: 50px; font-size: 17px; }
-.login-card button:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
-.remember { display: flex; gap: 12px; align-items: flex-start; margin-top: 6px; cursor: pointer; }
-.remember input { width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--accent); flex: none; }
-.remember span { font-weight: 600; }
-.remember small { display: block; font-weight: 400; color: var(--text-2); font-size: var(--fs-s); margin-top: 2px; }
-.login-card .error { margin: 4px 0 0; padding: 10px 12px; border-radius: 10px; background: rgba(250, 178, 25, 0.08); border: 1px solid rgba(250, 178, 25, 0.45); font-size: 15px; }
-.login-card .hint:empty { display: none; }
 .logout a.quiet { color: var(--text-2); text-decoration: none; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
 .logout a.quiet:hover, .logout a.quiet[aria-current="page"] { color: var(--text); }
 .devices li { max-width: none; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
@@ -274,7 +261,44 @@ button.link { border: 0; background: none; color: var(--text-2); padding: 0; min
 .footer-link { text-align: center; font-size: var(--fs-s); margin-top: 24px; }
 .footer-link a { color: var(--text-2); }
 @media (max-width: 760px) {
-  .login { min-height: 100vh; align-items: flex-start; padding-top: max(10vh, env(safe-area-inset-top)); }
-  .login-card { padding: 28px 20px 24px; }
-  .main:has(.login) { padding-bottom: 24px; }
+  }
+
+/* ------------------------------------------------------------------ login: full screen, "thumb" layout
+   Mark at the top, the form where the thumb reaches on a phone. Background: CSS only (glow, faint track rings,
+   inline SVG grain as a data: URI, allowed by img-src): no external images. */
+body.page-login { min-height: 100vh; background:
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+  repeating-radial-gradient(circle at 115% 8%, transparent 0 46px, rgba(57, 135, 229, 0.07) 46px 47px, transparent 47px 92px),
+  radial-gradient(90% 70% at 110% 0%, rgba(57, 135, 229, 0.16), transparent 65%),
+  linear-gradient(180deg, #121820 0%, var(--bg) 70%);
+  background-attachment: fixed; }
+.page-login .shell { display: block; min-height: 100vh; }
+.page-login .main { padding: 0; max-width: none; }
+.login { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; justify-content: space-between; gap: 48px;
+  padding: max(56px, calc(env(safe-area-inset-top) + 32px)) 28px max(28px, calc(env(safe-area-inset-bottom) + 16px)); max-width: 520px; }
+.mark { font-family: "Barlow Condensed", "Barlow", sans-serif; font-weight: 700; font-size: clamp(56px, 17vw, 96px); letter-spacing: 0.2em;
+  margin: 0 -0.2em 0 0; line-height: 0.9; }
+.mark-sub { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
+.greek { font-family: "Iowan Old Style", "Palatino", "Times New Roman", serif; font-style: italic; font-size: 22px; }
+.meaning { font-size: 13px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--text-2); }
+.meaning::before { content: ""; display: inline-block; width: 18px; height: 2px; background: var(--accent); vertical-align: middle; margin-right: 10px; }
+.login form { display: flex; flex-direction: column; gap: 14px; }
+.login input[type="password"] { width: 100%; height: 60px; font-size: 20px; letter-spacing: 0.06em; padding: 0 18px; border-radius: 14px;
+  background: #0B0F12; border: 1px solid #2E3740; }
+.login input[type="password"]::placeholder { letter-spacing: 0.04em; }
+.login input[type="password"]:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(57, 135, 229, 0.18); }
+.login button { width: 100%; height: 58px; border: 0; border-radius: 14px; font-family: "Barlow Condensed", "Barlow", sans-serif; font-weight: 700;
+  font-size: 20px; letter-spacing: 0.16em; text-transform: uppercase; }
+.login button:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
+.remember { display: flex; gap: 12px; align-items: center; min-height: 44px; color: var(--text-2); font-size: 15px; cursor: pointer; }
+.remember input { width: 22px; height: 22px; margin: 0; flex: none; accent-color: var(--accent); }
+.remember small { color: var(--text-3); font-size: 14px; }
+.login .error { margin: 0; display: flex; gap: 8px; align-items: center; font-size: 15px; }
+.login .error::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex: none; }
+.login .wait { margin: 0; color: var(--text-2); font-size: 14px; }
+.login .wait:empty { display: none; }
+@media (min-width: 760px) {
+  .login { padding: 12vh 0 12vh 10vw; width: calc(10vw + 440px); max-width: none; justify-content: center; gap: 72px; }
+  .mark { font-size: 104px; }
+  .login form { width: 400px; }
 }

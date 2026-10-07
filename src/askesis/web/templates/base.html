@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="/static/app.css?v={{ asset_v }}">
   {% block head %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
   <div class="shell">
     {% if user %}
     <nav class="nav" aria-label="Sezioni">
