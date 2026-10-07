@@ -346,3 +346,33 @@ def test_decision_without_csrf_records_nothing(env):
     assert "Sessione scaduta" in r.text
     c = connect(cfg.db_path)
     assert reg.status(c, reg.get(c, 1)["id"]) == "proposed"
+
+
+def test_trends_page_is_four_questions_with_period(env):
+    client, _, password = env
+    login(client, password)
+    page = client.get("/andamenti").text
+    for title in ("Sto dimagrendo al ritmo giusto?", "Sto rispettando il piano?", "Sto mantenendo o guadagnando forza?",
+                  "Come stanno corsa e recupero?"):
+        assert title in page
+    assert page.index("Sto dimagrendo") < page.index("Sto rispettando") < page.index("forza?") < page.index("recupero?")
+    assert 'href="/andamenti?p=28" aria-current="true"' in page  # default: 4 weeks
+    assert 'href="/andamenti?p=91" aria-current="true"' in client.get("/andamenti?p=91").text
+    assert 'href="/andamenti?p=28" aria-current="true"' in client.get("/andamenti?p=7").text  # unknown → default
+    assert "Nessun piano attivo" in page  # synthetic data without a plan: a clear empty state, not an empty chart
+    assert "Volume dell" not in page and "Il volume per muscolo è nella pagina Piano" in page
+
+
+def test_plan_page_shows_volume_per_muscle(env):
+    from askesis.plan import store
+
+    client, cfg, password = env
+    lift = {"exercise": "bench_press", "sets": 3, "rep_range": [6, 8], "target_rir": 2}
+    c = connect(cfg.db_path)
+    store.add_version(c, "programme", "p", {"microcycle": [{"day": "mon", "name": "A", "lifts": [lift]}],
+                                            "minimal_week": [{"day": "mon", "name": "A", "lifts": [lift]}]},
+                      date(2025, 3, 3), None)
+    c.commit()
+    login(client, password)
+    page = client.get("/piano").text
+    assert "Volume per muscolo" in page and "petto" in page and "rt.volume_range_12_20" in page

@@ -29,7 +29,7 @@ from starlette.staticfiles import StaticFiles
 from askesis import coach as coach_mod
 from askesis import config as config_mod
 from askesis import services
-from askesis.analytics import body, engine
+from askesis.analytics import body, engine, trends
 from askesis.analytics import today as today_mod
 from askesis.analytics.params import p
 from askesis.core.timeutil import now_utc
@@ -83,6 +83,63 @@ def fmt_num(v, nd: int = 0) -> str:
     return s
 
 
+def volume_rows(c, programme: dict | None, day: date) -> dict | None:
+    """Weekly sets per muscle: planned by the programme vs recorded in the last complete week, with the reference
+    band (volume_reference_sets_week, claim rt.volume_range_12_20). Fractional counting for both."""
+    planned = present.planned_volume(programme["microcycle"]) if programme else {}
+    ws = day - timedelta(days=day.weekday() + 7)
+    inp = engine.load_inputs(c)
+    recorded = {m.subject.split(":", 1)[1]: m.value for m in (engine.compute(inp, ws, ws + timedelta(days=6))
+                                                              if inp.dates else [])
+                if m.metric_id == "volume_per_muscle_week" and m.period_start == ws}
+    muscles = sorted(set(planned) | set(recorded), key=lambda k: -max(planned.get(k, {}).get("fractional", 0),
+                                                                      recorded.get(k, 0)))
+    if not muscles:
+        return None
+    lo, hi = p("volume_reference_sets_week")
+    top = max([hi] + [planned.get(k, {}).get("fractional", 0) for k in muscles] + list(recorded.values())) * 1.08
+
+    def pct(v: float) -> float:
+        return round(100 * v / top, 2)
+
+    rows = [{"name": present.MUSCLES_IT.get(k, k), "planned": planned.get(k, {}).get("fractional"),
+             "recorded": recorded.get(k), "p_w": pct(planned.get(k, {}).get("fractional", 0)),
+             "r_w": pct(recorded.get(k, 0))} for k in muscles]
+    return {"rows": rows, "ref_x": pct(lo), "ref_w": pct(hi - lo), "lo": lo, "hi": hi, "week": ws,
+            "has_recorded": bool(recorded)}
+
+
+def mini_spark(points: list, band: list | None = None, target: float | None = None, w: float = 240,
+               h: float = 56) -> dict | None:
+    """SVG geometry (viewBox units) for a card's mini trend: line, optional band and target line. Presentation only."""
+    if len(points) < 2:
+        return None
+    xs = [date.fromisoformat(d) for d, _ in points]
+    ys = [v for _, v in points]
+    lows = [lo for lo, _ in band] if band else []
+    highs = [hi for _, hi in band] if band else []
+    lo = min(ys + lows + ([target] if target is not None else []))
+    hi = max(ys + highs + ([target] if target is not None else []))
+    pad = (hi - lo) * 0.12 or 0.5
+    lo, hi = lo - pad, hi + pad
+    span = max((xs[-1] - xs[0]).days, 1)
+
+    def x(d: date) -> float:
+        return round(3 + (d - xs[0]).days / span * (w - 6), 1)
+
+    def y(v: float) -> float:
+        return round(h - (v - lo) / (hi - lo) * h, 1)
+
+    line = " ".join(f"{'M' if i == 0 else 'L'}{x(d)},{y(v)}" for i, (d, v) in enumerate(zip(xs, ys, strict=True)))
+    area = None
+    if band:
+        top = [f"{x(d)},{y(b[1])}" for d, b in zip(xs, band, strict=True)]
+        bottom = [f"{x(d)},{y(b[0])}" for d, b in zip(reversed(xs), reversed(band), strict=True)]
+        area = "M" + " L".join(top + bottom) + " Z"
+    return {"w": w, "h": h, "line": line, "band": area, "target": y(target) if target is not None else None,
+            "last": (x(xs[-1]), y(ys[-1]))}
+
+
 def sparkline(c, day: date, days: int = 28, w: float = 300, h: float = 96) -> dict | None:
     """Geometry (SVG viewBox units) of the trend weight and its noise band over the last `days` days up to `day`.
     Presentation only: values come from weight_ema@1 and body.weight_noise_sd."""
@@ -120,10 +177,9 @@ def sparkline(c, day: date, days: int = 28, w: float = 300, h: float = 96) -> di
 
 
 def exercise_name(key: str) -> str:
-    from askesis.reference import catalog
+    from askesis.reference import exercise_label
 
-    e = next((x for x in catalog()["exercises"] if x["id"] == key), None)
-    return (e.get("name_it") or e["name"]) if e else key.removeprefix("raw:")
+    return exercise_label(key)
 
 
 def paths(cfg: config_mod.Config) -> tuple[Path, Path]:
@@ -325,7 +381,15 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
 
     # ------------------------------------------------------------------ trends
     async def andamenti(request: Request) -> Response:
-        return page(request, "andamenti.html")
+        try:
+            days = int(request.query_params.get("p", 28))
+        except ValueError:
+            days = 28
+        days = days if days in trends.PERIODS else 28
+        qs = trends.questions(conn(), today(), days)
+        for q in qs:
+            q["svg"] = mini_spark(q["spark"], q["spark_band"], q["spark_target"])
+        return page(request, "andamenti.html", questions=qs, days=days, periods=trends.PERIODS)
 
     async def api_series(request: Request) -> Response:
         c = conn()
@@ -383,8 +447,24 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
             "volume_ref": {"range": p("volume_reference_sets_week"), "ref": "volume_reference_sets_week",
                            "claim": "rt.volume_range_12_20"},
         }
-        top = sorted(out["e1rm"], key=lambda k: -sum(v is not None for v in out["e1rm"][k]["v"]))[:3]
-        out["e1rm"] = {k: out["e1rm"][k] for k in top}  # at most three lifts: the most tracked ones
+        names = [exercise_name(k) for k in trends.fundamentals(inp, today())]
+        keep = [k for k in out["e1rm"] if k in names] or \
+            sorted(out["e1rm"], key=lambda k: -sum(v is not None for v in out["e1rm"][k]["v"]))[:3]
+        out["e1rm"] = {k: out["e1rm"][k] for k in keep}  # the programme's fundamentals only
+        band = trends.target_band(c, today())
+        phase_row = plan_store.active(c, "phase", today())
+        out["corridor"] = None
+        if band and phase_row is not None:  # target rate corridor from the phase start (calorie_adjustment@2)
+            p_start = date.fromisoformat(phase_row["valid_from"])
+            base = [d for d in days if d < p_start]
+            if base:
+                w0 = ema[max(base)]
+                out["corridor"] = {
+                    "lo": [w0 * (1 + band[0] / 100 * (d - p_start).days / 7) if d >= p_start else None for d in days],
+                    "hi": [w0 * (1 + band[1] / 100 * (d - p_start).days / 7) if d >= p_start else None for d in days],
+                    "ref": "calorie_adjustment@2"}
+        tgt = plan_store.active(c, "nutrition_target", today())
+        out["steps_target"] = plan_store.content(tgt).get("steps_target") if tgt else None
         return JSONResponse(out)
 
     # ------------------------------------------------------------------ reports, plan, interventions, safety
@@ -454,7 +534,8 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         content = {k: plan_store.content(r) if r else None for k, r in rows.items()}
         week = present._session_lines(content["programme"]["microcycle"], minutes=True) if content["programme"] else []
         nxt = plan_rules.next_session(c, day, record=False)
-        return page(request, "piano.html", content=content, rows=rows, week=week, nxt=nxt, day=day)
+        return page(request, "piano.html", content=content, rows=rows, week=week, nxt=nxt, day=day,
+                    volume=volume_rows(c, content["programme"], day))
 
     async def interventi(request: Request) -> Response:
         c = conn()

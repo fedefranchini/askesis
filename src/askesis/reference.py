@@ -32,3 +32,9 @@ def _alias_index() -> dict[str, dict]:
 
 def find_exercise(name: str) -> dict | None:
     return _alias_index().get(normalize(name))
+
+
+def exercise_label(key: str) -> str:
+    """Italian name of a catalog exercise (falls back to the raw text for uncatalogued ones)."""
+    e = next((x for x in catalog()["exercises"] if x["id"] == key), None)
+    return (e.get("name_it") or e["name"]) if e else key.removeprefix("raw:")

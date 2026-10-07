@@ -28,10 +28,22 @@ def server(tmp_path, monkeypatch):
     private.write_text('timezone = "Europe/Berlin"\n')
     monkeypatch.setenv("ASKESIS_CONFIG", str(private))
     monkeypatch.setenv("ASKESIS_DB_PATH", str(tmp_path / "b.db"))
+    monkeypatch.setenv("ASKESIS_NOW", "2025-04-01T08:00:00+02:00")  # the server's "today" matches the synthetic data
     cfg = config.load()
     conn = connect(cfg.db_path)
+    from datetime import timedelta
+
+    from askesis.plan import store
+
     ingest(conn, syn.athlete() + syn.linear_weights(28) + syn.constant_intake(28)
-           + syn.strength_session(syn.START), "synthetic")
+           + [r for w in range(3) for r in syn.strength_session(syn.START + timedelta(weeks=w))], "synthetic")
+    lift = {"exercise": "bench_press", "sets": 3, "rep_range": [6, 8], "target_rir": 2}
+    store.add_version(conn, "nutrition_target", "t", {"energy_kcal": 1800, "protein_g": 110, "protein_basis": {},
+                                                      "method": "prior_only"}, syn.START, None)
+    store.add_version(conn, "programme", "p", {"microcycle": [{"day": "mon", "name": "A", "lifts": [lift]}],
+                                               "minimal_week": [{"day": "mon", "name": "A", "lifts": [lift]}]},
+                      syn.START, None)
+    conn.commit()
     from test_cli_f3 import SYNTHETIC_SOURCES
     from test_f3 import prereg
 
@@ -75,8 +87,20 @@ def test_login_log_and_charts_without_console_errors(server):
         assert "Salvato" in page.content()
         page.goto(f"{url}/andamenti")
         page.wait_for_load_state("networkidle")
-        page.wait_for_selector("#weight canvas")
-        assert page.locator("canvas").count() >= 3
+        page.wait_for_selector("#weight canvas")  # first question open by default, its chart drawn
+        assert page.locator(".q-rate .verdict").count() == 1
+        assert page.locator("canvas").count() == 1  # other charts are drawn only when opened
+        for det in page.locator("details[data-q]").all():
+            if det.get_attribute("open") is None:
+                det.locator("summary").click()
+        for _ in range(50):  # wait until every open chart is drawn (wait_for_function would need 'unsafe-eval')
+            if page.evaluate("[...document.querySelectorAll('details[open] .chart')].every(e => e.dataset.drawn)"):
+                break
+            page.wait_for_timeout(100)
+        assert page.locator("canvas").count() >= 2
+        for card in page.locator("details[data-q] .chart").all():  # every chart: drawn or a clear empty message
+            assert card.locator("canvas").count() == 1 or card.inner_text().strip()
+        assert page.locator(".q-empty .empty-state").count() + page.locator("details[data-q]").count() == 4
         browser.close()
     assert errors == []  # includes Content-Security-Policy violations
 

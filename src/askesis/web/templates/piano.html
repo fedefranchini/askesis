@@ -33,6 +33,27 @@
 {% elif nxt.status == "rest_day" %}
 <p class="card hint">Oggi non è prevista una seduta di pesi.</p>
 {% endif %}
+{% if volume %}
+<section class="card volume" aria-labelledby="vol-title">
+  <h2 id="vol-title">Volume per muscolo</h2>
+  <p class="hint">Serie settimanali (frazionarie) previste dal programma{% if volume.has_recorded %} e registrate nella settimana dal {{ volume.week.strftime("%d/%m") }}{% endif %}. Fascia {{ volume.lo }}–{{ volume.hi }} serie: riferimento per l'ipertrofia, evidenza di bassa certezza (rt.volume_range_12_20).</p>
+  <ul class="legend"><li><i class="k-s3"></i>previste</li>{% if volume.has_recorded %}<li><i class="k-s1"></i>registrate</li>{% endif %}<li><i class="k-ref"></i>fascia di riferimento</li></ul>
+  <ul class="vbars">
+    {% for r in volume.rows %}
+    <li>
+      <span class="vname">{{ r.name }}</span>
+      <svg class="vbar" viewBox="0 0 100 {{ 18 if volume.has_recorded else 10 }}" preserveAspectRatio="none" role="img"
+           aria-label="{{ r.name }}: {{ r.planned|num(1) if r.planned is not none else '—' }} previste{% if volume.has_recorded %}, {{ r.recorded|num(1) if r.recorded is not none else '0' }} registrate{% endif %}">
+        <rect class="ref" x="{{ volume.ref_x }}" y="0" width="{{ volume.ref_w }}" height="{{ 18 if volume.has_recorded else 10 }}"/>
+        <rect class="planned" x="0" y="1" width="{{ r.p_w }}" height="7" rx="1.5"/>
+        {% if volume.has_recorded %}<rect class="recorded" x="0" y="10" width="{{ r.r_w }}" height="7" rx="1.5"/>{% endif %}
+      </svg>
+      <span class="vval">{{ r.planned|num(1) if r.planned is not none else "—" }}{% if volume.has_recorded %}<small>{{ r.recorded|num(1) if r.recorded is not none else "0" }}</small>{% endif %}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
 {% if week %}
 <section class="card">
   <h2>Settimana tipo</h2>

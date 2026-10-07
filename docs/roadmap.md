@@ -239,6 +239,12 @@ duplicata):
   passaggio di conferma monouso; registrazione tramite le stesse funzioni della CLI (safety e controllo delle
   proposte inclusi); nessuna modifica calorica con un flag di safety aperto. Badge sulla barra con le proposte in
   attesa.
+- **Andamenti a quattro domande (fatto)**: ritmo di dimagrimento (tendenza, banda del rumore, fascia del ritmo
+  obiettivo della regola calorica), rispetto del piano (energia, proteine, sedute), forza (solo i fondamentali del
+  programma), corsa e recupero. Ogni domanda è una scheda con numero chiave, mini-curva e verdetto (in linea /
+  attenzione / dentro il rumore) calcolati nel nucleo (`analytics/trends.py`) da regole e parametri versionati; il
+  grafico completo si apre al tocco; periodo 4 settimane (3 mesi, 1 anno). Con dati insufficienti la scheda dice
+  cosa manca e quanto. Il volume per muscolo (previsto e registrato) è nella pagina Piano.
 - **Passkey (nota, nessun lavoro ora)**: la Web Authentication API funziona solo in un contesto sicuro (HTTPS,
   oppure `localhost` sul Mac) e l'identificativo del sito (RP ID) deve essere un nome di dominio, non un indirizzo
   IP (W3C WebAuthn; MDN). Con l'accesso attuale (HTTP dentro Meshnet, verso un IP 100.x) **non sono possibili**.

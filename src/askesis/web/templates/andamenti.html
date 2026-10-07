@@ -1,71 +1,77 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}Andamenti · Askesis{% endblock %}
 {% block head %}<link rel="stylesheet" href="/static/vendor/uplot/uPlot.min.css?v={{ asset_v }}">{% endblock %}
+{% set charts = {
+  "rate": [("weight", "Peso: pesate, tendenza, banda del rumore e ritmo obiettivo")],
+  "plan": [("energy", "Energia: media settimanale rispetto al target e mantenimento stimato"),
+           ("protein", "Proteine: media settimanale rispetto al target"),
+           ("sessions", "Sedute di pesi: fatte e previste")],
+  "strength": [("e1rm", "Fondamentali: e1RM migliore della settimana")],
+  "recovery": [("sleep", "Sonno: ore per notte, media settimanale"), ("steps", "Passi: media giornaliera"),
+               ("run", "Corsa: km per settimana")]} %}
+{% set legends = {
+  "weight": [("k-dot", "pesata"), ("k-s1", "tendenza"), ("k-band", "banda del rumore"), ("k-corr", "ritmo obiettivo")],
+  "energy": [("k-s2", "assunta"), ("k-s3", "target"), ("k-s1", "mantenimento stimato"), ("k-band", "intervallo")],
+  "protein": [("k-s2", "assunte"), ("k-s3", "target")],
+  "sessions": [("k-s1", "fatte"), ("k-s3", "previste")],
+  "sleep": [("k-s1", "ore per notte"), ("k-s3", "soglia raccomandata")],
+  "steps": [("k-s1", "passi al giorno"), ("k-s3", "target")]} %}
 {% block main %}
 <header class="pagehead">
-  <div>
-    <span class="eyebrow">Tendenze calcolate dal motore</span>
-    <h1>Andamenti</h1>
-  </div>
-  <div class="periods" role="group" aria-label="Periodo">
-    <button type="button" data-days="28" aria-pressed="false">4 settimane</button>
-    <button type="button" data-days="91" aria-pressed="true">3 mesi</button>
-    <button type="button" data-days="365" aria-pressed="false">1 anno</button>
-  </div>
+  <div><span class="eyebrow">Quattro domande</span><h1>Andamenti</h1></div>
+  <nav class="periods" aria-label="Periodo">
+    {% for d in periods %}<a href="/andamenti?p={{ d }}"{% if d == days %} aria-current="true"{% endif %}>{{ {28: "4 settimane", 91: "3 mesi", 365: "1 anno"}[d] }}</a>{% endfor %}
+  </nav>
 </header>
-<div id="charts" class="charts" data-empty="Nessun dato ancora: registra la prima pesata da Oggi.">
-  <section class="card full">
-    <h2>Peso</h2>
-    <p class="note" id="cap-weight">Punti: pesate. Linea: tendenza. Banda: rumore stimato dai dati, ciò che sta dentro è rumore.</p>
-    <div id="weight" class="chart"></div>
-    <ul class="legend"><li><i class="k-dot"></i>pesata</li><li><i class="k-s1"></i>tendenza</li><li><i class="k-band"></i>banda del rumore</li></ul>
+
+<div id="charts" class="questions" data-days="{{ days }}">
+{% for q in questions %}
+  <section class="q q-{{ q.key }} st-{{ q.status }}{% if loop.first %} q-hero{% endif %}" aria-labelledby="q-{{ q.key }}">
+  {% if q.status == "empty" %}
+    <div class="card q-card q-empty">
+      <h2 id="q-{{ q.key }}">{{ q.title }}</h2>
+      <p class="empty-state">{{ icon("info") }}<span>{{ q.empty }}</span></p>
+      {% if q.caption %}<p class="q-caption">{{ q.caption }}</p>{% endif %}
+    </div>
+  {% else %}
+    <details class="card q-card" data-q="{{ q.key }}"{% if loop.first %} open{% endif %}>
+      <summary>
+        <div class="q-head">
+          <h2 id="q-{{ q.key }}">{{ q.title }}</h2>
+          {% if q.verdict %}<span class="verdict v-{{ q.status }}">{% if q.status in ("ok", "warn", "noise") %}{{ icon(q.status) }}{% endif %}{{ q.verdict }}</span>{% endif %}
+        </div>
+        <div class="q-main">
+          <p class="q-value">{% if q.value %}{{ q.value }}<small>{{ q.unit }}</small>{% endif %}</p>
+          {% if q.svg %}
+          {% set sp = q.svg %}
+          <svg class="q-spark" viewBox="0 0 {{ sp.w|int }} {{ sp.h|int }}" preserveAspectRatio="none" aria-hidden="true">
+            {% if sp.band %}<path class="band" d="{{ sp.band }}"/>{% endif %}
+            {% if sp.target is not none %}<line class="target" x1="0" x2="{{ sp.w|int }}" y1="{{ sp.target }}" y2="{{ sp.target }}"/>{% endif %}
+            <path class="trend" d="{{ sp.line }}"/>
+            <circle class="last" cx="{{ sp.last[0] }}" cy="{{ sp.last[1] }}" r="3.5"/>
+          </svg>
+          {% endif %}
+        </div>
+        {% if q.facts %}<ul class="q-facts">{% for f in q.facts %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
+        {% if q.caption %}<p class="q-caption">{{ q.caption }}</p>{% endif %}
+        <span class="q-open">{{ icon("chevron") }}<span class="when-closed">Apri il grafico</span><span class="when-open">Chiudi</span></span>
+      </summary>
+      <div class="q-body">
+        {% for id, title in charts[q.key] %}
+        <figure class="chart-block">
+          <figcaption>{{ title }}</figcaption>
+          <div id="{{ id }}" class="chart" role="img" aria-label="{{ title }}"></div>
+          {% if id in legends %}<ul class="legend">{% for k, l in legends[id] %}<li><i class="{{ k }}"></i>{{ l }}</li>{% endfor %}</ul>{% endif %}
+        </figure>
+        {% endfor %}
+      </div>
+    </details>
+  {% endif %}
   </section>
-  <section class="card full">
-    <h2>Energia</h2>
-    <p class="note">Media settimanale dei giorni completi rispetto al target, e mantenimento stimato con il suo intervallo.</p>
-    <div id="energy" class="chart"></div>
-    <ul class="legend"><li><i class="k-s2"></i>assunta</li><li><i class="k-s3"></i>target</li><li><i class="k-s1"></i>mantenimento stimato</li><li><i class="k-band"></i>intervallo</li></ul>
-  </section>
-  <section class="card">
-    <h2>Proteine</h2>
-    <p class="note">Media settimanale dei giorni completi (g/die).</p>
-    <div id="protein" class="chart"></div>
-    <ul class="legend"><li><i class="k-s2"></i>assunte</li><li><i class="k-s3"></i>target</li></ul>
-  </section>
-  <section class="card">
-    <h2>Sedute di pesi</h2>
-    <p class="note">Per settimana: fatte e previste dal programma.</p>
-    <div id="sessions" class="chart"></div>
-    <ul class="legend"><li><i class="k-s1"></i>fatte</li><li><i class="k-s3"></i>previste</li></ul>
-  </section>
-  <section class="card">
-    <h2>Volume dell'ultima settimana</h2>
-    <p class="note" id="cap-volume">Serie frazionarie per muscolo.</p>
-    <div id="volume"></div>
-    <ul class="legend"><li><i class="k-s1"></i>serie</li><li><i class="k-ref"></i>fascia di riferimento</li></ul>
-  </section>
-  <section class="card">
-    <h2>Forza</h2>
-    <p class="note">e1RM migliore della settimana, al massimo tre esercizi (i più registrati).</p>
-    <div id="e1rm" class="chart"></div>
-  </section>
-  <section class="card">
-    <h2>Sonno</h2>
-    <p class="note">Ore medie per notte, per settimana. Linea tratteggiata: ore minime raccomandate per gli adulti (AASM/SRS).</p>
-    <div id="sleep" class="chart"></div>
-    <ul class="legend"><li><i class="k-s1"></i>ore/notte</li><li><i class="k-s3"></i>soglia</li></ul>
-  </section>
-  <section class="card">
-    <h2>Passi</h2>
-    <p class="note">Media giornaliera, per settimana.</p>
-    <div id="steps" class="chart"></div>
-  </section>
-  <section class="card">
-    <h2>Corsa</h2>
-    <p class="note">Km per settimana.</p>
-    <div id="run" class="chart"></div>
-  </section>
+{% endfor %}
 </div>
+<p class="hint">Il volume per muscolo è nella pagina Piano.</p>
 {% endblock %}
 {% block scripts %}
 <script src="/static/vendor/uplot/uPlot.iife.min.js?v={{ asset_v }}"></script>

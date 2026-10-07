@@ -145,6 +145,16 @@ parameters:
     basis: evidence
     rationale: "Reference band drawn on the weekly volume chart (moderate volume for hypertrophy; low certainty, trained young men). Compared with fractional sets, see the claim's limitations."
     claims: [rt.volume_range_12_20]
+  strength_fundamentals_per_session:
+    value: 2
+    unit: lifts
+    basis: engineering_choice
+    rationale: "Trends page: the strength question follows only the first N multi-joint lifts of each planned session (the programme puts the main lifts first, claim rt.exercise_order)."
+  adherence_min_days_of_7:
+    value: 4
+    unit: complete_days_of_7
+    basis: engineering_choice
+    rationale: "Trends page: energy and protein vs target are judged only with at least this many complete days in the last 7."
   sleep_min_days_for_mean:
     value: 4
     unit: nights_of_7
