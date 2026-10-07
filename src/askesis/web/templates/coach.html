@@ -70,9 +70,7 @@
     {% endfor %}
   </nav>
   <article class="card report reading{% if not current.validated %} unverified{% endif %}">
-    {% if current.validated %}
-    <p class="valid-tag">{{ icon("ok") }}Validato: numeri e fonti controllati dal codice</p>
-    {% else %}
+    {% if not current.validated %}
     <div class="verify-banner" role="note">{{ icon("warn") }}<div><strong>Da verificare</strong> — {{ current.issues|length }} {{ 'punto non supportato' if current.issues|length == 1 else 'punti non supportati' }} dal validatore. Non è un testo definitivo.
       <details><summary>Punti non supportati</summary><ul>{% for i in current.issues %}<li>{{ i }}</li>{% endfor %}</ul></details></div></div>
     {% endif %}

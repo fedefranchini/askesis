@@ -310,7 +310,8 @@ def test_coach_shows_validated_and_flags_unverified_texts(env):
     assert 'aria-label="1 proposte in attesa"' in page.text  # badge on the tab bar
     flagged = client.get("/coach?f=review-2025-W11-commento.md").text
     assert "Da verificare" in flagged and "4,7" in flagged
-    assert "Validato" in client.get("/coach?f=review-2025-W11.md").text
+    clean = client.get("/coach?f=review-2025-W11.md").text
+    assert "Settimana regolare" in clean and "Da verificare" not in clean and "Validato" not in clean
     assert "pyproject" not in client.get("/coach?f=../../pyproject.toml").text.split("<main")[1]
 
 

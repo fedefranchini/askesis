@@ -330,8 +330,6 @@ body.page-login { min-height: 100vh; background:
 .verify-banner details { margin-top: 6px; color: var(--text-2); font-size: 14px; }
 .verify-banner summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; }
 .verify-banner ul { margin: 4px 0 0; padding-left: 18px; }
-.valid-tag { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 8px; color: var(--ok); font-size: 13px; font-weight: 600; }
-.valid-tag .ico { width: 16px; height: 16px; }
 .report.unverified { border-color: rgba(250, 178, 25, 0.55); }
 .reading { font-size: 17px; line-height: 1.6; }
 .reading h2 { font-size: 22px; margin-top: 8px; }
