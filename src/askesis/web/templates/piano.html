@@ -24,7 +24,8 @@
 {% for s in nxt.sessions %}
 <section class="card">
   <h2>Seduta di oggi · {{ s.name }}</h2>
-  <ul class="lifts">{% for l in s.lifts %}<li><span class="ex">{{ l.exercise|exercise }}</span><span class="rx">{{ l.sets }} × {{ l.rep_target }}{% if l.load_kg %} · {{ "%g"|format(l.load_kg) }} kg{% endif %}</span><span class="why">RIR {{ "%g"|format(l.target_rir) }} · {{ l.reason }}</span></li>{% endfor %}</ul>
+  <ul class="lifts">{% for l in s.lifts %}<li><span class="ex">{{ l.exercise|exercise }}</span><span class="rx">{{ l.sets }} × {{ l.rep_target }}{% if l.load_kg %} · {{ "%g"|format(l.load_kg) }} kg{% endif %}</span><span class="why">RIR {{ "%g"|format(l.target_rir) }} · {{ l.exercise|rest }} · {{ l.reason }}</span></li>{% endfor %}</ul>
+  <p class="hint">Recuperi tra le serie di lavoro: oltre 2 minuti per massimizzare la forza nei soggetti allenati (rt.rest_strength); per l'ipertrofia nessuna differenza apprezzabile oltre 90 secondi (rt.rest_hypertrophy). Evidenza di bassa certezza.</p>
   {% if s.run %}<p class="hint">Corsa: {{ s.run.kind }}{% if s.run.duration_min %}, {{ "%g"|format(s.run.duration_min) }} min{% endif %}</p>{% endif %}
 </section>
 {% endfor %}

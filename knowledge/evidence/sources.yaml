@@ -134,6 +134,30 @@ sources:
     verified: {via: [crossref, pubmed], date: "2026-10-05"}
     read_level: abstract
     limitations: "11 studi; confronto soprattutto multiarticolari vs monoarticolari"
+  - id: grgic2018rest
+    citation: "Grgic J, Schoenfeld BJ, Skrepnik M, Davies TB, Mikulic P. Effects of Rest Interval Duration in Resistance Training on Measures of Muscular Strength: A Systematic Review. Sports Med. 2018;48(1):137-151."
+    type: systematic_review
+    doi: 10.1007/s40279-017-0788-x
+    pmid: "28933024"
+    verified: {via: [crossref, pubmed], date: "2026-10-07"}
+    read_level: abstract
+    limitations: "23 studi, 491 partecipanti in prevalenza uomini; revisione senza meta-analisi"
+  - id: singer2024rest
+    citation: "Singer A, Wolf M, Generoso L, Arias E, Delcastillo K, Echevarria E, Martinez A, Androulakis Korakakis P, Refalo MC, Swinton PA, Schoenfeld BJ. Give it a rest: a systematic review with Bayesian meta-analysis on the effect of inter-set rest interval duration on muscle hypertrophy. Front Sports Act Living. 2024;6:1429789."
+    type: systematic_review_meta_analysis
+    doi: 10.3389/fspor.2024.1429789
+    pmid: "39205815"
+    verified: {via: [crossref, pubmed], date: "2026-10-07"}
+    read_level: abstract
+    limitations: "9 studi, eterogeneità sostanziale, intervalli di credibilità ampi"
+  - id: schoenfeld2016rest
+    citation: "Schoenfeld BJ, Pope ZK, Benik FM, Hester GM, Sellers J, Nooner JL, Schnaiter JA, Bond-Williams KE, Carter AS, Ross CL, Just BL, Henselmans M, Krieger JW. Longer Interset Rest Periods Enhance Muscle Strength and Hypertrophy in Resistance-Trained Men. J Strength Cond Res. 2016;30(7):1805-12."
+    type: rct
+    doi: 10.1519/JSC.0000000000001272
+    pmid: "26605807"
+    verified: {via: [crossref, pubmed], date: "2026-10-07"}
+    read_level: abstract
+    limitations: "21 uomini giovani allenati, 8 settimane; un solo studio"
   - id: weir2005
     citation: "Weir JP. Quantifying test-retest reliability using the intraclass correlation coefficient and the SEM. J Strength Cond Res. 2005;19(1):231-40."
     type: methodological_review

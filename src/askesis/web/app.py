@@ -38,6 +38,7 @@ from askesis.interventions import registry as reg
 from askesis.parsers.text import ParseError
 from askesis.plan import rules as plan_rules
 from askesis.plan import store as plan_store
+from askesis.plan.rest import rest_label
 from askesis.safety import rules as safety
 from askesis.store.db import connect
 
@@ -198,6 +199,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
     env.filters["date"] = fmt_date
     env.globals["md"] = md.render
     env.filters["exercise"] = exercise_name
+    env.filters["rest"] = rest_label
     env.filters["phase"] = lambda k: present.PHASES.get(k, k)
     env.filters["it_date"] = lambda d: date.fromisoformat(str(d)[:10]).strftime("%d/%m/%Y") if d else "—"
     asset_v = asset_version()

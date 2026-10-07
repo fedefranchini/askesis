@@ -91,12 +91,24 @@ parameters:
     value: 180
     unit: seconds
     basis: engineering_choice
-    rationale: "Planning assumption for rest between working sets of multi-joint exercises; the KB has no numeric rest claim (rt.progression_acsm only says longer rests for heavy loads)."
+    rationale: "Rest assumed between working sets of multi-joint exercises to estimate session length: the upper end of rest_compound_range_s."
   session_rest_isolation_s:
     value: 90
     unit: seconds
     basis: engineering_choice
-    rationale: "Planning assumption for rest between working sets of single-joint exercises."
+    rationale: "Planning assumption for rest between working sets of single-joint exercises to estimate session length: the lower end of rest_isolation_range_s."
+  rest_compound_range_s:
+    value: [120, 180]
+    unit: seconds
+    basis: evidence
+    rationale: "Rest between working sets of multi-joint exercises written on the gym sheet: more than 2 minutes to maximise strength in trained lifters; 3 minutes beat 1 minute for strength and hypertrophy in the randomised trial."
+    claims: [rt.rest_strength, rt.rest_hypertrophy]
+  rest_isolation_range_s:
+    value: [90, 120]
+    unit: seconds
+    basis: evidence
+    rationale: "Rest between working sets of single-joint exercises written on the gym sheet: above 60 s a small hypertrophy benefit, no appreciable difference beyond 90 s. The upper bound (120 s) is an engineering choice to leave room on harder sets."
+    claims: [rt.rest_hypertrophy]
   session_warmup_sets:
     value: {first_two_compounds: 3, other_compounds: 1, isolation: 0}
     unit: sets

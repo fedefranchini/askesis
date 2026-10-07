@@ -89,6 +89,9 @@ di questa fase.
 | Pesi: vicinanza al cedimento | Robinson et al., 2024 — proximity to failure dose-response | MA | [10.1007/s40279-024-02069-2](https://doi.org/10.1007/s40279-024-02069-2) | ✅ Crossref |
 | Pesi: vicinanza al cedimento | Refalo et al., 2023 — proximity to failure and hypertrophy | MA | [10.1007/s40279-022-01784-y](https://doi.org/10.1007/s40279-022-01784-y) | ✅ Crossref |
 | Pesi: RIR/RPE | Helms et al., 2016 — RIR-based RPE scale | review | [10.1519/SSC.0000000000000218](https://doi.org/10.1519/ssc.0000000000000218) | ✅ Crossref |
+| Pesi: recuperi | Grgic et al., 2018 — rest interval and strength | revisione sistematica | [10.1007/s40279-017-0788-x](https://doi.org/10.1007/s40279-017-0788-x) | ✅ Crossref + PubMed |
+| Pesi: recuperi | Singer et al., 2024 — rest interval and hypertrophy, Bayesian MA | MA | [10.3389/fspor.2024.1429789](https://doi.org/10.3389/fspor.2024.1429789) | ✅ Crossref + PubMed |
+| Pesi: recuperi | Schoenfeld et al., 2016 — longer interset rest periods | RCT | [10.1519/JSC.0000000000001272](https://doi.org/10.1519/jsc.0000000000001272) | ✅ Crossref + PubMed |
 | Deload | Bell et al., 2023 — deloading, Delphi consensus | consenso esperti | [10.1186/s40798-023-00633-0](https://doi.org/10.1186/s40798-023-00633-0) | ✅ Crossref (evidenza debole) |
 | Concurrent | Schumann et al., 2022 — concurrent training, updated MA | MA | [10.1007/s40279-021-01587-7](https://doi.org/10.1007/s40279-021-01587-7) | ✅ Crossref |
 | Concurrent | Wilson et al., 2012 — interference meta-analysis | MA | [10.1519/JSC.0b013e31823a3e2d](https://doi.org/10.1519/jsc.0b013e31823a3e2d) | ✅ Crossref |
@@ -252,6 +255,9 @@ duplicata):
   proprio con un nome che punta all'IP Meshnet e un certificato ottenuto con la verifica DNS (nessuna porta aperta
   su internet). Da rivalutare solo se il login con portachiavi risulta scomodo; lo stesso passaggio a HTTPS
   permetterebbe anche `web_secure_cookies = true`.
+- **Recuperi tra le serie (fatto)**: nella scheda della palestra e nella pagina Piano, una riga per esercizio
+  (multiarticolari 2–3 min, monoarticolari 1,5–2 min) da parametri con base dichiarata (`rest_compound_range_s`,
+  `rest_isolation_range_s`; claim `rt.rest_strength`, `rt.rest_hypertrophy`, evidenza di bassa certezza).
 - **Rapporto con la scheda in Note**: la dashboard **affianca**, non sostituisce, la nota della palestra — in
   palestra l'iPhone non è sulla rete di casa e il Mac può essere spento; la nota funziona offline. La dashboard
   serve a casa (inserimenti, consultazione, review).

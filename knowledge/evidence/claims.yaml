@@ -152,6 +152,29 @@ claims:
     basis: evidence
     certainty: low
     status: verified_abstract
+  - id: rt.rest_strength
+    domain: [training, strength, rest_interval]
+    claim: >-
+      Guadagni di forza consistenti si ottengono anche con recuperi brevi (meno di 60 s), ma nei soggetti allenati
+      recuperi più lunghi di 2 minuti tra le serie sembrano necessari per massimizzarli; nei non allenati bastano
+      60–120 s.
+    sources: [grgic2018rest, schoenfeld2016rest]
+    basis: evidence
+    certainty: low
+    status: verified_abstract
+    population_scope: "adulti sani, in prevalenza uomini, allenati e non allenati"
+    limitations: "revisione sistematica senza meta-analisi; lo studio randomizzato confronta solo 1 vs 3 minuti"
+  - id: rt.rest_hypertrophy
+    domain: [training, hypertrophy, rest_interval]
+    claim: >-
+      Per l'ipertrofia recuperi tra le serie più lunghi di 60 s danno un piccolo vantaggio, forse perché permettono
+      più volume; oltre i 90 s non emergono differenze apprezzabili.
+    sources: [singer2024rest, schoenfeld2016rest]
+    basis: evidence
+    certainty: low
+    status: verified_abstract
+    population_scope: "adulti sani in studi randomizzati con le altre variabili di allenamento controllate"
+    limitations: "9 studi, eterogeneità sostanziale, intervalli di credibilità ampi"
   - id: measure.sem_minimal_difference
     domain: [measurement, data_quality]
     claim: "L'errore standard di misura (SEM) permette di costruire intervalli di confidenza per i valori individuali e di stimare la differenza minima che un individuo deve mostrare per poter ritenere reale un cambiamento."

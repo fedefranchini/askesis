@@ -6,6 +6,7 @@ The note holds only exercises and loads (no health data). Layout, one item per l
     Scrivi i risultati dopo → (es. 60x8 r2, 60x7 r1). Non modificare le righe con [..].
     Panca piana [bench_press]
     3 × 6–8 · RIR 2 · consigliato 52,5 kg
+    recupero 2–3 min
     ultima (24/2): 50 kg × 8 @RIR 2 · 50 kg × 8 @RIR 2
     →
 
@@ -24,6 +25,7 @@ from datetime import date
 
 from askesis.model.entities import payload_model
 from askesis.parsers.text import ParsedExercise, ParseError, parse_gym
+from askesis.plan.rest import rest_label
 from askesis.reference import find_exercise
 
 MARKER = re.compile(r"\[([a-z0-9_:.\- ]+)\]\s*$", re.I)
@@ -53,6 +55,7 @@ def render(day: date, session: dict, last: dict[str, str], settings: dict[str, s
         lines += [
             f"{name} [{key}]",
             f"{lift['sets']} × {lift['rep_range'][0]}–{lift['rep_range'][1]} · RIR {_n(lift['target_rir'])} · {load}",
+            rest_label(key),
         ]
         if key in last:
             lines.append(f"ultima {last[key]}")

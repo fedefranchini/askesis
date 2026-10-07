@@ -39,6 +39,22 @@ def test_render_contains_plan_and_privacy_safe_content():
     assert "carico da calibrare" in text and "macchina: schienale 3" in text and "Corsa easy [run]" in text
 
 
+def test_rest_between_sets_from_evidence_parameters():
+    from askesis.analytics.params import all_params
+    from askesis.plan.rest import rest_label, rest_range
+
+    lines = gymnote.render(DAY, SESSION, {}, {})
+    bench = lines.index("Panca piana [bench_press]")
+    assert lines[bench + 2] == "recupero 2–3 min"  # multi-joint
+    assert rest_label("lateral_raise") == "recupero 1,5–2 min"  # single-joint
+    assert rest_range("esercizio sconosciuto") == rest_range("bench_press")  # unknown: the longer range
+    for key in ("rest_compound_range_s", "rest_isolation_range_s"):
+        assert all_params()[key]["basis"] == "evidence" and all_params()[key]["claims"]
+    # the rest line is not a result line: the parser ignores it
+    res = gymnote.parse_note(note({"bench_press": "52,5x8 r2"}))
+    assert [e.name for e in res.exercises] == ["bench_press"] and not res.errors
+
+
 @pytest.mark.parametrize("written,expected", [
     ("52,5x8 r2, 52,5x7 r1, 52,5x6 r1", [(52.5, 8, 2), (52.5, 7, 1), (52.5, 6, 1)]),
     ("52.5 × 8 @RIR 2; 52.5kg x 7 R1", [(52.5, 8, 2), (52.5, 7, 1)]),

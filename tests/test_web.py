@@ -376,3 +376,18 @@ def test_plan_page_shows_volume_per_muscle(env):
     login(client, password)
     page = client.get("/piano").text
     assert "Volume per muscolo" in page and "petto" in page and "rt.volume_range_12_20" in page
+
+
+def test_plan_page_shows_rest_with_its_basis(env):
+    from askesis.plan import store
+
+    client, cfg, password = env
+    lift = {"exercise": "bench_press", "sets": 3, "rep_range": [6, 8], "target_rir": 2}
+    days = [{"day": d, "name": "A", "lifts": [lift]} for d in ("mon", "tue", "wed", "thu", "fri", "sat", "sun")]
+    c = connect(cfg.db_path)
+    store.add_version(c, "programme", "p", {"microcycle": days, "minimal_week": days[:1]}, date(2025, 3, 3), None)
+    c.commit()
+    login(client, password)
+    page = client.get("/piano").text
+    assert "Seduta di oggi" in page and "recupero 2–3 min" in page
+    assert "rt.rest_strength" in page and "rt.rest_hypertrophy" in page
