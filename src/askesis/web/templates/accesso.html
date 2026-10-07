@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Accesso · Askesis{% endblock %}
+{% block main %}
+<header class="pagehead"><div><span class="eyebrow">Sicurezza</span><h1>Accesso</h1></div></header>
+<section class="card">
+  <h2>Dispositivi ricordati</h2>
+  <p class="hint">Entrano senza password fino alla scadenza, fissata al momento dell'accesso ({{ remember_days }} giorni) e mai allungata. Cambiare la password li revoca tutti.</p>
+  {% if devices %}
+  <ul class="plain devices">
+    {% for d in devices %}
+    <li>
+      <div><strong>{{ d.label }}</strong>{% if d.id == current %} <span class="pill">questo dispositivo</span>{% endif %}
+        <span class="hint">ricordato il {{ d.created|date }} · ultimo accesso {{ d.last_used|date }} · scade il {{ d.expires|date }}</span></div>
+      <form method="post" action="/accesso">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button type="submit" name="revoke" value="{{ d.id }}" class="secondary">Revoca</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="/accesso" class="row">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button type="submit" name="revoke" value="*" class="secondary">Revoca tutti</button>
+  </form>
+  {% else %}
+  <p>Nessun dispositivo ricordato.</p>
+  {% endif %}
+  <p class="hint">Dal terminale: <code>bin/ak web devices</code> per l'elenco, <code>--revoke ID</code> oppure <code>--revoke-all</code> per revocare.</p>
+</section>
+<section class="card">
+  <h2>Esci</h2>
+  <p class="hint">Uscire fa dimenticare anche questo dispositivo.</p>
+  <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="secondary">Esci</button></form>
+</section>
+{% endblock %}

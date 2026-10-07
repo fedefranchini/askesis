@@ -61,6 +61,20 @@ def asset_version() -> str:
     return h.hexdigest()[:10]
 
 
+def seconds(wait: float) -> str:
+    n = max(1, int(wait + 0.999))
+    if n < 60:
+        return f"{n} second{'o' if n == 1 else 'i'}"
+    m = (n + 59) // 60
+    return f"{m} minut{'o' if m == 1 else 'i'}"
+
+
+def fmt_date(ts: float) -> str:
+    from datetime import datetime
+
+    return datetime.fromtimestamp(ts).strftime("%d/%m/%Y")
+
+
 def fmt_num(v, nd: int = 0) -> str:
     """Italian number format: comma for decimals, narrow no-break space for thousands; '—' when missing."""
     if v is None:
@@ -114,15 +128,18 @@ def exercise_name(key: str) -> str:
 
 def paths(cfg: config_mod.Config) -> tuple[Path, Path]:
     data = cfg.db_path.parent
-    return data / "web_auth.json", data / "web_session.key"
+    return data / "web_auth.json", data / "web_session.key", data / "web_devices.json"
 
 
 def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | None = None) -> Starlette:
     cfg = cfg or config_mod.load()
-    auth_file, secret_file = paths(cfg)
+    auth_file, secret_file, devices_file = paths(cfg)
+    if not 1 <= cfg.web_remember_days <= 90:
+        raise ValueError("web_remember_days deve essere tra 1 e 90")
     throttle = auth.Throttle()
     env = Environment(loader=FileSystemLoader(HERE / "templates"), autoescape=select_autoescape(["html"]))
     env.filters["num"] = fmt_num
+    env.filters["date"] = fmt_date
     asset_v = asset_version()
 
     def today() -> date:
@@ -147,39 +164,97 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         ok = hmac.compare_digest(str(form.get("csrf", "")), request.session.get("csrf", "!"))
         return form if ok else None
 
+    def session_valid(request: Request) -> bool:
+        """A session counts only if made with the current password and, if it came from a remembered device,
+        while that device is still remembered (revocation and password change end it at the next request)."""
+        sess = request.session
+        if not sess.get("user") or sess.get("epoch") != auth.credential_epoch(auth_file):
+            return False
+        return not sess.get("device") or auth.device_alive(devices_file, sess["device"])
+
+    def start_session(request: Request, device: str | None = None) -> None:
+        request.session.clear()
+        request.session.update({"user": "athlete", "epoch": auth.credential_epoch(auth_file)})
+        if device:
+            request.session["device"] = device
+
     def guard(handler):
         async def wrapped(request: Request) -> Response:
-            if not request.session.get("user"):
-                if request.url.path.startswith("/api/"):
-                    return JSONResponse({"error": "non autenticato"}, status_code=401)
-                return RedirectResponse("/login", status_code=303)
+            if not session_valid(request):
+                dev = auth.device_for(devices_file, request.cookies.get(DEVICE_COOKIE), touch=True)
+                if dev is None:
+                    request.session.clear()
+                    if request.url.path.startswith("/api/"):
+                        return JSONResponse({"error": "non autenticato"}, status_code=401)
+                    return RedirectResponse("/login", status_code=303)
+                start_session(request, dev["id"])  # remembered device: no password, every other check unchanged
             return await handler(request)
         return wrapped
 
     # ------------------------------------------------------------------ login
+    def login_page(request: Request, error: str | None = None, wait: float = 0.0, status: int = 200) -> HTMLResponse:
+        r = page(request, "login.html", error=error, wait=int(wait + 0.999), wait_text=seconds(wait) if wait > 0 else "",
+                 remember_days=cfg.web_remember_days)
+        r.status_code = status
+        return r
+
     async def login(request: Request) -> Response:
         if not auth_file.exists():
-            return page(request, "login.html", error="Password non impostata. Nel terminale: bin/ak web set-password")
+            return login_page(request, "Password non impostata. Nel terminale: bin/ak web set-password")
         if request.method == "GET":
-            return page(request, "login.html", error=None)
+            if session_valid(request):
+                return RedirectResponse("/", status_code=303)
+            return login_page(request, wait=throttle.blocked_for())
         form = await form_checked(request)
         if form is None:
-            return page(request, "login.html", error="Sessione scaduta: ricarica la pagina e riprova.")
+            return login_page(request, "Sessione scaduta: ricarica la pagina e riprova.")
         wait = throttle.blocked_for()
         if wait > 0:
-            return page(request, "login.html", error=f"Troppi tentativi: riprova tra {wait:.0f} secondi.")
+            return login_page(request, "Troppi tentativi con la password sbagliata.", wait, 429)
         if not auth.check_password(auth_file, str(form.get("password", ""))):
             throttle.fail()
-            return page(request, "login.html", error="Password non corretta.")
+            wait = throttle.blocked_for()
+            return login_page(request, "Password non corretta.", wait, 401)
         throttle.success()
-        request.session.clear()
-        request.session["user"] = "athlete"
-        return RedirectResponse("/", status_code=303)
+        device = None
+        cookie = None
+        if form.get("remember") == "1":
+            cookie, rec = auth.remember(devices_file, auth.device_label(request.headers.get("user-agent", "")),
+                                        cfg.web_remember_days)
+            device = rec["id"]
+        start_session(request, device)
+        resp = RedirectResponse("/", status_code=303)
+        if cookie:
+            resp.set_cookie(DEVICE_COOKIE, cookie, max_age=cfg.web_remember_days * 86400, httponly=True,
+                            samesite="strict", secure=cfg.web_secure_cookies, path="/")
+        return resp
 
     async def logout(request: Request) -> Response:
+        """Logging out also forgets this device (a remembered device would otherwise log straight back in)."""
+        resp = RedirectResponse("/login", status_code=303)
         if request.method == "POST" and await form_checked(request) is not None:
+            dev = auth.device_for(devices_file, request.cookies.get(DEVICE_COOKIE))
+            if dev:
+                auth.revoke(devices_file, dev["id"])
             request.session.clear()
-        return RedirectResponse("/login", status_code=303)
+            resp.delete_cookie(DEVICE_COOKIE, path="/")
+        return resp
+
+    async def accesso(request: Request) -> Response:
+        current = request.session.get("device")
+        if request.method == "POST":
+            form = await form_checked(request)
+            if form is not None:
+                target = str(form.get("revoke", ""))
+                auth.revoke(devices_file, None if target == "*" else target)
+                if target in ("*", current):
+                    resp = RedirectResponse("/login", status_code=303)
+                    resp.delete_cookie(DEVICE_COOKIE, path="/")
+                    request.session.clear()
+                    return resp
+            return RedirectResponse("/accesso", status_code=303)
+        items = auth.devices(devices_file)
+        return page(request, "accesso.html", devices=items, current=current, remember_days=cfg.web_remember_days)
 
     # ------------------------------------------------------------------ today
     def status_today(c, day: date) -> dict:
@@ -350,6 +425,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         Route("/piano", guard(piano)),
         Route("/interventi", guard(interventi)),
         Route("/safety", guard(safety_page)),
+        Route("/accesso", guard(accesso), methods=["GET", "POST"]),
         Mount("/static", StaticFiles(directory=HERE / "static"), name="static"),
     ]
     app = Starlette(routes=routes, middleware=[
@@ -363,6 +439,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
 
 
 LOOPBACK = {"127.0.0.1", "::1"}
+DEVICE_COOKIE = "askesis_device"
 REJECTED = "client rifiutato:"
 
 

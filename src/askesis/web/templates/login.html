@@ -2,14 +2,24 @@
 {% block title %}Accedi · Askesis{% endblock %}
 {% block main %}
 <div class="login">
-<form method="post" action="/login" class="card stack narrow">
-  <span class="eyebrow">Askesis</span>
-  <h1>Accedi</h1>
-  <input type="hidden" name="csrf" value="{{ csrf }}">
-  <label for="password" class="lead">Password</label>
-  <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
-  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-  <button type="submit">Accedi</button>
-</form>
+  <form method="post" action="/login" class="card login-card" id="login" data-wait="{{ wait or 0 }}">
+    <p class="wordmark">Askesis</p>
+    <p class="tagline">Il tuo coach, sui tuoi dati.</p>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    {# A username field lets the iPhone and Mac Keychain save and fill the password (hidden from view, not from autofill). #}
+    <input class="visually-hidden" type="text" name="username" value="atleta" autocomplete="username" tabindex="-1" aria-hidden="true" readonly>
+    <label for="password" class="lead">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" autocapitalize="none"
+           autocorrect="off" spellcheck="false" enterkeyhint="go" required {% if not wait %}autofocus{% endif %}>
+    <label class="remember">
+      <input type="checkbox" name="remember" value="1">
+      <span>Ricorda questo dispositivo per {{ remember_days }} giorni
+        <small>Solo su un dispositivo tuo. Si revoca da Accesso o dal terminale; la scadenza non si allunga.</small></span>
+    </label>
+    {% if error %}<p class="error" role="alert" id="login-error">{{ error }}</p>{% endif %}
+    <button type="submit" id="login-submit">Accedi</button>
+    <p class="hint" id="login-wait" aria-live="polite">{% if wait_text %}Puoi riprovare tra {{ wait_text }}.{% endif %}</p>
+  </form>
 </div>
 {% endblock %}
+{% block scripts %}<script src="/static/login.js?v={{ asset_v }}"></script>{% endblock %}

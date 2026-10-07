@@ -38,7 +38,7 @@ body { margin: 0; font-size: var(--fs-b); line-height: 1.45; background: var(--b
 a { color: var(--accent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 p, li { max-width: 68ch; }
-code { font-family: inherit; font-size: 0.9em; color: var(--text-2); }
+code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.85em; color: var(--text-2); }
 
 /* ------------------------------------------------------------------ shell and navigation */
 .shell { display: grid; grid-template-columns: 200px minmax(0, 1fr); min-height: 100vh; }
@@ -51,7 +51,7 @@ code { font-family: inherit; font-size: 0.9em; color: var(--text-2); }
 .nav a[aria-current="page"] .ico { color: var(--accent); }
 .ico { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 .flagcount { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--alert); color: #fff; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
-.logout { margin-top: auto; padding: 0 10px; }
+.logout { margin-top: auto; padding: 0 10px; display: flex; flex-direction: column; }
 .main { padding: 32px 40px 64px; max-width: 1080px; width: 100%; }
 
 /* ------------------------------------------------------------------ type */
@@ -60,7 +60,8 @@ h2 { font-size: 20px; line-height: 1.2; margin: 32px 0 12px; font-weight: 600; }
 h3 { font-size: var(--fs-b); margin: 16px 0 4px; font-weight: 600; }
 .hint, .note { color: var(--text-2); font-size: var(--fs-s); }
 .eyebrow { color: var(--text-2); font-size: var(--fs-s); font-weight: 600; letter-spacing: 0.02em; }
-.error { color: var(--alert); font-weight: 600; }
+.error { color: var(--warn); font-weight: 600; }  /* attention: red is reserved to safety */
+.alert-text { color: var(--alert); font-weight: 600; }
 .warn { color: var(--warn); }
 
 .pagehead { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 16px; margin-bottom: 20px; }
@@ -247,4 +248,33 @@ button.link { border: 0; background: none; color: var(--text-2); padding: 0; min
 @media (prefers-reduced-motion: reduce) {
   .receipt.saved { animation: none; }
   .ring .arc { transition: none; }
+}
+
+/* ------------------------------------------------------------------ login and access */
+.visually-hidden { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.login { min-height: calc(100vh - 64px); display: flex; align-items: center; justify-content: center; }
+.login-card { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; padding: 32px 28px 28px; }
+.wordmark { margin: 0; font-size: 44px; font-weight: 700; line-height: 1; letter-spacing: 0.01em; }
+.wordmark::after { content: ""; display: block; width: 40px; height: 4px; border-radius: 2px; background: var(--accent); margin-top: 14px; }
+.tagline { margin: 0 0 14px; color: var(--text-2); }
+.login-card input[type="password"] { font-size: 18px; }
+.login-card button { margin-top: 6px; min-height: 50px; font-size: 17px; }
+.login-card button:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
+.remember { display: flex; gap: 12px; align-items: flex-start; margin-top: 6px; cursor: pointer; }
+.remember input { width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--accent); flex: none; }
+.remember span { font-weight: 600; }
+.remember small { display: block; font-weight: 400; color: var(--text-2); font-size: var(--fs-s); margin-top: 2px; }
+.login-card .error { margin: 4px 0 0; padding: 10px 12px; border-radius: 10px; background: rgba(250, 178, 25, 0.08); border: 1px solid rgba(250, 178, 25, 0.45); font-size: 15px; }
+.login-card .hint:empty { display: none; }
+.logout a.quiet { color: var(--text-2); text-decoration: none; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+.logout a.quiet:hover, .logout a.quiet[aria-current="page"] { color: var(--text); }
+.devices li { max-width: none; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.devices li:first-child { border-top: 0; }
+.devices .hint { display: block; margin-top: 2px; }
+.footer-link { text-align: center; font-size: var(--fs-s); margin-top: 24px; }
+.footer-link a { color: var(--text-2); }
+@media (max-width: 760px) {
+  .login { min-height: 100vh; align-items: flex-start; padding-top: max(10vh, env(safe-area-inset-top)); }
+  .login-card { padding: 28px 20px 24px; }
+  .main:has(.login) { padding-bottom: 24px; }
 }

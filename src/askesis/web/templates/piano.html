@@ -29,7 +29,7 @@
 </section>
 {% endfor %}
 {% elif nxt.status == "blocked_by_safety" %}
-<p class="card error">Nessuna prescrizione: c'è un flag di safety aperto. Vedi Safety.</p>
+<p class="card alert-text">Nessuna prescrizione: c'è un flag di safety aperto. Vedi Safety.</p>
 {% elif nxt.status == "rest_day" %}
 <p class="card hint">Oggi non è prevista una seduta di pesi.</p>
 {% endif %}

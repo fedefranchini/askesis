@@ -226,6 +226,18 @@ duplicata):
   dei dati. Gli alimenti restano nell'app di nutrizione: nessun database alimentare interno, solo totali.
 - **Accesso dall'iPhone sulla stessa rete Wi-Fi**, con autenticazione (password + cookie di sessione, token per le
   API); nessuna esposizione su internet; HTTPS in rete locale da valutare (certificato locale).
+- **Login (fatto)**: campo password compatibile con il portachiavi di iPhone e Mac (campo utente nascosto e
+  `autocomplete`), "ricorda questo dispositivo" con scadenza fissa dichiarata (`web_remember_days`, default 30,
+  mai allungata), token casuale in cookie HttpOnly/SameSite=Strict e solo hash sul Mac; revoca da Accesso e da
+  `bin/ak web devices`; cambiare password chiude sessioni e dispositivi; allowlist, host, CSRF e attesa
+  progressiva restano attivi. Uscire fa dimenticare anche il dispositivo.
+- **Passkey (nota, nessun lavoro ora)**: la Web Authentication API funziona solo in un contesto sicuro (HTTPS,
+  oppure `localhost` sul Mac) e l'identificativo del sito (RP ID) deve essere un nome di dominio, non un indirizzo
+  IP (W3C WebAuthn; MDN). Con l'accesso attuale (HTTP dentro Meshnet, verso un IP 100.x) **non sono possibili**.
+  Diventano possibili quando la dashboard ha un nome di dominio con certificato valido, per esempio un dominio
+  proprio con un nome che punta all'IP Meshnet e un certificato ottenuto con la verifica DNS (nessuna porta aperta
+  su internet). Da rivalutare solo se il login con portachiavi risulta scomodo; lo stesso passaggio a HTTPS
+  permetterebbe anche `web_secure_cookies = true`.
 - **Rapporto con la scheda in Note**: la dashboard **affianca**, non sostituisce, la nota della palestra — in
   palestra l'iPhone non è sulla rete di casa e il Mac può essere spento; la nota funziona offline. La dashboard
   serve a casa (inserimenti, consultazione, review).

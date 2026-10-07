@@ -623,7 +623,32 @@ def web_set_password() -> None:
         auth.set_password(paths(cfg)[0], pw)
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
-    typer.echo("✓ password impostata")
+    n = auth.revoke(paths(cfg)[2])
+    typer.echo(f"✓ password impostata · sessioni aperte chiuse · dispositivi ricordati revocati: {n}")
+
+
+@web_app.command("devices")
+def web_devices(
+    revoke: Annotated[str | None, typer.Option("--revoke", help="Revoca il dispositivo con questo ID")] = None,
+    revoke_all: Annotated[bool, typer.Option("--revoke-all", help="Revoca tutti i dispositivi ricordati")] = False,
+) -> None:
+    """Dispositivi ricordati della dashboard: elenco, revoca di uno o di tutti."""
+    from askesis.web import auth
+    from askesis.web.app import fmt_date, paths
+
+    path = paths(config_mod.load())[2]
+    if revoke_all or revoke:
+        n = auth.revoke(path, None if revoke_all else revoke)
+        typer.echo(f"✓ revocati: {n}" if n else "nessun dispositivo con quell'ID")
+        if not n:
+            raise typer.Exit(1)
+        return
+    items = auth.devices(path)
+    if not items:
+        typer.echo("Nessun dispositivo ricordato.")
+    for d in items:
+        typer.echo(f"{d['id']}  {d['label']}  ricordato {fmt_date(d['created'])} · ultimo accesso "
+                   f"{fmt_date(d['last_used'])} · scade {fmt_date(d['expires'])}")
 
 
 @web_app.command("serve")

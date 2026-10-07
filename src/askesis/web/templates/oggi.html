@@ -88,7 +88,7 @@
       </ul>
       {% endfor %}
     {% elif nx.status == "blocked_by_safety" %}
-      <h2>Seduta di oggi</h2><p class="error">Nessuna prescrizione: c'è un flag di safety aperto.</p>
+      <h2>Seduta di oggi</h2><p class="alert-text">Nessuna prescrizione: c'è un flag di safety aperto.</p>
     {% elif nx.status == "rest_day" %}
       <h2>Seduta di oggi</h2><p class="hint">Oggi non è prevista una seduta di pesi.</p>
     {% else %}

@@ -197,3 +197,89 @@ def test_static_files_are_cacheable_and_pages_are_not(env):
     assert css.status_code == 200 and "max-age" in css.headers["cache-control"]
     assert "default-src 'self'" in css.headers["content-security-policy"]
     assert 'class="ring"' in page.text and "Peso di tendenza" in page.text
+
+
+def test_login_form_is_keychain_friendly(env):
+    client, _, _ = env
+    html = client.get("/login").text
+    assert 'autocomplete="username"' in html and 'autocomplete="current-password"' in html
+    assert 'name="remember"' in html and "30 giorni" in html
+
+
+def test_wrong_password_states_the_wait(env):
+    client, _, _ = env
+    r = login(client, "wrong-password-123")
+    assert r.status_code == 401 and "Puoi riprovare tra" in r.text and 'data-wait="' in r.text
+    again = login(client, "wrong-password-123")
+    assert again.status_code == 429 and "Troppi tentativi" in again.text and "Puoi riprovare tra" in again.text
+
+
+def remember_login(client, password):
+    token = csrf_of(client.get("/login").text)
+    return client.post("/login", data={"csrf": token, "password": password, "remember": "1"}, follow_redirects=False)
+
+
+def test_remembered_device_skips_the_password_until_revoked(env):
+    client, cfg, password = env
+    r = remember_login(client, password)
+    cookie = r.cookies.get("askesis_device")
+    header = r.headers["set-cookie"].lower()
+    assert cookie and "httponly" in header and "samesite=strict" in header
+    stored = paths(cfg)[2].read_text()
+    assert cookie.split(".", 1)[1] not in stored  # only the hash is kept
+    assert oct(paths(cfg)[2].stat().st_mode)[-3:] == "600"
+    fresh = TestClient(client.app, base_url="http://127.0.0.1", cookies={"askesis_device": cookie})
+    assert fresh.get("/", follow_redirects=False).status_code == 200  # no password, new session
+    forged = TestClient(client.app, base_url="http://127.0.0.1", cookies={"askesis_device": cookie[:-2] + "xx"})
+    assert forged.get("/", follow_redirects=False).status_code == 303
+    did = cookie.split(".", 1)[0]
+    page = client.get("/accesso")
+    assert "questo dispositivo" in page.text
+    client.post("/accesso", data={"csrf": csrf_of(page.text), "revoke": did}, follow_redirects=False)
+    assert fresh.get("/", follow_redirects=False).headers["location"] == "/login"  # its session ends too
+    again = TestClient(client.app, base_url="http://127.0.0.1", cookies={"askesis_device": cookie})
+    assert again.get("/", follow_redirects=False).status_code == 303
+
+
+def test_remembered_device_expires_on_the_declared_date(env, monkeypatch):
+    client, cfg, password = env
+    cookie = remember_login(client, password).cookies.get("askesis_device")
+    rec = auth.device_for(paths(cfg)[2], cookie)
+    assert rec["expires"] - rec["created"] == pytest.approx(cfg.web_remember_days * 86400)
+    assert auth.device_for(paths(cfg)[2], cookie, now=rec["expires"] + 1) is None
+    auth.device_for(paths(cfg)[2], cookie, touch=True)
+    assert auth.device_for(paths(cfg)[2], cookie)["expires"] == rec["expires"]  # use never extends it
+
+
+def test_password_change_ends_sessions_and_devices(env):
+    client, cfg, password = env
+    cookie = remember_login(client, password).cookies.get("askesis_device")
+    assert client.get("/", follow_redirects=False).status_code == 200
+    auth.set_password(paths(cfg)[0], secrets.token_urlsafe(16))
+    auth.revoke(paths(cfg)[2])  # what `web set-password` does
+    assert client.get("/", follow_redirects=False).status_code == 303
+    other = TestClient(client.app, base_url="http://127.0.0.1", cookies={"askesis_device": cookie})
+    assert other.get("/", follow_redirects=False).status_code == 303
+
+
+def test_remembered_device_does_not_bypass_the_other_checks(env, tmp_path, monkeypatch):
+    client, cfg, password = env
+    cookie = remember_login(client, password).cookies.get("askesis_device")
+    stranger = TestClient(client.app, base_url="http://127.0.0.1", client=("192.168.1.50", 5000),
+                          cookies={"askesis_device": cookie})
+    assert stranger.get("/").status_code == 403
+    evil = TestClient(client.app, base_url="http://evil.example", cookies={"askesis_device": cookie})
+    assert evil.get("/").status_code == 400
+    trusted = TestClient(client.app, base_url="http://127.0.0.1", cookies={"askesis_device": cookie})
+    trusted.get("/")
+    before = count(cfg)
+    trusted.post("/", data={"line": "p 66.1", "action": "save"})  # still needs the CSRF token
+    assert count(cfg) == before
+
+
+def test_logout_forgets_this_device(env):
+    client, cfg, password = env
+    remember_login(client, password)
+    assert len(auth.devices(paths(cfg)[2])) == 1
+    client.post("/logout", data={"csrf": csrf_of(client.get("/").text)}, follow_redirects=False)
+    assert auth.devices(paths(cfg)[2]) == []
