@@ -1,32 +1,42 @@
 {% extends "base.html" %}
 {% block title %}Piano · Askesis{% endblock %}
 {% block main %}
-<h1>Piano</h1>
+<header class="pagehead"><div><span class="eyebrow">In vigore oggi</span><h1>Piano</h1></div></header>
 {% if not content.phase and not content.programme and not content.nutrition_target %}
-<p>Nessun piano attivo oggi. Il piano entra in vigore quando un intervento approvato viene attivato.</p>
+<p class="card">Nessun piano attivo oggi. Il piano entra in vigore quando un intervento approvato viene attivato.</p>
 {% endif %}
-{% if content.phase %}
-<h2>Fase</h2>
-<p>{{ content.phase.phase }} dal {{ rows.phase.valid_from }}, al massimo {{ content.phase.max_duration_weeks }} settimane, poi {{ content.phase.next_phase }}.</p>
-{% endif %}
-{% if content.nutrition_target %}
-<h2>Target</h2>
-<p>Energia {{ "%.0f"|format(content.nutrition_target.energy_kcal) }} kcal/die · proteine {{ "%.0f"|format(content.nutrition_target.protein_g) }} g/die (dal {{ rows.nutrition_target.valid_from }}).</p>
+{% if content.phase or content.nutrition_target %}
+<section class="card">
+  <dl class="kv">
+    {% if content.phase %}
+    <dt>Fase</dt><dd>{{ content.phase.phase }} dal {{ rows.phase.valid_from }}, al massimo {{ content.phase.max_duration_weeks }} settimane, poi {{ content.phase.next_phase }}</dd>
+    {% endif %}
+    {% if content.nutrition_target %}
+    <dt>Energia</dt><dd>{{ content.nutrition_target.energy_kcal|num }} kcal/die</dd>
+    <dt>Proteine</dt><dd>{{ content.nutrition_target.protein_g|num }} g/die</dd>
+    {% if content.nutrition_target.steps_target %}<dt>Passi</dt><dd>{{ content.nutrition_target.steps_target|num }} al giorno</dd>{% endif %}
+    <dt>Dal</dt><dd>{{ rows.nutrition_target.valid_from }}</dd>
+    {% endif %}
+  </dl>
+</section>
 {% endif %}
 {% if nxt.status == "session" %}
-<h2>Seduta di oggi</h2>
 {% for s in nxt.sessions %}
-<h3>{{ s.name }}</h3>
-<ul>{% for l in s.lifts %}<li>{{ l.exercise }}: {{ l.sets }} × {{ l.rep_target }}{% if l.load_kg %} a {{ "%g"|format(l.load_kg) }} kg{% endif %}, RIR {{ "%g"|format(l.target_rir) }} — {{ l.reason }}</li>{% endfor %}</ul>
-{% if s.run %}<p>Corsa: {{ s.run.kind }}{% if s.run.duration_min %}, {{ "%g"|format(s.run.duration_min) }} min{% endif %}</p>{% endif %}
+<section class="card">
+  <h2>Seduta di oggi · {{ s.name }}</h2>
+  <ul class="lifts">{% for l in s.lifts %}<li><span class="ex">{{ l.exercise }}</span><span class="rx">{{ l.sets }} × {{ l.rep_target }}{% if l.load_kg %} · {{ "%g"|format(l.load_kg) }} kg{% endif %}</span><span class="why">RIR {{ "%g"|format(l.target_rir) }} · {{ l.reason }}</span></li>{% endfor %}</ul>
+  {% if s.run %}<p class="hint">Corsa: {{ s.run.kind }}{% if s.run.duration_min %}, {{ "%g"|format(s.run.duration_min) }} min{% endif %}</p>{% endif %}
+</section>
 {% endfor %}
 {% elif nxt.status == "blocked_by_safety" %}
-<p class="error">Nessuna prescrizione: c'è un flag di safety aperto. Vedi Safety.</p>
+<p class="card error">Nessuna prescrizione: c'è un flag di safety aperto. Vedi Safety.</p>
 {% elif nxt.status == "rest_day" %}
-<p>Oggi non è prevista una seduta di pesi.</p>
+<p class="card hint">Oggi non è prevista una seduta di pesi.</p>
 {% endif %}
 {% if week %}
-<h2>Settimana tipo</h2>
-<ul class="plain">{% for l in week %}<li{% if not l.startswith(" ") %} class="day"{% endif %}>{{ l.strip() }}</li>{% endfor %}</ul>
+<section class="card">
+  <h2>Settimana tipo</h2>
+  <ul class="plain">{% for l in week %}<li{% if not l.startswith(" ") %} class="day"{% endif %}>{{ l.strip() }}</li>{% endfor %}</ul>
+</section>
 {% endif %}
 {% endblock %}

@@ -185,3 +185,15 @@ def test_missing_interfaces_do_not_stop_loopback():
     finally:
         for s in socks:
             s.close()
+
+
+def test_static_files_are_cacheable_and_pages_are_not(env):
+    client, _, password = env
+    login(client, password)
+    page = client.get("/")
+    v = re.search(r'/static/app\.css\?v=([0-9a-f]{10})', page.text).group(1)
+    assert page.headers["cache-control"] == "no-store"
+    css = client.get(f"/static/app.css?v={v}")
+    assert css.status_code == 200 and "max-age" in css.headers["cache-control"]
+    assert "default-src 'self'" in css.headers["content-security-policy"]
+    assert 'class="ring"' in page.text and "Peso di tendenza" in page.text

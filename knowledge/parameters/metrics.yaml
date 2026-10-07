@@ -134,6 +134,17 @@ parameters:
     basis: evidence
     rationale: "Adults should regularly sleep 7 or more hours per night (AASM/SRS consensus). Used for the sleep status colour."
     claims: [sleep.adult_recommendation]
+  protein_status_tolerance:
+    value: 0.10
+    unit: fraction_of_target
+    basis: engineering_choice
+    rationale: "Today page: protein below target by more than this fraction shows as attention (amber). Same width as the intake tolerance of calorie_adjustment@2; above target is never flagged."
+  volume_reference_sets_week:
+    value: [12, 20]
+    unit: weekly_sets_per_muscle
+    basis: evidence
+    rationale: "Reference band drawn on the weekly volume chart (moderate volume for hypertrophy; low certainty, trained young men). Compared with fractional sets, see the claim's limitations."
+    claims: [rt.volume_range_12_20]
   sleep_min_days_for_mean:
     value: 4
     unit: nights_of_7

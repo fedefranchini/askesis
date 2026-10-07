@@ -29,6 +29,8 @@ from starlette.staticfiles import StaticFiles
 from askesis import config as config_mod
 from askesis import services
 from askesis.analytics import body, engine
+from askesis.analytics import today as today_mod
+from askesis.analytics.params import p
 from askesis.core.timeutil import now_utc
 from askesis.interventions import present
 from askesis.interventions import registry as reg
@@ -49,6 +51,60 @@ NAV = [("/", "Oggi"), ("/andamenti", "Andamenti"), ("/review", "Review"), ("/pia
        ("/interventi", "Interventi"), ("/safety", "Safety")]
 
 
+def asset_version() -> str:
+    """Short hash of the dashboard's own static files: a new version busts the browser cache."""
+    import hashlib
+
+    h = hashlib.sha256()
+    for f in sorted((HERE / "static").glob("*.*")):
+        h.update(f.read_bytes())
+    return h.hexdigest()[:10]
+
+
+def fmt_num(v, nd: int = 0) -> str:
+    """Italian number format: comma for decimals, narrow no-break space for thousands; '—' when missing."""
+    if v is None:
+        return "—"
+    s = f"{float(v):,.{nd}f}".replace(",", "\u202f").replace(".", ",")
+    return s
+
+
+def sparkline(c, day: date, days: int = 28, w: float = 300, h: float = 96) -> dict | None:
+    """Geometry (SVG viewBox units) of the trend weight and its noise band over the last `days` days up to `day`.
+    Presentation only: values come from weight_ema@1 and body.weight_noise_sd."""
+    inp = engine.load_inputs(c)
+    daily = {d: v for d, v in body.daily_weights(inp.weighins).items() if d <= day}
+    if len(daily) < 2:
+        return None
+    ema = body.weight_ema_series(daily)
+    last = max(daily)
+    noise = body.weight_noise_sd(daily, last)
+    half = 1.96 * noise[0] if noise else 0.0
+    ds = sorted(d for d in ema if d > last - timedelta(days=days))
+    lo = min(min(ema[d] - half for d in ds), min(daily[d] for d in ds if d in daily))
+    hi = max(max(ema[d] + half for d in ds), max(daily[d] for d in ds if d in daily))
+    pad = (hi - lo) * 0.12 or 0.5
+    lo, hi = lo - pad, hi + pad
+    x0 = ds[0]
+    span = max((ds[-1] - x0).days, 1)
+
+    def x(d: date) -> float:
+        return round(4 + (d - x0).days / span * (w - 8), 1)
+
+    def y(v: float) -> float:
+        return round(h - (v - lo) / (hi - lo) * h, 1)
+
+    trend = " ".join(f"{'M' if i == 0 else 'L'}{x(d)},{y(ema[d])}" for i, d in enumerate(ds))
+    band = None
+    if half:
+        top = [f"{x(d)},{y(ema[d] + half)}" for d in ds]
+        bottom = [f"{x(d)},{y(ema[d] - half)}" for d in reversed(ds)]
+        band = "M" + " L".join(top + bottom) + " Z"
+    dots = [(x(d), y(daily[d])) for d in ds if d in daily]
+    return {"w": w, "h": h, "trend": trend, "band": band, "dots": dots, "last": (x(ds[-1]), y(ema[ds[-1]])),
+            "days": days, "half": half}
+
+
 def exercise_name(key: str) -> str:
     from askesis.reference import catalog
 
@@ -66,6 +122,8 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
     auth_file, secret_file = paths(cfg)
     throttle = auth.Throttle()
     env = Environment(loader=FileSystemLoader(HERE / "templates"), autoescape=select_autoescape(["html"]))
+    env.filters["num"] = fmt_num
+    asset_v = asset_version()
 
     def today() -> date:
         return now_utc().astimezone(ZoneInfo(cfg.timezone)).date()
@@ -80,7 +138,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
 
     def page(request: Request, template: str, **ctx) -> HTMLResponse:
         c = conn()
-        ctx |= {"nav": NAV, "path": request.url.path, "csrf": csrf(request),
+        ctx |= {"nav": NAV, "asset_v": asset_v, "path": request.url.path, "csrf": csrf(request),
                 "open_flags": len(safety.open_flags(c)), "user": request.session.get("user")}
         return HTMLResponse(env.get_template(template).render(**ctx))
 
@@ -129,7 +187,8 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
             return bool(c.execute("SELECT 1 FROM v_current WHERE entity_type = ? AND local_date = ? LIMIT 1",
                                   (entity, d.isoformat())).fetchone())
         return {"day": day, "weight": has("body_weight", day), "food": has("nutrition_day", day - timedelta(days=1)),
-                "flags": [dict(f) | {"actions": json.loads(f["actions"])} for f in safety.open_flags(c)]}
+                "flags": [dict(f) | {"actions": json.loads(f["actions"])} for f in safety.open_flags(c)],
+                "summary": today_mod.summary(c, day), "spark": sparkline(c, day)}
 
     def compose_line(f: dict) -> str:
         """Ready-made fields → the same dictation line the CLI parses (one path for every interface)."""
@@ -207,6 +266,14 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
             return {"t": [epoch(m.period_end) for m in ms], "v": [m.value for m in ms],
                     "lo": [m.lo for m in ms], "hi": [m.hi for m in ms], "ref": f"{metric}@1"}
 
+        def by_metric(metric: str) -> list:
+            return sorted((m for m in values if m.metric_id == metric), key=lambda m: m.period_end)
+
+        def vs_target(metric: str) -> dict:
+            ms = [m for m in by_metric(metric) if m.value is not None]
+            return {"t": [epoch(m.period_end) for m in ms], "actual": [m.detail.get("actual_mean") for m in ms],
+                    "target": [m.detail.get("target_mean") for m in ms], "ref": f"{metric}@1"}
+
         days = sorted(daily)
         z = 1.96
         out = {
@@ -224,7 +291,19 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
                        for m in values if m.metric_id == "volume_per_muscle_week" and m.period_end == max(
                            x.period_end for x in values if x.metric_id == "volume_per_muscle_week")},
             "window_start": epoch(max(inp.dates) - timedelta(days=120)),  # last 120 days of data
+            "last": epoch(max(inp.dates)),
+            "energy_vs_target": vs_target("intake_vs_target_week"),
+            "protein_vs_target": vs_target("protein_vs_target_week"),
+            "sessions": {"t": [epoch(m.period_end) for m in by_metric("sessions_vs_plan_week")],
+                         "done": [m.value for m in by_metric("sessions_vs_plan_week")],
+                         "planned": [m.detail.get("planned") for m in by_metric("sessions_vs_plan_week")],
+                         "ref": "sessions_vs_plan_week@1"},
+            "sleep_threshold": {"value": p("sleep_recommended_min_h"), "ref": "sleep_recommended_min_h"},
+            "volume_ref": {"range": p("volume_reference_sets_week"), "ref": "volume_reference_sets_week",
+                           "claim": "rt.volume_range_12_20"},
         }
+        top = sorted(out["e1rm"], key=lambda k: -sum(v is not None for v in out["e1rm"][k]["v"]))[:3]
+        out["e1rm"] = {k: out["e1rm"][k] for k in top}  # at most three lifts: the most tracked ones
         return JSONResponse(out)
 
     # ------------------------------------------------------------------ reports, plan, interventions, safety
@@ -321,5 +400,7 @@ class SecurityHeaders(BaseHTTPMiddleware):
         response.headers["Content-Security-Policy"] = CSP
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
-        response.headers["Cache-Control"] = "no-store"
+        # Static files are versioned (?v=content hash) and contain no data: cacheable. Everything else: never stored.
+        static = request.url.path.startswith("/static/")
+        response.headers["Cache-Control"] = "public, max-age=604800" if static else "no-store"
         return response

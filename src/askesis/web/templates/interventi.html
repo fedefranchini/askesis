@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Interventi · Askesis{% endblock %}
+{% set labels = {"proposed": "proposto", "approved": "approvato", "activated": "attivo", "amended": "attivo, modificato", "rejected": "respinto", "evaluated": "valutato"} %}
 {% block main %}
-<h1>Interventi</h1>
+<header class="pagehead"><div><span class="eyebrow">Registro delle decisioni</span><h1>Interventi</h1></div></header>
 {% if items %}
-<ul class="plain">{% for i in items %}<li><a href="/interventi?n={{ i.number }}">n. {{ i.number }}: {{ i.title }}</a> ({{ i.status }})</li>{% endfor %}</ul>
-{% else %}<p>Nessun intervento registrato.</p>{% endif %}
-{% if why %}<article class="report">{{ why|safe }}</article>{% endif %}
+<ul class="card plain list">{% for i in items %}<li><a href="/interventi?n={{ i.number }}"><span>n. {{ i.number }} · {{ i.title }}</span><span class="pill">{{ labels.get(i.status, i.status) }}</span></a></li>{% endfor %}</ul>
+{% else %}<p class="card">Nessun intervento registrato.</p>{% endif %}
+{% if why %}<article class="card report">{{ why|safe }}</article>{% endif %}
 {% endblock %}

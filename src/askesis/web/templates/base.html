@@ -1,28 +1,31 @@
-<!doctype html>
+{% from "_icons.html" import icon %}<!doctype html>
 <html lang="it">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0F1317">
+  <meta name="color-scheme" content="dark">
   <title>{% block title %}Askesis{% endblock %}</title>
-  <link rel="stylesheet" href="/static/app.css">
+  <link rel="preload" href="/static/vendor/barlow/Barlow-SemiBold.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="/static/app.css?v={{ asset_v }}">
   {% block head %}{% endblock %}
 </head>
 <body>
   <div class="shell">
+    {% if user %}
     <nav class="nav" aria-label="Sezioni">
       <span class="brand">Askesis</span>
-      {% if user %}
       <ul>
         {% for href, label in nav %}
-        <li><a href="{{ href }}"{% if path == href %} aria-current="page"{% endif %}>{{ label }}{% if href == "/safety" and open_flags %} <span class="flagcount" aria-label="{{ open_flags }} flag aperti">{{ open_flags }}</span>{% endif %}</a></li>
+        <li><a href="{{ href }}"{% if path == href %} aria-current="page"{% endif %}>{{ icon(label|lower) }}<span>{{ label }}</span>{% if href == "/safety" and open_flags %}<span class="flagcount" aria-label="{{ open_flags }} flag aperti">{{ open_flags }}</span>{% endif %}</a></li>
         {% endfor %}
       </ul>
       <form method="post" action="/logout" class="logout">
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <button type="submit" class="link">Esci</button>
       </form>
-      {% endif %}
     </nav>
+    {% endif %}
     <main class="main">
       {% block main %}{% endblock %}
     </main>

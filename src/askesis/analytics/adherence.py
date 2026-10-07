@@ -81,17 +81,24 @@ def vs_target(nutrition, plans, start: date, end: date) -> list[MetricValue]:
     return out
 
 
+def planned_on(plans, day: date) -> int | None:
+    """Strength sessions planned on `day` by the programme in force (None without a programme)."""
+    prog = plan_on(plans, "programme", day)
+    if prog is None:
+        return None
+    minimal = any(pp.get("modifiers", {}).get("use_minimal_week") for pp in _periods_on(plans, day))
+    week = prog.get("minimal_week" if minimal else "microcycle", [])
+    return sum(1 for s in week if s["day"] == WEEKDAYS[day.weekday()] and s.get("lifts"))
+
+
 def sessions_vs_plan(sets, plans, start: date, end: date) -> MetricValue | None:
     planned, any_prog = 0, False
-    for i in range(7):
-        day = start + timedelta(days=i)
-        prog = plan_on(plans, "programme", day)
-        if prog is None:
+    for i in range(7):  # the weekly metric always covers the ISO week starting at `start`
+        n = planned_on(plans, start + timedelta(days=i))
+        if n is None:
             continue
         any_prog = True
-        minimal = any(pp.get("modifiers", {}).get("use_minimal_week") for pp in _periods_on(plans, day))
-        week = prog.get("minimal_week" if minimal else "microcycle", [])
-        planned += sum(1 for s in week if s["day"] == WEEKDAYS[day.weekday()] and s.get("lifts"))
+        planned += n
     if not any_prog:
         return None
     done = len({s.session_id for s in sets if start <= s.day <= end and s.set_type != "warmup"})

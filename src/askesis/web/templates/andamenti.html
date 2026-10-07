@@ -1,20 +1,73 @@
 {% extends "base.html" %}
 {% block title %}Andamenti · Askesis{% endblock %}
-{% block head %}<link rel="stylesheet" href="/static/vendor/uplot/uPlot.min.css">{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/vendor/uplot/uPlot.min.css?v={{ asset_v }}">{% endblock %}
 {% block main %}
-<h1>Andamenti</h1>
-<p class="hint">Punti: misure. Linea: tendenza calcolata. Banda: rumore stimato dai dati; un valore fuori dalla banda è un segnale, uno dentro è rumore.</p>
+<header class="pagehead">
+  <div>
+    <span class="eyebrow">Tendenze calcolate dal motore</span>
+    <h1>Andamenti</h1>
+  </div>
+  <div class="periods" role="group" aria-label="Periodo">
+    <button type="button" data-days="28" aria-pressed="false">4 settimane</button>
+    <button type="button" data-days="91" aria-pressed="true">3 mesi</button>
+    <button type="button" data-days="365" aria-pressed="false">1 anno</button>
+  </div>
+</header>
 <div id="charts" class="charts" data-empty="Nessun dato ancora: registra la prima pesata da Oggi.">
-  <figure><figcaption id="cap-weight">Peso</figcaption><div id="weight"></div></figure>
-  <figure><figcaption id="cap-energy">Energia: mantenimento stimato e intake medio settimanale</figcaption><div id="energy"></div></figure>
-  <figure><figcaption>Passi medi settimanali</figcaption><div id="steps"></div></figure>
-  <figure><figcaption>Sonno medio settimanale (ore)</figcaption><div id="sleep"></div></figure>
-  <figure><figcaption>Corsa: km settimanali</figcaption><div id="run"></div></figure>
-  <figure><figcaption>Forza: e1RM migliore della settimana</figcaption><div id="e1rm"></div></figure>
-  <figure><figcaption>Volume dell'ultima settimana (serie frazionarie per muscolo)</figcaption><div id="volume"></div></figure>
+  <section class="card full">
+    <h2>Peso</h2>
+    <p class="note" id="cap-weight">Punti: pesate. Linea: tendenza. Banda: rumore stimato dai dati, ciò che sta dentro è rumore.</p>
+    <div id="weight" class="chart"></div>
+    <ul class="legend"><li><i class="k-dot"></i>pesata</li><li><i class="k-s1"></i>tendenza</li><li><i class="k-band"></i>banda del rumore</li></ul>
+  </section>
+  <section class="card full">
+    <h2>Energia</h2>
+    <p class="note">Media settimanale dei giorni completi rispetto al target, e mantenimento stimato con il suo intervallo.</p>
+    <div id="energy" class="chart"></div>
+    <ul class="legend"><li><i class="k-s2"></i>assunta</li><li><i class="k-s3"></i>target</li><li><i class="k-s1"></i>mantenimento stimato</li><li><i class="k-band"></i>intervallo</li></ul>
+  </section>
+  <section class="card">
+    <h2>Proteine</h2>
+    <p class="note">Media settimanale dei giorni completi (g/die).</p>
+    <div id="protein" class="chart"></div>
+    <ul class="legend"><li><i class="k-s2"></i>assunte</li><li><i class="k-s3"></i>target</li></ul>
+  </section>
+  <section class="card">
+    <h2>Sedute di pesi</h2>
+    <p class="note">Per settimana: fatte e previste dal programma.</p>
+    <div id="sessions" class="chart"></div>
+    <ul class="legend"><li><i class="k-s1"></i>fatte</li><li><i class="k-s3"></i>previste</li></ul>
+  </section>
+  <section class="card">
+    <h2>Volume dell'ultima settimana</h2>
+    <p class="note" id="cap-volume">Serie frazionarie per muscolo.</p>
+    <div id="volume"></div>
+    <ul class="legend"><li><i class="k-s1"></i>serie</li><li><i class="k-ref"></i>fascia di riferimento</li></ul>
+  </section>
+  <section class="card">
+    <h2>Forza</h2>
+    <p class="note">e1RM migliore della settimana, al massimo tre esercizi (i più registrati).</p>
+    <div id="e1rm" class="chart"></div>
+  </section>
+  <section class="card">
+    <h2>Sonno</h2>
+    <p class="note">Ore medie per notte, per settimana. Linea tratteggiata: ore minime raccomandate per gli adulti (AASM/SRS).</p>
+    <div id="sleep" class="chart"></div>
+    <ul class="legend"><li><i class="k-s1"></i>ore/notte</li><li><i class="k-s3"></i>soglia</li></ul>
+  </section>
+  <section class="card">
+    <h2>Passi</h2>
+    <p class="note">Media giornaliera, per settimana.</p>
+    <div id="steps" class="chart"></div>
+  </section>
+  <section class="card">
+    <h2>Corsa</h2>
+    <p class="note">Km per settimana.</p>
+    <div id="run" class="chart"></div>
+  </section>
 </div>
 {% endblock %}
 {% block scripts %}
-<script src="/static/vendor/uplot/uPlot.iife.min.js"></script>
-<script src="/static/charts.js"></script>
+<script src="/static/vendor/uplot/uPlot.iife.min.js?v={{ asset_v }}"></script>
+<script src="/static/charts.js?v={{ asset_v }}"></script>
 {% endblock %}

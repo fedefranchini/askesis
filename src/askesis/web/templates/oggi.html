@@ -1,20 +1,103 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_ui.html" import ring %}
 {% block title %}Oggi · Askesis{% endblock %}
+
+
+
 {% block main %}
-<h1>Oggi, {{ status.day.strftime("%d/%m") }}</h1>
+{% set S = status.summary %}
+{% set T = {} %}{% for t in S.tiles %}{% set _ = T.update({t.key: t}) %}{% endfor %}
+{% set weekdays = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"] %}
+<header class="pagehead">
+  <div>
+    <span class="eyebrow">{{ weekdays[status.day.weekday()]|capitalize }} {{ status.day.strftime("%d/%m") }}</span>
+    <h1>Oggi</h1>
+  </div>
+  {% if S.phase %}
+  <div class="phase">
+    {% if S.phase.upcoming %}
+    <span>Intervento n. {{ S.phase.number }} · inizia il <strong>{{ S.phase.start[8:10] }}/{{ S.phase.start[5:7] }}</strong></span>
+    {% else %}
+    <span>Fase: settimana <strong>{{ S.phase.week }} di {{ S.phase.of }}</strong></span>
+    <span class="meter" aria-hidden="true"><span class="w-{{ ((S.phase.week / S.phase.of * 20)|round|int) * 5 if S.phase.week <= S.phase.of else 100 }}"></span></span>
+    {% if S.phase.weight_change_kg is not none %}<span>dall'inizio <strong>{{ "+" if S.phase.weight_change_kg >= 0 else "−" }}{{ (S.phase.weight_change_kg|abs)|num(1) }} kg</strong> di tendenza</span>{% endif %}
+    {% endif %}
+  </div>
+  {% endif %}
+</header>
 
 {% for f in status.flags %}
 <section class="flag tier-{{ f.tier }}" role="alert">
+  {{ icon("alert") }}
   <p><strong>{{ f.message }}</strong></p>
   <ul>{% for a in f.actions %}<li>{{ a }}</li>{% endfor %}</ul>
 </section>
 {% endfor %}
 
-<p class="missing">
-  {% if status.weight %}Pesata di oggi registrata.{% else %}Manca la pesata di oggi.{% endif %}
-  {% if status.food %}Cibo di ieri registrato.{% else %}Manca il cibo di ieri.{% endif %}
-</p>
+{% set w = T.weight %}
+<section class="card hero" aria-label="Peso di tendenza">
+  <div>
+    <span class="label">{{ w.label }}</span>
+    <p class="big">{{ w.value|num(1) }}<small>kg</small></p>
+    <span class="sub">{{ w.sub }}</span>
+  </div>
+  {% set sp = status.spark %}
+  {% if sp %}
+  <div>
+    <svg class="spark" viewBox="0 0 {{ sp.w|int }} {{ sp.h|int }}" preserveAspectRatio="none" role="img"
+         aria-label="Peso di tendenza negli ultimi {{ sp.days }} giorni, con la banda del rumore">
+      {% if sp.band %}<path class="band" d="{{ sp.band }}"/>{% endif %}
+      {% for x, y in sp.dots %}<circle class="dot" cx="{{ x }}" cy="{{ y }}" r="2"/>{% endfor %}
+      <path class="trend" d="{{ sp.trend }}"/>
+      <circle class="last" cx="{{ sp.last[0] }}" cy="{{ sp.last[1] }}" r="4"/>
+    </svg>
+    <p class="spark-cap">{{ sp.days }} giorni · {% if sp.half %}banda del rumore ±{{ sp.half|num(2) }} kg{% else %}rumore non ancora stimabile{% endif %}</p>
+  </div>
+  {% endif %}
+</section>
 
+<div class="tiles">
+  {{ ring(T.energy, unit="kcal") }}
+  {{ ring(T.protein, unit="g") }}
+  {{ ring(T.sleep, nd=1, unit="ore") }}
+  {{ ring(T.sessions, unit=T.sessions.unit) }}
+  {{ ring(T.steps, unit="passi" if T.steps.value is not none else "") }}
+</div>
+
+<div class="split">
+  <section class="card">
+    <h2>Da fare</h2>
+    {% if S.todo %}
+    <ul class="chips">{% for x in S.todo %}<li>{{ x }}</li>{% endfor %}</ul>
+    {% else %}
+    <p class="done">{{ icon("ok") }}Pesata e cibo di ieri registrati.</p>
+    {% endif %}
+  </section>
+  <section class="card">
+    {% set nx = S.session %}
+    {% if nx.status == "session" %}
+      {% for s in nx.sessions %}
+      <h2>Seduta di oggi · {{ s.name }}{% if nx.deload %} · scarico{% endif %}</h2>
+      <ul class="lifts">
+        {% for l in s.lifts %}
+        <li><span class="ex">{{ l.exercise }}</span>
+            <span class="rx">{{ l.sets }} × {{ l.rep_target }}{% if l.load_kg %} · {{ l.load_kg|num(1) if l.load_kg % 1 else l.load_kg|num }} kg{% endif %}</span>
+            <span class="why">RIR {{ "%g"|format(l.target_rir) }} · {{ l.reason }}</span></li>
+        {% endfor %}
+      </ul>
+      {% endfor %}
+    {% elif nx.status == "blocked_by_safety" %}
+      <h2>Seduta di oggi</h2><p class="error">Nessuna prescrizione: c'è un flag di safety aperto.</p>
+    {% elif nx.status == "rest_day" %}
+      <h2>Seduta di oggi</h2><p class="hint">Oggi non è prevista una seduta di pesi.</p>
+    {% else %}
+      <h2>Seduta di oggi</h2><p class="hint">Nessun programma attivo.</p>
+    {% endif %}
+  </section>
+</div>
+
+<section class="card entry-card">
 <form method="post" action="/" class="entry">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <label for="line" class="lead">Riga del giorno</label>
@@ -23,6 +106,7 @@
   <div class="row">
     <label for="day">Data</label>
     <input id="day" name="day" type="date" value="{{ day_value }}">
+    <span class="grow"></span>
     <button type="submit" name="action" value="preview" class="secondary">Mostra anteprima</button>
     <button type="submit" name="action" value="save">Salva</button>
   </div>
@@ -49,11 +133,12 @@
     <p class="hint">I campi compilati diventano la stessa riga del giorno: lascia vuota la riga sopra per usarli.</p>
   </details>
 </form>
+</section>
 
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 
 {% if preview %}
-<section class="receipt" aria-live="polite">
+<section class="card receipt" aria-live="polite">
   <h2>Anteprima: nulla è stato salvato</h2>
   <ul>{% for l in preview.lines %}<li>{{ l }}</li>{% endfor %}</ul>
   <form method="post" action="/">
@@ -67,7 +152,7 @@
 {% endif %}
 
 {% if saved %}
-<section class="receipt saved" aria-live="polite">
+<section class="card receipt saved" aria-live="polite">
   <h2>Salvato</h2>
   <ul>{% for l in saved.lines %}<li>{{ l }}</li>{% endfor %}</ul>
   {% if saved.receipt.duplicates %}<p class="hint">Già presenti: {{ saved.receipt.duplicates|join(", ") }}</p>{% endif %}

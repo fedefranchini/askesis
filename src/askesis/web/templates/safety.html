@@ -1,14 +1,16 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}Safety · Askesis{% endblock %}
 {% block main %}
-<h1>Safety</h1>
+<header class="pagehead"><div><span class="eyebrow">Flag aperti</span><h1>Safety</h1></div></header>
 {% for f in flags %}
 <section class="flag tier-{{ f.tier }}">
-  <p><strong>{{ f.message }}</strong> ({{ f.local_date }}, {{ f.tier }})</p>
+  {{ icon("alert") }}
+  <p><strong>{{ f.message }}</strong> <span class="hint">{{ f.local_date }} · {{ f.tier }}</span></p>
   <ul>{% for a in f.actions %}<li>{{ a }}</li>{% endfor %}</ul>
 </section>
 {% else %}
-<p>Nessun flag di safety aperto.</p>
+<p class="card done">{{ icon("ok") }}Nessun flag di safety aperto.</p>
 {% endfor %}
 <p class="hint">Un flag si chiude solo con la sua risoluzione, nel terminale: bin/ak safety resolve.</p>
 {% endblock %}
