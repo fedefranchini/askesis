@@ -267,6 +267,13 @@ duplicata):
   e risposte identiche ripetute (parametri, scelte tecniche). Analisi (baseline personale, indice ispirato a Hooper,
   carico di Foster con monotonia e strain, convergenza, collegamenti nel tempo, segnali di safety) nelle fasi
   successive, quando ci sono abbastanza risposte.
+- **Commento dopo ogni seduta (fatto, B)**: all'import della scheda il codice scrive il commento della seduta,
+  validato e mostrato in Coach. Per esercizio: e1RM della serie migliore contro la seduta precedente (migliorato /
+  stabile / calato), con soglia = z × deviazione standard dei cambi passati di quell'esercizio, mai sotto l'effetto
+  di una ripetizione allo stesso carico; record di carico, di ripetizioni a parità di carico ed e1RM (la prima seduta
+  fa da riferimento); al massimo un punto di attenzione (dolore, ripetizioni sotto il range, calo oltre il rumore).
+  Metriche `e1rm_session`, `e1rm_session_change`, `best_reps_session`, `strength_record` nel motore (nessun
+  look-ahead).
 - **Recuperi tra le serie (fatto)**: nella scheda della palestra e nella pagina Piano, una riga per esercizio
   (multiarticolari 2–3 min, monoarticolari 1,5–2 min) da parametri con base dichiarata (`rest_compound_range_s`,
   `rest_isolation_range_s`; claim `rt.rest_strength`, `rt.rest_hypertrophy`, evidenza di bassa certezza).

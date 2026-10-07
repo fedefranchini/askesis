@@ -16,11 +16,11 @@ from askesis.core.ids import new_id
 from askesis.core.timeutil import iso, now_utc
 from askesis.store import repository as repo
 
-from . import adherence, body, energy, training
+from . import adherence, body, energy, session, training
 from .base import MetricValue, r6
 from .params import PARAMS_DIR, p
 
-ENGINE_VERSION = "0.3.0"
+ENGINE_VERSION = "0.4.0"
 
 
 @dataclass
@@ -147,6 +147,7 @@ def compute(inp: Inputs, start: date, end: date) -> list[MetricValue]:
             for m in training.strength_week(inp.sets, ws, we):
                 if m.metric_id == "e1rm_best_week" and m.value is not None:
                     weekly_e1rm.setdefault(m.subject.split(":", 1)[1], []).append((we, m.value))
+    vals += session.session_metrics(inp.sets, start, end)
     for ws, we in iso_weeks(start, end):
         for m in (body.weight_ema(daily, we), body.weight_ma7(daily, we),
                   energy.adaptive_tdee(inp.nutrition, daily, athlete_as_of(inp, we), we),

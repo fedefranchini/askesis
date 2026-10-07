@@ -555,6 +555,34 @@ def _save_validated(md: str, out: Path, conn, echo: bool = True) -> None:
     raise typer.Exit(1)
 
 
+def write_session_comment(conn, day: date) -> bool:
+    """Comment after a strength session (reports/seduta-YYYY-MM-DD.md), validated like every generated text.
+
+    Returns True when a validated comment was saved. Never raises: the import that calls it has already succeeded."""
+    from askesis.analytics import engine, session_comment
+
+    _, values, _ = engine.run(conn, day, day)
+    md = session_comment.render(conn, values, day)
+    if md is None:
+        typer.echo(f"nessuna serie di lavoro il {day.isoformat()}: nessun commento")
+        return False
+    try:
+        _save_validated(md, config_mod.reports_dir() / f"seduta-{day.isoformat()}.md", conn)
+    except typer.Exit:
+        return False
+    return True
+
+
+@app.command("session-comment")
+def session_comment_cmd(
+    date_: Annotated[str, typer.Option("--for", help="Data della seduta YYYY-MM-DD")],
+) -> None:
+    """Commento della seduta di pesi: confronto con la precedente rispetto al rumore, record, un punto di attenzione."""
+    cfg, conn = _ctx()
+    if not write_session_comment(conn, date.fromisoformat(date_)):
+        raise typer.Exit(1)
+
+
 @app.command("review")
 def review_cmd(
     date_: Annotated[

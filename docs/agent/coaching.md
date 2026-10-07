@@ -10,6 +10,10 @@ propone**; l'atleta decide. Ogni numero viene da `bin/ak`; ogni scelta metodolog
 4. Qualità dati: segnalare in una riga giorni mancanti o parziali, valori anomali, RIR assenti ripetuti.
 5. **Commento breve solo se rilevante** (es. dato fuori dall'andamento, aderenza in calo, proposta in arrivo).
    Altrimenti nessun commento: la rilettura basta.
+6. **Dopo una seduta di pesi importata** (`bin/ak gym-note import --for <data> --yes`) la CLI scrive e valida il
+   commento della seduta (`reports/seduta-<data>.md`, visibile in Coach): per esercizio migliorato / stabile /
+   calato rispetto al rumore, record, al massimo un punto di attenzione. Riportarlo all'atleta così com'è; per
+   rigenerarlo: `bin/ak session-comment --for <data>`.
 
 ## Ogni lunedì — review settimanale
 1. `bin/ak review` (settimana lun–dom appena chiusa) → mostrarla o riassumerla, con i riferimenti

@@ -560,3 +560,8 @@ def gym_import(
     r = ingest(conn, to_ingest, "gym_note")
     _print_receipt(r)
     print_flags(conn, d)
+    if any(e.entity_type == "set_record" for e in r.inserted):
+        from askesis.cli.main import write_session_comment
+
+        typer.echo("")
+        write_session_comment(conn, d)

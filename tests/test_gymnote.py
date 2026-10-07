@@ -146,3 +146,20 @@ def test_double_progression_flows_into_next_note(cli):
 def test_programme_fixture_is_generic():
     assert yaml.safe_dump(programme())  # synthetic plan only
     assert date(2025, 3, 3).weekday() == 0
+
+
+def test_import_writes_a_validated_session_comment(cli):
+    from askesis.config import reports_dir
+
+    run, fake = cli
+    for week, results in enumerate(["50x8 r2, 50x8 r2", "52,5x8 r2, 52,5x7 r1"]):
+        day = DAY + timedelta(weeks=week)
+        run("gym-note", "create", "--for", day.isoformat())
+        write_results(fake, {"bench_press": results})
+        out = run("gym-note", "import", "--for", day.isoformat(), "--yes").output
+        assert "validata e salvata" in out, out
+    text = (reports_dir() / f"seduta-{day.isoformat()}.md").read_text()
+    assert "carico più alto di sempre, 52,5 kg (prima 50 kg)" in text
+    again = run("session-comment", "--for", day.isoformat())
+    assert again.exit_code == 0 and "validata e salvata" in again.output
+    assert run("session-comment", "--for", (day + timedelta(days=1)).isoformat()).exit_code == 1

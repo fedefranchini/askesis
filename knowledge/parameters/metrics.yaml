@@ -186,3 +186,8 @@ parameters:
     unit: consecutive_answered_days
     basis: engineering_choice
     rationale: "Identical answers (at least three items) on this many consecutive answered days are pointed out as possibly automatic; a hint to answer how one feels today, never a judgement."
+  e1rm_session_noise_floor_reps:
+    value: 1
+    unit: reps_at_the_same_load
+    basis: engineering_choice
+    rationale: "Minimal difference of a session e1RM is never below the e1RM effect of this many reps at the session's top load (Epley: load × reps / 30): with few or identical past sessions the measured spread can be near zero."

@@ -1,6 +1,7 @@
 """The coach's texts and the decisions waiting for the athlete, for any interface (dashboard, CLI).
 
-Texts: the files in reports/ (evening check comment, weekly review, monthly retrospective, proposals) are re-checked by
+Texts: the files in reports/ (evening check comment, session comment, weekly review, monthly retrospective,
+proposals) are re-checked by
 the validator every time they are shown: only a text that passes now is "validated"; anything else is shown as
 "da verificare" with the unsupported points. A `.DA-VERIFICARE.md` file superseded by a newer final file is hidden.
 
@@ -27,10 +28,10 @@ from askesis.plan import calorie_rule
 from askesis.safety import rules as safety
 from askesis.validation import textcheck
 
-NAME = re.compile(r"^(daily|review|retro|proposta)[\w.-]*\.md$")
+NAME = re.compile(r"^(daily|review|retro|proposta|seduta)[\w.-]*\.md$")
 PENDING_SUFFIX = ".DA-VERIFICARE.md"
 KINDS = {"daily": "Controllo serale", "review": "Review settimanale", "retro": "Retrospettiva mensile",
-         "proposta": "Proposta"}
+         "proposta": "Proposta", "seduta": "Commento seduta"}
 
 
 @dataclass
