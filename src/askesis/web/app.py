@@ -193,8 +193,8 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
 
     # ------------------------------------------------------------------ login
     def login_page(request: Request, error: str | None = None, wait: float = 0.0, status: int = 200) -> HTMLResponse:
-        r = page(request, "login.html", error=error, wait=int(wait + 0.999), wait_text=seconds(wait) if wait > 0 else "",
-                 remember_days=cfg.web_remember_days)
+        r = page(request, "login.html", error=error, wait=int(wait + 0.999),
+                 wait_text=seconds(wait) if wait > 0 else "", remember_days=cfg.web_remember_days)
         r.status_code = status
         return r
 
