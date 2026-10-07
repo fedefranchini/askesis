@@ -71,6 +71,18 @@ def test_bodyweight_exercises_use_reps():
     assert by(v, "strength_record", MON + timedelta(weeks=1))["exercise:pull_up:reps@0"].value == 9 - 1
 
 
+def test_too_many_reps_for_an_e1rm_compares_reps_at_the_same_load(tmp_path):
+    c = connect(tmp_path / "r.db")
+    recs = syn.athlete() + _session(MON, [("leg_extension", 30, 12, 2)])
+    recs += _session(MON + timedelta(weeks=1), [("leg_extension", 30, 13, 2)])
+    ingest(c, recs, "synthetic")
+    md = comment(c, MON + timedelta(weeks=1))
+    assert "**Leg extension**: più ripetizioni. 13 ripetizioni con 30 kg contro 12 del 3/3" in md
+    assert "13 ripetizioni con 30 kg, mai così tante a questo carico (prima 12)" in md
+    assert textcheck.validate(md, c).ok
+    assert "nessuna seduta precedente allo stesso carico" in comment(c, MON)
+
+
 def test_lower_bound_e1rm_is_not_compared_as_a_change():
     s = [row(MON, 50, 8), row(MON + timedelta(weeks=1), 55, 6, rir=None)]
     v = session_metrics(s, MON, MON + timedelta(weeks=1))

@@ -52,34 +52,49 @@ def render(conn: sqlite3.Connection, values: list[MetricValue], day: date) -> st
     reps = {m.subject: m for m in on_day if m.metric_id == "best_reps_session"}
     ch = {m.subject: m for m in on_day if m.metric_id == "e1rm_session_change"}
     recs = [m for m in on_day if m.metric_id == "strength_record"]
-    subjects = sorted(set(e1) | set(reps), key=lambda s: _order(conn, day).get(s.split(":", 1)[1], 99))
+    order = _order(conn, day)
+    subjects = sorted(set(e1) | set(reps), key=lambda s: order.get(s.split(":", 1)[1], 99))
     if not subjects:
         return None
     L = [f"# Commento seduta — {day.isoformat()}", "",
          "Per ogni esercizio: la serie migliore della seduta come e1RM stimato, confrontata con la seduta precedente "
-         "e con il rumore delle tue sedute passate.", "", "## Esercizi", ""]
+         "e con il rumore delle tue sedute passate; senza e1RM, le ripetizioni allo stesso carico.", "",
+         "## Esercizi", ""]
     downs = []
     for subj in subjects:
         name = exercise_label(subj.split(":", 1)[1])
         if subj in e1:
             m = e1[subj]
-            top = f"{_kg(m.detail['load_kg'])} kg × {m.detail['reps']}"
+            rir = m.detail.get("rir")
+            top = f"{_kg(m.detail['load_kg'])} kg × {m.detail['reps']}" + (f" @RIR {rir:g}" if rir is not None else "")
             if subj in ch:
                 c = ch[subj]
                 verdict, why = _verdict(c)
                 if verdict == "calato":
                     downs.append(name)
-                L.append(f"- **{name}**: {verdict}. e1RM {_n(m.value)} kg (serie migliore {top}) contro "
+                L.append(f"- **{name}**: {verdict}. e1RM {_n(m.value)} kg (stima dalla serie {top}) contro "
                          f"{_n(c.detail['previous_kg'])} kg del {_dm(c.detail['previous_day'])}: {why}. "
                          "`e1rm_session@1` `e1rm_session_change@1`")
             else:
                 L.append(f"- **{name}**: prima seduta registrata, fa da riferimento. e1RM {_n(m.value)} kg "
-                         f"(serie migliore {top}). `e1rm_session@1`")
+                         f"(stima dalla serie {top}). `e1rm_session@1`")
         else:
-            L.append(f"- **{name}**: serie migliore {int(reps[subj].value)} ripetizioni (corpo libero: nessun e1RM).")
+            r = reps[subj]
+            n, load = int(r.value), r.detail.get("load_kg", 0)
+            what = "corpo libero" if r.detail.get("load_kind") != "external" else f"{_kg(load)} kg"
+            why = "corpo libero" if r.detail.get("load_kind") != "external" else "troppe ripetizioni per stimare l'e1RM"
+            if "previous_reps" in r.detail:
+                pr = r.detail["previous_reps"]
+                verdict = "più ripetizioni" if n > pr else "meno ripetizioni" if n < pr else "stesse ripetizioni"
+                L.append(f"- **{name}**: {verdict}. {n} ripetizioni con {what} contro {pr} del "
+                         f"{_dm(r.detail['previous_day'])} (confronto allo stesso carico, {why}: rumore non stimato). "
+                         "`best_reps_session@1`")
+            else:
+                L.append(f"- **{name}**: {n} ripetizioni con {what} ({why}); nessuna seduta precedente allo stesso "
+                         "carico. `best_reps_session@1`")
     L += ["", "## Record", ""]
     if recs:
-        for r in sorted(recs, key=lambda r: r.subject):
+        for r in sorted(recs, key=lambda r: (order.get(r.subject.split(":")[1], 99), r.subject)):
             parts = r.subject.split(":")
             name, kind = exercise_label(parts[1]), parts[2]
             if kind == "load":

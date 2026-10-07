@@ -420,3 +420,14 @@ def test_checkin_cards_save_merge_and_prefill(env):
     assert "Riga non valida" in r.text  # out of scale: refused, nothing guessed
     r = client.post("/", data={"csrf": "wrong", "day": day, "action": "save", "ck_sonno": "5"})
     assert "Sessione scaduta" in r.text
+
+
+def test_coach_shows_the_latest_session_comment_as_a_tab(env, tmp_path):
+    from askesis.config import reports_dir
+
+    client, cfg, password = env
+    reports_dir().mkdir(parents=True, exist_ok=True)
+    (reports_dir() / "seduta-2025-03-24.md").write_text("# Commento seduta — 2025-03-24\n\n- Nessun record.\n")
+    login(client, password)
+    page = client.get("/coach").text
+    assert 'href="/coach?f=seduta-2025-03-24.md"' in page and "Commento seduta 2025-03-24" in page

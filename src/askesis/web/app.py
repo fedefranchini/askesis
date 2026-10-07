@@ -511,7 +511,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         name = request.query_params.get("f")
         current = by_name.get(name) if name else None  # only listed files: no path traversal
         latest = []
-        for kind in ("daily", "review", "retro"):
+        for kind in ("seduta", "daily", "review", "retro"):
             latest += [d for d in docs if d.kind == kind][:2 if kind == "review" else 1]
         if current is None and not ctx.get("confirm"):
             current = next((d for d in docs if d.kind == "review" and "commento" not in d.name),

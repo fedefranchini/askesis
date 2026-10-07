@@ -5,7 +5,8 @@ Pure functions over set rows. A session on day D is compared only with sessions 
 - e1rm_session_change: vs the previous session with that exercise; the noise is the spread of the exercise's past
   session-to-session changes (at least noise_min_points), minimal difference = minimal_difference_z × SD, never below
   the e1RM effect of e1rm_session_noise_floor_reps reps at the session's top load.
-- best_reps_session: most reps in one working set, for bodyweight exercises without an e1RM.
+- best_reps_session: most reps at the heaviest load, when no e1RM is available (bodyweight, or more reps than the
+  e1RM formula allows), with the previous session at that same load.
 - strength_record: load (heaviest working load), reps at a given load (more reps than ever at that load), e1RM. A
   record needs at least one earlier session with the exercise: the first session sets the baseline, it is not a record.
 """
@@ -65,9 +66,17 @@ def session_metrics(sets: list[SetRow], start: date, end: date) -> list[MetricVa
                 out.append(MetricValue("e1rm_session", 1, subj, d, d, val, "kg", "ESTIMATE", len(today), detail={
                     "lower_bound": lower, "load_kg": s.load_kg, "reps": s.reps, "rir": rir_of(s),
                     "formula": p("e1rm_formula")}))
-            elif today[0].load_kind != "external":
-                reps = max(x.reps for x in today)
-                out.append(MetricValue("best_reps_session", 1, subj, d, d, reps, "reps", "MEASUREMENT", len(today)))
+            else:  # bodyweight, or too many reps for an e1RM: the most reps at the heaviest load
+                load = max(x.load_kg for x in today)
+                reps = max(x.reps for x in today if x.load_kg == load)
+                prev = [x for pd in prev_days for x in days[pd] if x.load_kg == load]
+                detail = {"load_kg": load, "load_kind": today[0].load_kind}
+                if prev:
+                    last = max(pd for pd in prev_days if any(x.load_kg == load for x in days[pd]))
+                    detail |= {"previous_day": last.isoformat(),
+                               "previous_reps": max(x.reps for x in days[last] if x.load_kg == load)}
+                out.append(MetricValue("best_reps_session", 1, subj, d, d, reps, "reps", "MEASUREMENT", len(today),
+                                       detail=detail))
             # change vs the previous session with an e1RM
             with_e1rm = [x for x in prev_days if bests[x] is not None]
             if b is not None and with_e1rm:
