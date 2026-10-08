@@ -241,3 +241,10 @@ parameters:
     unit: runs
     basis: engineering_choice
     rationale: "Noise (sample SD of efficiency) is estimated from the comparable runs before the current window only with at least this many; fewer: the change is reported as not estimable. The noise is run-to-run variability, which also contains real changes (conservative); no default value is invented."
+
+  # ---------------- running records
+  run_record_pace_min_km:
+    value: [3, 5, 10]
+    unit: km
+    basis: engineering_choice
+    rationale: "Only total distance and time are recorded (no splits), so the pace record is the average pace of a whole run of at least that distance, not a best effort within a run. Thresholds are the distance buckets in which a run can set a pace record."

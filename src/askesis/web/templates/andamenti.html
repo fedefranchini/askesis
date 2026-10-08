@@ -71,6 +71,15 @@
   </section>
 {% endfor %}
 </div>
+<section class="card records" aria-labelledby="records-h">
+  <h2 id="records-h">Record personali</h2>
+  {% if records %}
+  <ul class="plain record-list">
+    {% for r in records %}<li><time datetime="{{ r.date }}">{{ r.date|it_date }}</time><span>{{ r.text }}<small class="ref">{{ r.ref }} · {{ r.epistemic }}</small></span></li>{% endfor %}
+  </ul>
+  {% if records_more %}<p class="hint">e altri {{ records_more }}</p>{% endif %}
+  {% else %}<p class="empty-state">{{ icon("info") }}<span>Nessun record ancora: la prima seduta o corsa fa da riferimento.</span></p>{% endif %}
+</section>
 <p class="hint">Il volume per muscolo è nella pagina Piano.</p>
 {% endblock %}
 {% block scripts %}

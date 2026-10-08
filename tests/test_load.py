@@ -114,7 +114,7 @@ def test_engine_integration(tmp_path):
     w = by(values, "training_load_week")
     assert w.value == 480.0 and w.dq == 1.0 and w.detail["missing_feedback"] == []
     assert by(values, "training_monotony_week").value is not None
-    assert engine.ENGINE_VERSION == "0.6.0"
+    assert engine.ENGINE_VERSION == "0.7.0"
 
 
 def test_week_in_progress_has_load_but_no_monotony():

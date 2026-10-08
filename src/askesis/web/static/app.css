@@ -452,3 +452,12 @@ button.danger-soft { background: transparent; border-color: var(--warn); color: 
   .dots { gap: 3px; }
   .dots label { min-height: 44px; border-radius: 8px; font-size: 15px; }
 }
+
+/* personal records (Andamenti) */
+.records { margin-top: 16px; }
+.records h2 { margin: 0 0 8px; font-size: 18px; }
+.record-list li { display: flex; gap: 12px; align-items: baseline; border-top: 1px solid var(--line); }
+.record-list li:first-child { border-top: 0; }
+.record-list time { flex: 0 0 5.6em; color: var(--text-2); font-size: 14px; font-variant-numeric: tabular-nums; }
+.record-list span { min-width: 0; overflow-wrap: anywhere; }
+.record-list .ref { display: block; color: var(--text-3); font-size: 12px; }

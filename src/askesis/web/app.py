@@ -29,7 +29,7 @@ from starlette.staticfiles import StaticFiles
 from askesis import checkin, services
 from askesis import coach as coach_mod
 from askesis import config as config_mod
-from askesis.analytics import body, engine, trends
+from askesis.analytics import body, engine, records, trends
 from askesis.analytics import today as today_mod
 from askesis.analytics.params import p
 from askesis.core.timeutil import now_utc
@@ -48,6 +48,7 @@ from .netwatch import bind_sockets, check_bind  # noqa: F401  (public: used by t
 HERE = Path(__file__).parent
 CSP = ("default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; "
        "frame-ancestors 'none'; form-action 'self'; base-uri 'none'")
+RECORDS_SHOWN = 30
 NAV = [("/", "Oggi"), ("/andamenti", "Andamenti"), ("/coach", "Coach"), ("/piano", "Piano"),
        ("/interventi", "Interventi"), ("/safety", "Safety")]
 
@@ -425,10 +426,14 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         except ValueError:
             days = 28
         days = days if days in trends.PERIODS else 28
-        qs = trends.questions(conn(), today(), days)
+        c = conn()
+        inp = engine.load_inputs(c)
+        qs = trends.questions(c, today(), days, inp=inp)
         for q in qs:
             q["svg"] = mini_spark(q["spark"], q["spark_band"], q["spark_target"])
-        return page(request, "andamenti.html", questions=qs, days=days, periods=trends.PERIODS)
+        recs = records.timeline(engine.compute(inp, min(inp.dates), today())) if inp.dates else []
+        return page(request, "andamenti.html", questions=qs, days=days, periods=trends.PERIODS,
+                    records=recs[:RECORDS_SHOWN], records_more=max(0, len(recs) - RECORDS_SHOWN))
 
     async def api_series(request: Request) -> Response:
         c = conn()

@@ -295,6 +295,10 @@ duplicata):
   corse), passo alla FC di riferimento (mediana delle corse confrontabili). Ipotesi dichiarata: nel range facile la
   velocità è proporzionale alla FC; caldo, idratazione, terreno, fatica e deriva cardiaca non sono modellati. Mostrata
   in "Come stanno corsa e recupero?" e nei dettagli della review settimanale. Modulo `analytics/running.py`, motore 0.6.0.
+- **Record di corsa e timeline dei record (fatto, D)**: distanza e durata più lunghe, passo medio più veloce su
+  corse intere di almeno 3, 5 o 10 km (ambienti separati; solo totali, non migliori sforzi dentro una corsa). La
+  prima corsa è il riferimento, non un record; confronto solo con giorni precedenti. Timeline unica con i record di
+  forza nella pagina Andamenti ("Record personali").
 - **Recuperi tra le serie (fatto)**: nella scheda della palestra e nella pagina Piano, una riga per esercizio
   (multiarticolari 2–3 min, monoarticolari 1,5–2 min) da parametri con base dichiarata (`rest_compound_range_s`,
   `rest_isolation_range_s`; claim `rt.rest_strength`, `rt.rest_hypertrophy`, evidenza di bassa certezza).
