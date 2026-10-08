@@ -12,7 +12,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
-from askesis.analytics import body, energy
+from askesis.analytics import adherence, body, energy, wellbeing
 from askesis.analytics.engine import athlete_as_of, load_inputs
 from askesis.analytics.params import p
 from askesis.core.ids import new_id
@@ -205,9 +205,52 @@ def _low_intake(inp, on: date) -> list[Flag]:
     return []
 
 
+def in_deficit(plans, day: date) -> bool:
+    """A fat-loss phase is in force on `day` and no scheduled period moves energy to maintenance."""
+    phase = adherence.plan_on(plans, "phase", day)
+    if not phase or phase.get("phase") != "fat_loss":
+        return False
+    return not any((pr.get("modifiers") or {}).get("energy") == "maintenance"
+                   for pr in adherence._periods_on(plans, day))
+
+
+def _reds_pattern(inp, on: date) -> list[Flag]:
+    """T1, observation only: high hunger with high fatigue and low mood on most days of a week in a deficit.
+
+    Non-judgemental: it describes answers and suggests not to deepen the deficit; never a diagnosis. Active only once
+    the questionnaire baseline holds enough answers (wellbeing_min_responses) and only on days inside a deficit."""
+    if not in_deficit(inp.plans, on):
+        return []
+    res = wellbeing.reds_pattern(inp.morning, on)
+    if res is None:
+        return []
+    days = [d for d in res["days"] if in_deficit(inp.plans, d)]
+    if len(days) < res["min_days"]:
+        return []
+    return [
+        Flag(
+            "safety.reds_pattern@1",
+            "T1",
+            on,
+            f"Negli ultimi {res['window_days']} giorni, durante la fase di deficit, in {len(days)} giorni hai indicato "
+            "fame alta insieme a stanchezza alta e umore basso. Può essere un segnale di energia insufficiente da "
+            "osservare con attenzione: non è una diagnosi né un giudizio sulle tue scelte.",
+            {"days": [d.isoformat() for d in days], "window_days": res["window_days"], "min_days": res["min_days"]},
+            [
+                "non aumentare il deficit",
+                "parliamone: un aumento dell'apporto sarebbe una proposta da approvare",
+                "se continua o compaiono altri sintomi (stanchezza che non passa, malattie frequenti, calo delle "
+                "prestazioni): medico o dietista sportivo",
+            ],
+            f"{on - timedelta(days=on.weekday())}",
+        )
+    ]
+
+
 def evaluate(conn: sqlite3.Connection, on: date, cutoff: datetime | None = None, persist: bool = True) -> list[Flag]:
     inp = load_inputs(conn, cutoff)
-    flags = _rapid_weight_loss(conn, inp, on) + _pain(conn, on) + _health_signals(conn, on) + _low_intake(inp, on)
+    flags = (_rapid_weight_loss(conn, inp, on) + _pain(conn, on) + _health_signals(conn, on) + _low_intake(inp, on)
+             + _reds_pattern(inp, on))
     if persist:
         with conn:
             for f in flags:

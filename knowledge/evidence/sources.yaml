@@ -306,7 +306,7 @@ sources:
     type: consensus_statement
     doi: 10.1136/bjsports-2023-106994
     pmid: "37752011"
-    verified: {via: [crossref, pubmed], date: "2026-10-03"}
+    verified: {via: [crossref, pubmed], date: "2026-10-08"}
     read_level: abstract
   - id: watson2015
     citation: "Watson NF, et al. Recommended Amount of Sleep for a Healthy Adult: A Joint Consensus Statement of the American Academy of Sleep Medicine and Sleep Research Society. Sleep. 2015;38(6):843-4."

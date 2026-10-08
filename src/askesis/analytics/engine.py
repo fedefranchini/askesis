@@ -16,11 +16,11 @@ from askesis.core.ids import new_id
 from askesis.core.timeutil import iso, now_utc
 from askesis.store import repository as repo
 
-from . import adherence, body, energy, load, records, running, session, training
+from . import adherence, body, energy, load, records, running, session, training, wellbeing
 from .base import MetricValue, r6
 from .params import PARAMS_DIR, p
 
-ENGINE_VERSION = "0.7.0"
+ENGINE_VERSION = "0.8.0"
 
 
 @dataclass
@@ -37,6 +37,9 @@ class Inputs:
     sleep: list[tuple[date, float]] = field(default_factory=list)  # (wake day, seconds asleep)
     plans: list[tuple[date, str, str, dict]] = field(default_factory=list)  # (valid from, recorded_at, kind, content)
     feedback: list[tuple[date, str, float | None, int | None]] = field(default_factory=list)  # post-session
+    morning: list[tuple[date, dict]] = field(default_factory=list)  # morning questionnaire payloads
+    session_quality: dict[date, float] = field(default_factory=dict)  # post-session quality (mean of the day)
+    rhr: dict[date, float] = field(default_factory=dict)  # resting heart rate per day
     fingerprint: str = ""
     dates: list[date] = field(default_factory=list)
 
@@ -48,6 +51,7 @@ def _d(s: str) -> date:
 def load_inputs(conn: sqlite3.Connection, cutoff: datetime | None = None) -> Inputs:
     rows = repo.current(conn, as_of=cutoff)
     inp = Inputs()
+    quality: dict[date, list[float]] = {}
     h = hashlib.sha256()
     for r in rows:
         h.update(f"{r['id']}:{r['payload_hash']}".encode())
@@ -75,6 +79,12 @@ def load_inputs(conn: sqlite3.Connection, cutoff: datetime | None = None) -> Inp
         elif e == "subjective_checkin" and pl.get("moment") == "post_session":
             inp.feedback.append((d, pl["session_kind"], _num(pl.get("session_rpe_cr10")),
                                  int(pl["session_minutes"]) if pl.get("session_minutes") is not None else None))
+            if pl.get("session_quality_1_10") is not None:
+                quality.setdefault(d, []).append(float(pl["session_quality_1_10"]))
+        elif e == "subjective_checkin" and pl.get("moment") == "morning":
+            inp.morning.append((d, pl))
+        elif e == "resting_hr_daily" and pl.get("bpm") is not None:
+            inp.rhr[d] = float(pl["bpm"])
         elif e == "athlete_attribute":
             valid = pl.get("valid_from")
             inp.attr_history.append((date.fromisoformat(str(valid)) if valid else d, pl["key"], pl["value"]))
@@ -84,6 +94,8 @@ def load_inputs(conn: sqlite3.Connection, cutoff: datetime | None = None) -> Inp
     for r in plan_rows:  # plans as known at the cutoff (transaction time)
         h.update(f"plan:{r['content_hash']}".encode())
         inp.plans.append((_d(r["valid_from"]), r["recorded_at"], r["kind"], json.loads(r["content"])))
+    inp.morning.sort(key=lambda x: x[0])
+    inp.session_quality = {d: sum(v) / len(v) for d, v in sorted(quality.items())}
     inp.athlete = athlete_as_of(inp, max(inp.dates) if inp.dates else date.max)
     inp.fingerprint = h.hexdigest()
     return inp
@@ -158,6 +170,11 @@ def compute(inp: Inputs, start: date, end: date) -> list[MetricValue]:
     run_days = {r.day for r in inp.runs}
     vals += load.session_load(inp.feedback, start, end)
     vals += running.efficiency(inp.runs, inp.plans, start, end)
+    lookback = start - timedelta(days=int(p("convergence_objective_lookback_days")))
+    changes = [m for m in session.session_metrics(inp.sets, lookback, end) if m.metric_id == "e1rm_session_change"]
+    changes += [m for m in running.efficiency(inp.runs, inp.plans, lookback, end)
+                if m.metric_id == "run_efficiency_change"]
+    vals += wellbeing.daily(inp.morning, inp.rhr, inp.sleep, changes, start, end)
     for ws, we in iso_weeks(start, end):
         for m in (body.weight_ema(daily, we), body.weight_ma7(daily, we),
                   energy.adaptive_tdee(inp.nutrition, daily, athlete_as_of(inp, we), we),
@@ -178,6 +195,8 @@ def compute(inp: Inputs, start: date, end: date) -> list[MetricValue]:
         vals += adherence.waist_change(inp.waist, ws, we)
         vals += adherence.e1rm_change(weekly_e1rm, ws, we)
         vals += load.load_week(inp.feedback, strength_days, run_days, ws, we, max(inp.dates, default=None))
+        if inp.morning or inp.session_quality:
+            vals += wellbeing.links(inp.morning, inp.sleep, inp.feedback, inp.session_quality, min(we, end))
     return sorted(vals, key=lambda m: (m.metric_id, m.subject, m.period_start, m.period_end))
 
 

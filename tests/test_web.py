@@ -351,14 +351,16 @@ def test_decision_without_csrf_records_nothing(env):
     assert reg.status(c, reg.get(c, 1)["id"]) == "proposed"
 
 
-def test_trends_page_is_four_questions_with_period(env):
+def test_trends_page_is_five_questions_with_period(env):
     client, _, password = env
     login(client, password)
     page = client.get("/andamenti").text
     for title in ("Sto dimagrendo al ritmo giusto?", "Sto rispettando il piano?", "Sto mantenendo o guadagnando forza?",
-                  "Come stanno corsa e recupero?"):
+                  "Come stanno corsa e recupero?", "Come ti senti?"):
         assert title in page
-    assert page.index("Sto dimagrendo") < page.index("Sto rispettando") < page.index("forza?") < page.index("recupero?")
+    order = [page.index(t) for t in ("Sto dimagrendo", "Sto rispettando", "forza?", "recupero?", "Come ti senti?")]
+    assert order == sorted(order)
+    assert "ne mancano 14" in page  # questionnaire: says what is missing before the threshold
     assert 'href="/andamenti?p=28" aria-current="true"' in page  # default: 4 weeks
     assert 'href="/andamenti?p=91" aria-current="true"' in client.get("/andamenti?p=91").text
     assert 'href="/andamenti?p=28" aria-current="true"' in client.get("/andamenti?p=7").text  # unknown → default

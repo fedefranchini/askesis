@@ -248,3 +248,85 @@ parameters:
     unit: km
     basis: engineering_choice
     rationale: "Only total distance and time are recorded (no splits), so the pace record is the average pace of a whole run of at least that distance, not a best effort within a run. Thresholds are the distance buckets in which a run can set a pace record."
+
+  # ---------------- questionnaire analysis (A2b) and lagged links (A2c)
+  wellbeing_baseline_days:
+    value: 28
+    unit: days
+    basis: engineering_choice
+    rationale: "Personal baseline of each questionnaire item: the answers of the previous 28 days, the day itself excluded (no look-ahead; today's answer never shifts its own baseline). Subjective measures are interpreted against the athlete's own history (monitor.subjective_measures)."
+    claims: [monitor.subjective_measures]
+  wellbeing_min_responses:
+    value: 14
+    unit: answers_in_baseline
+    basis: engineering_choice
+    rationale: "No judgement (z-score, index, convergence, safety pattern) before the baseline holds this many answers; before that the dashboard and the review say how many are missing."
+  wellbeing_z_threshold:
+    value: 1.0
+    unit: baseline_sd
+    basis: engineering_choice
+    rationale: "Minimal significant change of an item = max(this × baseline SD, wellbeing_min_change_points). One SD is a common convention for self-reported wellness, without a verified source in the KB. Revisable."
+  wellbeing_min_change_points:
+    value: 1
+    unit: scale_points
+    basis: engineering_choice
+    rationale: "The scales are integers: a change smaller than one point is never a change, even when the baseline SD is near zero."
+  convergence_min_subjective:
+    value: 2
+    unit: items
+    basis: engineering_choice
+    rationale: "Convergence rule: at least this many questionnaire items worse than the personal baseline beyond the minimal change on the same day."
+    claims: [monitor.subjective_measures]
+  convergence_min_objective:
+    value: 1
+    unit: signals
+    basis: engineering_choice
+    rationale: "Convergence rule: at least this many objective signals worse on the same day (resting HR above its baseline, Watch sleep below its baseline, a strength session or an easy-run efficiency down beyond noise in the lookback)."
+  convergence_min_days:
+    value: 3
+    unit: consecutive_days
+    basis: engineering_choice
+    rationale: "The convergence signal is on only after this many consecutive concordant days; a day without answers breaks the streak."
+  convergence_objective_lookback_days:
+    value: 7
+    unit: days
+    basis: engineering_choice
+    rationale: "Sessions and runs are sparse: a strength or running change beyond noise counts as an objective signal for this many days (the day of the session included)."
+  reds_pattern_window_days:
+    value: 7
+    unit: days
+    basis: engineering_choice
+    rationale: "Safety pattern (T1, observation only): days of the last week with high hunger, high fatigue and low mood during a fat-loss phase."
+    claims: [safety.reds, safety.reds_mental_health]
+  reds_pattern_min_days:
+    value: 4
+    unit: days_of_window
+    basis: engineering_choice
+    rationale: "'Persistent' = at least this many days of the window. Low energy availability has health and performance effects in men too (safety.reds); the specific combination of answers is an engineering choice, never a diagnosis."
+    claims: [safety.reds]
+  reds_hunger_min:
+    value: 7
+    unit: scale_1_10
+    basis: engineering_choice
+    rationale: "Hunger counts as high from the anchor «Molta, ci pensavo spesso», or when higher than the personal baseline beyond the minimal change."
+  reds_fatigue_min:
+    value: 7
+    unit: scale_1_10
+    basis: engineering_choice
+    rationale: "Fatigue (low energy) counts as high from the anchor «Stanco», or when worse than the personal baseline beyond the minimal change."
+  reds_mood_max:
+    value: 3
+    unit: scale_1_10
+    basis: engineering_choice
+    rationale: "Mood counts as low up to the anchor «Giù», or when worse than the personal baseline beyond the minimal change."
+    claims: [safety.reds_mental_health]
+  links_min_weeks:
+    value: 8
+    unit: weeks_of_questionnaire
+    basis: engineering_choice
+    rationale: "Lagged links (e.g. sleep and the next session) are computed only after this many weeks since the first answer."
+  links_min_pairs:
+    value: 40
+    unit: pairs
+    basis: engineering_choice
+    rationale: "…and only with at least this many pairs for the link. Spearman correlation (ordinal scales) with a Fisher-z interval using the variance 1.06/(n−3) (Fieller, Hartley and Pearson 1957, not in the KB); level rate_ci_level. A fixed list of five declared links, never all combinations; always a hypothesis, never a cause."

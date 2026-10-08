@@ -376,6 +376,19 @@ claims:
     basis: evidence
     certainty: moderate
     status: verified_abstract
+  - id: safety.reds_mental_health
+    domain: [safety, nutrition, wellbeing]
+    claim: >-
+      L'aggiornamento 2023 del consenso IOC sulla REDs riporta ulteriori evidenze di un'interazione tra salute mentale
+      e REDs e più dati sull'effetto della bassa disponibilità energetica negli atleti maschi.
+    sources: [mountjoy2023]
+    basis: evidence
+    certainty: low
+    status: verified_abstract
+    limitations: >-
+      full text non accessibile (non in PubMed Central): l'abstract non elenca fame, stanchezza o umore come
+      indicatori; la combinazione fame alta + stanchezza alta + umore basso usata come segnale è una scelta tecnica,
+      non un criterio del consenso né del REDs CAT2
 
   # ---------- Integratori ----------
   - id: supp.creatine

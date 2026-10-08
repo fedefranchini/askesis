@@ -4,6 +4,7 @@
 2. Sto rispettando il piano?        energy, protein and sessions vs the plan in force
 3. Sto mantenendo o guadagnando forza?  e1RM of the programme's fundamental lifts only
 4. Come stanno corsa e recupero?    running volume, sleep, steps
+5. Come ti senti?                   morning questionnaire against the personal baseline (A2b), lagged links (A2c)
 
 Verdicts: "ok" (in linea), "warn" (attenzione), "noise" (dentro il rumore), "neutral" (no target to judge against),
 "empty" (not enough data: the message says what is missing and how much). Thresholds come from versioned rules and
@@ -23,7 +24,7 @@ from askesis.plan import store as plan_store
 from askesis.reference import catalog
 from askesis.reference import exercise_label as exercise_name
 
-from . import adherence, body, engine, running, training
+from . import adherence, body, engine, running, training, wellbeing
 from .params import p
 
 PERIODS = (28, 91, 365)
@@ -295,6 +296,49 @@ def q_recovery(conn, inp: engine.Inputs, day: date, days: int) -> Question:
     return q
 
 
+def q_wellbeing(inp: engine.Inputs, day: date, days: int) -> Question:
+    """Questionnaire against the personal baseline; until the thresholds, says what is missing and how much."""
+    q = Question("wellbeing", "Come ti senti?", refs=["wellbeing_index@1", "wellbeing_convergence@1",
+                                                      "lagged_link@1"])
+    r = wellbeing.readiness(inp.morning, day + timedelta(days=1))  # answers up to and including today
+    q.caption = (f"Confronto con le tue risposte dei {r['window_days']} giorni precedenti; "
+                 f"{wellbeing.INDEX_LABEL} (scelta tecnica, non l'indice originale).")
+    if not r["ready"]:
+        q.empty = (f"Il questionario viene analizzato dopo {r['needed']} risposte del mattino negli ultimi "
+                   f"{r['window_days']} giorni: ne hai {r['n']}, ne mancano {r['missing']}.")
+        q.set("empty")
+        return q
+    start = day - timedelta(days=days - 1)
+    first = min((d for d, _ in inp.morning), default=day)
+    vals = wellbeing.daily(inp.morning, inp.rhr, inp.sleep, [], max(first, start - timedelta(days=1)), day)
+    idx = [m for m in vals if m.metric_id == "wellbeing_index" and start <= m.period_end <= day]
+    q.spark = [(m.period_end.isoformat(), m.value) for m in idx]
+    if idx:
+        last = idx[-1]
+        q.value, q.unit = _f(last.value), "su 40, indice ultimo giorno (più alto = peggio)"
+        word = {"worse": "peggiore della tua media recente", "better": "migliore della tua media recente",
+                "within": "nella tua media recente"}.get(last.detail.get("status"), "non ancora confrontabile")
+        q.facts.append(f"indice {word}")
+    week = [m for m in vals if m.metric_id == "wellbeing_item_z" and day - timedelta(days=6) <= m.period_end <= day]
+    worse = sorted({m.subject.split(":", 1)[1] for m in week if m.detail.get("status") == "worse"})
+    q.facts.append("voci peggiori della tua media negli ultimi 7 giorni: " + (", ".join(worse) if worse else "nessuna"))
+    conv = [m for m in vals if m.metric_id == "wellbeing_convergence" and day - timedelta(days=6) <= m.period_end]
+    active = any(m.detail.get("active") for m in conv)
+    q.facts.append("convergenza: più segnali soggettivi e oggettivi concordano sul peggioramento da almeno "
+                   f"{int(p('convergence_min_days'))} giorni" if active else
+                   "convergenza: nessun peggioramento confermato da più segnali insieme")
+    links = wellbeing.links(inp.morning, inp.sleep, inp.feedback, inp.session_quality, day)
+    if all(m.value is None for m in links):
+        d0 = links[0].detail
+        q.facts.append(f"collegamenti nel tempo: dopo {d0['weeks_needed']} settimane (ne hai {d0['weeks']}) e "
+                       f"{d0['pairs_needed']} coppie (al massimo {max(m.n_obs for m in links)})")
+    else:
+        sure = [m for m in links if m.value is not None and (m.lo > 0 or m.hi < 0)]
+        q.facts.append(f"collegamenti nel tempo: {len(sure)} ipotesi su {len(links)} (dettagli nella review)")
+    q.set("warn" if active else "ok")
+    return q
+
+
 def questions(conn: sqlite3.Connection, day: date, days: int = 28, inp: engine.Inputs | None = None) -> list[dict]:
     if days not in PERIODS:
         days = PERIODS[0]
@@ -302,5 +346,5 @@ def questions(conn: sqlite3.Connection, day: date, days: int = 28, inp: engine.I
     first = min(inp.dates) if inp.dates else day
     values = engine.compute(inp, max(first, day - timedelta(days=days + 70)), day) if inp.dates else []
     qs = [q_rate(conn, inp, day, days), q_plan(conn, inp, day, days), q_strength(conn, inp, day, days, values),
-          q_recovery(conn, inp, day, days)]
+          q_recovery(conn, inp, day, days), q_wellbeing(inp, day, days)]
     return [asdict(q) for q in qs]

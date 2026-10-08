@@ -1,6 +1,7 @@
 """Weekly review with a traffic light ("semaforo"), used only for weeks inside a phase (see `context`).
 
-Eight areas in a fixed priority order (safety, data, energy, protein, sessions, weight rate, sleep, load). Each area
+Ten areas in a fixed priority order (safety, data, energy, protein, sessions, weight rate, strength, sleep, subjective
+wellbeing, load). Each area
 declares its criterion, then shows data → trend → interpretation → action. Everything is deterministic and generated
 by code: every number carries its `metric@version`, colours are never given alone (the status word is always printed)
 and actions never change the plan (a change can only be a proposal to approve with «approvo»).
@@ -16,7 +17,7 @@ from datetime import date, timedelta
 from askesis.interventions import registry
 from askesis.plan import store
 
-from . import review, running
+from . import review, running, wellbeing
 from .base import MetricValue
 from .params import p
 from .review import NOT_ESTIMABLE, _cite, _fmt, _interval, _sign
@@ -25,6 +26,8 @@ VERDE, GIALLO, ROSSO, NV, INFO = "verde", "giallo", "rosso", "non valutabile", "
 EMOJI = {VERDE: "🟢", GIALLO: "🟡", ROSSO: "🔴", NV: "⚪", INFO: "ℹ️"}
 GRADE_STATUS = {"A": VERDE, "B": VERDE, "C": GIALLO, "D": ROSSO}
 RANK = {ROSSO: 0, GIALLO: 1}
+OBJECTIVE_LABEL = {"rhr": "FC a riposo più alta", "sleep_watch": "meno sonno dall'orologio",
+                   "strength": "forza in calo oltre il rumore", "run_efficiency": "efficienza di corsa in calo"}
 PLAN_NOTE = "solo come proposta da approvare con «approvo»"
 LOAD_REASON = {"week_in_progress": "settimana ancora in corso", "missing_feedback": "manca il feedback di una seduta",
                "sd_zero": "carico identico tutti i giorni (deviazione zero)"}
@@ -386,6 +389,88 @@ def _sleep(s: _Series) -> Area:
                 "altrimenti giallo", data, s.trend("sleep_mean_week", 1, "h/notte"), interp, action)
 
 
+def _wellbeing(s: _Series) -> Area:
+    """Questionnaire (A2b): judged only once the personal baseline holds enough answers; otherwise says what is
+    missing. Giallo when the convergence rule is on for at least one day of the week (never red: the safety pattern
+    has its own flag)."""
+    def week(metric: str, back: int = 0) -> list[MetricValue]:
+        end = s.end - timedelta(days=7 * back)
+        return [m for m in s.values if m.metric_id == metric and end - timedelta(days=6) <= m.period_end <= end]
+
+    items, conv, idx = week("wellbeing_item_z"), week("wellbeing_convergence"), week("wellbeing_index")
+    need = int(p("wellbeing_min_responses"))
+    crit = ("giudicata solo con almeno 14 risposte nella baseline personale [param:wellbeing_min_responses]; "
+            "giallo se la regola della convergenza (almeno 2 voci del questionario e 1 segnale oggettivo peggiori "
+            "per almeno 3 giorni consecutivi) è attiva in almeno un giorno della settimana, altrimenti verde "
+            "[param:convergence_min_days]")
+    if not items:
+        return Area("Benessere (questionario)", NV, "nessuna risposta", crit,
+                    "nessuna risposta al questionario del mattino nella settimana", "nessun confronto",
+                    "senza risposte non c'è una baseline personale con cui confrontare",
+                    "rispondi al questionario del mattino dalla pagina Oggi (bastano 20–30 secondi)")
+    if not conv:
+        n = max(m.n_obs for m in items)
+        return Area("Benessere (questionario)", NV, "baseline in costruzione", crit,
+                    f"baseline personale con {n} risposte su {need}: ne mancano {max(0, need - n)}",
+                    "nessun confronto", "troppo poche risposte per distinguere un cambiamento dal rumore",
+                    "continua a rispondere ogni mattina: il giudizio parte appena la baseline è completa")
+    active = [m for m in conv if m.detail.get("active")]
+    worse = [m for m in idx if m.detail.get("status") == "worse"]
+    prev_worse = [m for m in week("wellbeing_index", 1) if m.detail.get("status") == "worse"]
+    last = max(idx, key=lambda m: m.period_end) if idx else None
+    data = (f"giorni con convergenza attiva: {len(active)}; giorni con l'{wellbeing.INDEX_LABEL} peggiore della "
+            f"baseline: {len(worse)} su {len(idx)} — `wellbeing_convergence@1`, `wellbeing_index@1`")
+    if last is not None:
+        word = {"worse": "peggiore della", "better": "migliore della", "within": "dentro la"}.get(
+            last.detail.get("status"), "non confrontabile con la")
+        data += f"; ultimo indice {_fmt(last.value, 0)} su 40, {word} baseline"
+    trend = f"giorni con indice peggiore: {len(worse)} (settimana precedente: {len(prev_worse)})"
+    if active:
+        sig = sorted({x for m in active for x in m.detail.get("subjective", [])})
+        obj = sorted({OBJECTIVE_LABEL.get(x, x) for m in active for x in m.detail.get("objective", [])})
+        interp = (f"più segnali concordano sul peggioramento ({', '.join(sig)}; {', '.join(obj)}): "
+                  "possibile accumulo di fatica, da leggere con sonno, carico ed energia")
+        action = ("nessuna modifica automatica: osserva i prossimi giorni e cura sonno e pasti; se continua, "
+                  f"una settimana più leggera sarebbe {PLAN_NOTE}")
+        return Area("Benessere (questionario)", GIALLO, "segnali concordi", crit, data, trend, interp, action)
+    return Area("Benessere (questionario)", VERDE, "nessuna convergenza", crit, data, trend,
+                "nessun peggioramento confermato da più segnali insieme",
+                "continua a rispondere ogni mattina")
+
+
+def _links_lines(values: list[MetricValue], week_end: date) -> list[str]:
+    """Lagged links (A2c) as of the week end: hypotheses with an interval, or what is still missing."""
+    links = sorted((m for m in values if m.metric_id == "lagged_link" and m.period_end == week_end),
+                   key=lambda m: m.subject)
+    if not links:
+        return []
+    out = ["## Collegamenti nel tempo (ipotesi, non conclusioni)", ""]
+    first = links[0].detail
+    if all(m.value is None and m.detail.get("reason") == "thresholds" for m in links):
+        best = max(m.n_obs for m in links)
+        miss_w = max(0, first["weeks_needed"] - first["weeks"])
+        out.append(f"- Non ancora calcolati: servono {first['weeks_needed']} settimane di questionario (mancano "
+                   f"{miss_w}) e {first['pairs_needed']} coppie per collegamento (al massimo {best} finora) "
+                   "[param:links_min_weeks] [param:links_min_pairs]")
+        return out + [""]
+    level = int(round(first["ci_level"] * 100))
+    for m in links:
+        d = m.detail
+        if m.value is None:
+            why = ("dati senza variazione" if d.get("reason") == "no_variation"
+                   else f"{m.n_obs} coppie su {d['pairs_needed']}")
+            out.append(f"- {d['x']} → {d['y']}: non calcolato ({why}) — {_cite(m)}")
+            continue
+        sure = m.lo > 0 or m.hi < 0
+        verb = ("ipotesi di collegamento " + ("positivo" if m.value > 0 else "negativo")) if sure else \
+            "nessun collegamento distinguibile dal caso"
+        out.append(f"- {d['x']} → {d['y']}: rho {_fmt(m.value, 2)} (IC {level}% {_fmt(m.lo, 2)} – {_fmt(m.hi, 2)}, "
+                   f"{m.n_obs} coppie), {verb} — {_cite(m)}")
+    out.append(f"- Sono {first['tests']} collegamenti dichiarati in anticipo: con più confronti qualcuno può sembrare "
+               "collegato per caso. Una correlazione non dice quale delle due cose causa l'altra.")
+    return out + [""]
+
+
 def _load(s: _Series) -> Area:
     load, mono, strain = (s.get(k) for k in ("training_load_week", "training_monotony_week", "training_strain_week"))
     if load is None:
@@ -446,7 +531,7 @@ def areas(values: list[MetricValue], week_start: date, issues, ctx: dict) -> lis
     return [_safety(issues, s), _data_quality(s),
             _vs_target(s, "intake_vs_target_week", "Energia", "Energia", "kcal/die"),
             _vs_target(s, "protein_vs_target_week", "Proteine", "Proteine", "g/die"),
-            _sessions(s), _velocity(s, ctx), _strength(s), _sleep(s), _load(s)]
+            _sessions(s), _velocity(s, ctx), _strength(s), _sleep(s), _wellbeing(s), _load(s)]
 
 
 def top_actions(ar: list[Area], n: int = 3) -> list[str]:
@@ -487,6 +572,7 @@ def render(values: list[MetricValue], week_start: date, issues: list[tuple[str, 
     if table:  # the e1RM table, rebuilt so that each row cites both the best e1RM and its change
         lag[table[0]:table[-1] + 1] = _e1rm_table(values, week_end)
     L += [*lag, _efficiency_line(values, week_end), ""]
+    L += _links_lines(values, week_end)
     L += [old[old.index("## Qualità dei dati"):].rstrip()]
     L.append("")
     return "\n".join(L)

@@ -100,7 +100,7 @@ def test_login_log_and_charts_without_console_errors(server):
         assert page.locator("canvas").count() >= 2
         for card in page.locator("details[data-q] .chart").all():  # every chart: drawn or a clear empty message
             assert card.locator("canvas").count() == 1 or card.inner_text().strip()
-        assert page.locator(".q-empty .empty-state").count() + page.locator("details[data-q]").count() == 4
+        assert page.locator(".q-empty .empty-state").count() + page.locator("details[data-q]").count() == 5
         browser.close()
     assert errors == []  # includes Content-Security-Policy violations
 
