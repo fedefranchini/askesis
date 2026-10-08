@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Palestra · Askesis{% endblock %}
+{% macro hidden(values, sheet, day) %}
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<input type="hidden" name="day" value="{{ day.isoformat() }}">
+{% for lift in sheet.lifts %}{% set i = loop.index0 %}
+<input type="hidden" name="ex_{{ i }}" value="{{ lift.key }}">
+<input type="hidden" name="n_{{ i }}" value="{{ values.rows[i]|length }}">
+{% for row in values.rows[i] %}{% set j = loop.index0 %}
+<input type="hidden" name="kg_{{ i }}_{{ j }}" value="{{ row.kg }}">
+<input type="hidden" name="reps_{{ i }}_{{ j }}" value="{{ row.reps }}">
+<input type="hidden" name="rir_{{ i }}_{{ j }}" value="{{ row.rir }}">
+{% endfor %}{% endfor %}
+<input type="hidden" name="run" value="{{ values.run }}">
+<input type="hidden" name="notes" value="{{ values.notes }}">
+{% endmacro %}
+{% block main %}
+{% set weekdays = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"] %}
+<header class="pagehead">
+  <div>
+    <span class="eyebrow">{{ weekdays[day.weekday()]|capitalize }} {{ day.strftime("%d/%m/%Y") }}{% if sheet.title %} · sessione {{ sheet.title }}{% endif %}</span>
+    <h1>Palestra</h1>
+  </div>
+  <form method="get" action="/palestra" class="gym-day">
+    <label for="gday" class="hint">Giorno</label>
+    <input id="gday" name="data" type="date" value="{{ day.isoformat() }}" max="{{ today.isoformat() }}">
+    <button type="submit" class="secondary">Apri</button>
+  </form>
+</header>
+
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+{% if sheet.message %}
+<p class="card hint">{{ icon("info") }} {{ sheet.message|capitalize }}: nessuna scheda da compilare per questo giorno.</p>
+{% else %}
+
+{% if plan and not saved %}
+<section class="card receipt" aria-live="polite">
+  <h2>Anteprima: nulla è stato salvato</h2>
+  {% if plan.lines %}<ul>{% for l in plan.lines %}<li>{{ l }}</li>{% endfor %}</ul>{% endif %}
+  {% if plan.corrections %}<p class="hint">{{ plan.corrections }} {{ 'correzione' if plan.corrections == 1 else 'correzioni' }} di righe già registrate (la versione precedente resta nello storico).</p>{% endif %}
+  {% if plan.unchanged %}<p class="hint">Già registrati e invariati: {{ plan.unchanged|length }}.</p>{% endif %}
+  {% for label, problem in plan.comp.errors %}<p class="error">Non letto, nulla salvato per «{{ label }}»: {{ problem }}</p>{% endfor %}
+  {% if plan.missing %}<p class="warn">Registrati in precedenza ma ora assenti da questa scheda: {{ plan.missing|join("; ") }}. Non vengono ritirati.</p>{% endif %}
+  {% if plan.comp.notes %}<p class="hint">Note: {{ plan.comp.notes }} (le note non sono salvate come dato, come nell'import dalla nota).</p>{% endif %}
+  {% if plan.to_ingest %}
+  <form method="post" action="/palestra">
+    {{ hidden(values, sheet, day) }}
+    <input type="hidden" name="nonce" value="{{ nonce }}">
+    <input type="hidden" name="confirmed" value="1">
+    <button type="submit" name="action" value="save">Conferma e salva</button>
+  </form>
+  {% else %}<p class="hint">Nulla di nuovo da salvare.</p>{% endif %}
+</section>
+{% endif %}
+
+{% if saved %}
+<section class="card receipt saved" aria-live="polite">
+  <h2>Salvato</h2>
+  <ul>{% for l in plan.lines %}<li>{{ l }}</li>{% endfor %}</ul>
+  <p class="hint">Inseriti {{ saved.receipt.inserted|length }} · già presenti {{ saved.receipt.duplicates|length }}{% if plan.corrections %} · {{ plan.corrections }} {{ 'correzione' if plan.corrections == 1 else 'correzioni' }}{% endif %}.</p>
+  {% for label, reason in saved.receipt.rejected %}<p class="error">Rifiutato {{ label }}: {{ reason }}</p>{% endfor %}
+  {% for rid, sev, msg in saved.receipt.issues %}{% if sev != "info" %}<p class="warn">{{ msg }}</p>{% endif %}{% endfor %}
+  {% for label, problem in plan.comp.errors %}<p class="error">Non letto, non salvato per «{{ label }}»: {{ problem }}</p>{% endfor %}
+  {% if plan.missing %}<p class="warn">Registrati in precedenza ma assenti da questa scheda: {{ plan.missing|join("; ") }}. Non ritirati.</p>{% endif %}
+  {% for f in saved.flags %}<p class="warn">{{ icon("alert") }} <strong>{{ f.message }}</strong> ({{ f.tier }}) · <a href="/safety">dettagli in Safety</a></p>{% endfor %}
+  {% if saved.comment %}
+    {% if saved.comment_ok %}<p>Commento della seduta: <a href="/coach?f={{ saved.comment|urlencode }}">aprilo in Coach</a>.</p>
+    {% else %}<p class="warn">Commento da verificare: <a href="/coach?f={{ saved.comment|urlencode }}">vedi in Coach</a>.</p>{% endif %}
+  {% endif %}
+  <p class="hint">Dopo la seduta compila fatica, qualità e durata in <a href="/">Oggi</a> (sezione «Dopo l'allenamento»).</p>
+</section>
+{% endif %}
+
+{% if sheet.has_existing %}
+<p class="hint">Risultati già registrati per questa data (da nota o da questa pagina): modificandoli crei correzioni, non doppioni.</p>
+{% endif %}
+
+<form method="post" action="/palestra" class="gymform" autocomplete="off">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="day" value="{{ day.isoformat() }}">
+  <button type="submit" name="action" value="preview" class="defaultsubmit" tabindex="-1" aria-hidden="true">Anteprima</button>
+  {% for lift in sheet.lifts %}{% set i = loop.index0 %}
+  <section class="card gym-lift" aria-labelledby="lift-{{ i }}">
+    <h2 id="lift-{{ i }}">{{ lift.name }}</h2>
+    {% if lift.prescription %}<p class="meta">{{ lift.prescription }}</p>{% endif %}
+    {% if lift.rest %}<p class="meta">{{ lift.rest }}</p>{% endif %}
+    {% if lift.last %}<p class="meta">ultima {{ lift.last }}</p>{% endif %}
+    {% if lift.machine %}<p class="meta">macchina: {{ lift.machine }}</p>{% endif %}
+    <input type="hidden" name="ex_{{ i }}" value="{{ lift.key }}">
+    <input type="hidden" name="n_{{ i }}" value="{{ values.rows[i]|length }}">
+    <div class="setrows">
+      <span></span><span class="col">{{ 'kg (vuoto = corpo)' if lift.bodyweight else 'kg' }}</span><span class="col">Ripetizioni</span><span class="col">RIR</span>
+      {% for row in values.rows[i] %}{% set j = loop.index0 %}
+      <span class="n">{{ loop.index }}</span>
+      <input name="kg_{{ i }}_{{ j }}" value="{{ row.kg }}" inputmode="decimal" placeholder="{{ lift.load_hint }}" aria-label="{{ lift.name }}, serie {{ loop.index }}, kg">
+      <input name="reps_{{ i }}_{{ j }}" value="{{ row.reps }}" inputmode="numeric" pattern="[0-9]*" aria-label="{{ lift.name }}, serie {{ loop.index }}, ripetizioni">
+      <input name="rir_{{ i }}_{{ j }}" value="{{ row.rir }}" inputmode="decimal" aria-label="{{ lift.name }}, serie {{ loop.index }}, RIR">
+      {% endfor %}
+    </div>
+    {% if values.rows[i]|length < lift.base_rows + extra %}
+    <div class="gym-actions"><button type="submit" name="action" value="more_{{ i }}" class="secondary">+ serie</button></div>
+    {% endif %}
+  </section>
+  {% endfor %}
+  <section class="card gym-extra">
+    {% if sheet.has_run %}
+    <label>Corsa{% if sheet.run_hint %} (previsto: {{ sheet.run_hint }}){% endif %} · es. 5 km 30:00 fc140
+      <input name="run" value="{{ values.run }}" spellcheck="false" autocapitalize="off"></label>
+    {% else %}<input type="hidden" name="run" value="">{% endif %}
+    <label>Note
+      <textarea name="notes" rows="2">{{ values.notes }}</textarea></label>
+    <p class="hint">Una serie conta solo se ha le ripetizioni. Il carico consigliato è solo un suggerimento: scrivi quello usato. La scheda in Note resta il metodo principale: i due non creano doppioni.</p>
+    <div class="gym-actions"><button type="submit" name="action" value="preview">Mostra anteprima</button></div>
+  </section>
+</form>
+{% endif %}
+{% endblock %}

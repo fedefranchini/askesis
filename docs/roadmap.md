@@ -303,6 +303,23 @@ duplicata):
   corrente) e CSV (una tabella per file, più i record correnti per tipo) con manifest e hash, solo in cartelle
   private (database, backup, `private/`), mai in cartelle cloud né in percorsi non ignorati da git. Modulo
   `store/export.py`.
+- **Analisi del questionario (fatto, A2b)**: baseline personale mobile di 28 giorni esclusa la giornata, z-score e
+  cambiamento minimo significativo (max tra 1 DS e 1 punto della scala), nessun giudizio prima di 14 risposte;
+  indice di benessere **ispirato a Hooper** (sonno, stanchezza, stress, indolenzimento; scelta tecnica, non l'indice
+  originale); regola della convergenza (almeno 2 voci soggettive e 1 segnale oggettivo — FC a riposo, sonno
+  dall'orologio, forza o efficienza di corsa in calo oltre il rumore — concordi per almeno 3 giorni consecutivi);
+  segnale di safety T1 non giudicante su fame alta persistente con stanchezza alta e umore basso in deficit
+  (`safety.reds_pattern@1`, consenso IOC 2023 verificato sull'abstract). Area «Benessere» nella review con semaforo
+  e domanda «Come ti senti?» in Andamenti; finché le soglie non sono raggiunte dicono cosa manca. Modulo
+  `analytics/wellbeing.py`, motore 0.8.0.
+- **Collegamenti nel tempo (fatto, A2c)**: cinque collegamenti dichiarati in anticipo (es. sonno e seduta dello
+  stesso giorno, fatica della seduta e indolenzimento del mattino dopo), solo dopo 8 settimane di questionario e 40
+  coppie; correlazione di Spearman con intervallo di confidenza, presentata come ipotesi, mai come causa.
+- **Scheda della palestra nella dashboard (fatto)**: pagina Palestra con la seduta del giorno (esercizi, serie,
+  range, RIR, recuperi, ultima prestazione, carico consigliato), campi comodi su iPhone, anteprima e conferma
+  monouso, commento dopo la seduta validato come per la nota. Usa le stesse chiavi e la stessa riconciliazione
+  dell'import da Note: con entrambi i metodi nessun doppione (valori uguali = già presenti, diversi = correzioni).
+  Modulo `ingestion/gymsheet.py`.
 - **Recuperi tra le serie (fatto)**: nella scheda della palestra e nella pagina Piano, una riga per esercizio
   (multiarticolari 2–3 min, monoarticolari 1,5–2 min) da parametri con base dichiarata (`rest_compound_range_s`,
   `rest_isolation_range_s`; claim `rt.rest_strength`, `rt.rest_hypertrophy`, evidenza di bassa certezza).

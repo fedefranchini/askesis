@@ -461,3 +461,19 @@ button.danger-soft { background: transparent; border-color: var(--warn); color: 
 .record-list time { flex: 0 0 5.6em; color: var(--text-2); font-size: 14px; font-variant-numeric: tabular-nums; }
 .record-list span { min-width: 0; overflow-wrap: anywhere; }
 .record-list .ref { display: block; color: var(--text-3); font-size: 12px; }
+
+/* gym sheet (Palestra) */
+.gym-day { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px; }
+.gym-lift { margin: 0 0 14px; padding: 14px 16px; }
+.gym-lift h2 { margin: 0 0 4px; font-size: 18px; }
+.gym-lift .meta { margin: 0; color: var(--text-2); font-size: var(--fs-s); }
+.gym-lift .meta + .meta { margin-top: 2px; }
+.setrows { display: grid; grid-template-columns: 2.2em repeat(3, minmax(0, 1fr)); gap: 8px; align-items: end; margin-top: 12px; }
+.setrows .col { color: var(--text-2); font-size: 12px; font-weight: 600; }
+.setrows .n { color: var(--text-2); font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+.setrows input { width: 100%; min-width: 0; font-size: 16px; text-align: center; padding: 10px 4px; }
+.gym-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.gym-extra textarea, .gym-extra input { width: 100%; }
+.gym-extra label { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-s); color: var(--text-2); font-weight: 600; margin-top: 10px; }
+.receipt ul.plain { margin: 6px 0; padding-left: 18px; }
+.defaultsubmit { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }

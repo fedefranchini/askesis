@@ -33,6 +33,7 @@ from askesis.analytics import body, engine, records, trends
 from askesis.analytics import today as today_mod
 from askesis.analytics.params import p
 from askesis.core.timeutil import now_utc
+from askesis.ingestion import gymsheet
 from askesis.interventions import present
 from askesis.interventions import registry as reg
 from askesis.parsers.text import ParseError
@@ -49,7 +50,7 @@ HERE = Path(__file__).parent
 CSP = ("default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; "
        "frame-ancestors 'none'; form-action 'self'; base-uri 'none'")
 RECORDS_SHOWN = 30
-NAV = [("/", "Oggi"), ("/andamenti", "Andamenti"), ("/coach", "Coach"), ("/piano", "Piano"),
+NAV = [("/", "Oggi"), ("/palestra", "Palestra"), ("/andamenti", "Andamenti"), ("/coach", "Coach"), ("/piano", "Piano"),
        ("/interventi", "Interventi"), ("/safety", "Safety")]
 
 
@@ -419,6 +420,66 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
                 ctx["preview"] = pv
         return page(request, "oggi.html", **ctx)
 
+    # ------------------------------------------------------------------ gym sheet
+    async def palestra(request: Request) -> Response:
+        """Today's planned strength session, filled in from the phone. GET and preview write nothing; saving needs a
+        one-time confirmation issued for exactly these values, and is re-parsed and re-reconciled on the server with
+        the same keys as the Apple Notes import (no duplicates in either order)."""
+        c = conn()
+        t = today()
+        post = request.method == "POST"
+        form = await form_checked(request) if post else None
+        error, status = None, 200
+        raw = (form or {}).get("day") if post else request.query_params.get("data")
+        try:
+            day = date.fromisoformat(str(raw)) if raw else t
+        except ValueError:
+            day, error, status = t, "Data non valida.", 400
+        if day > t:
+            day, error, status = t, "Non si possono registrare risultati di un giorno futuro.", 400
+        if post and form is None:
+            error, status = "Sessione scaduta: ricarica la pagina e ripeti. Nulla è stato salvato.", 400
+        sheet = gymsheet.build_sheet(c, day)
+        ctx: dict = {"sheet": sheet, "day": day, "today": t, "error": error, "plan": None, "saved": None,
+                     "nonce": None, "values": gymsheet.prefill(sheet), "extra": gymsheet.EXTRA_ROWS}
+        if not post or form is None or error or sheet.message:
+            r = page(request, "palestra.html", **ctx)
+            r.status_code = status
+            return r
+        action = str(form.get("action", ""))
+        try:
+            values = gymsheet.values_from_form(sheet, form)
+        except gymsheet.SheetChanged as exc:
+            ctx["error"] = str(exc)
+            r = page(request, "palestra.html", **ctx)
+            r.status_code = 409
+            return r
+        ctx["values"] = values
+        if action.startswith("more_") and action[5:].isdigit() and int(action[5:]) < len(sheet.lifts):
+            gymsheet.add_row(sheet, values, int(action[5:]))
+            return page(request, "palestra.html", **ctx)
+        fp = gymsheet.fingerprint(values)
+        saved_state = request.session.pop("palestra", None)
+        if action == "save" and form.get("confirmed") == "1":
+            ok = (saved_state and hmac.compare_digest(str(form.get("nonce", "")), saved_state["nonce"])
+                  and saved_state["fp"] == fp and saved_state["day"] == day.isoformat()
+                  and saved_state["exp"] >= now_utc().timestamp())
+            if ok:
+                pl, saved = gymsheet.save(c, cfg, day, sheet, values)
+                sheet_after = gymsheet.build_sheet(c, day)
+                ctx |= {"plan": pl, "saved": saved, "sheet": sheet_after, "values": gymsheet.prefill(sheet_after)}
+                return page(request, "palestra.html", **ctx)
+            ctx["error"] = ("Conferma scaduta o valori cambiati dopo l'anteprima: nulla è stato salvato. "
+                            "Controlla l'anteprima.")
+        pl = gymsheet.plan(c, cfg, day, sheet, values)
+        ctx["plan"] = pl
+        if pl.to_ingest:
+            nonce = secrets.token_urlsafe(16)
+            request.session["palestra"] = {"nonce": nonce, "fp": fp, "day": day.isoformat(),
+                                           "exp": now_utc().timestamp() + 900}
+            ctx["nonce"] = nonce
+        return page(request, "palestra.html", **ctx)
+
     # ------------------------------------------------------------------ trends
     async def andamenti(request: Request) -> Response:
         try:
@@ -599,6 +660,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         Route("/login", login, methods=["GET", "POST"]),
         Route("/logout", logout, methods=["POST"]),
         Route("/", guard(oggi), methods=["GET", "POST"]),
+        Route("/palestra", guard(palestra), methods=["GET", "POST"]),
         Route("/andamenti", guard(andamenti)),
         Route("/api/series", guard(api_series)),
         Route("/review", guard(review)),
