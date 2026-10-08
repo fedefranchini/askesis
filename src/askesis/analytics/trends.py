@@ -23,7 +23,7 @@ from askesis.plan import store as plan_store
 from askesis.reference import catalog
 from askesis.reference import exercise_label as exercise_name
 
-from . import adherence, body, engine, training
+from . import adherence, body, engine, running, training
 from .params import p
 
 PERIODS = (28, 91, 365)
@@ -235,6 +235,32 @@ def q_strength(conn, inp: engine.Inputs, day: date, days: int, values) -> Questi
 
 
 # ------------------------------------------------------------------ 4. running and recovery
+def _efficiency_fact(q: Question, inp: engine.Inputs, day: date) -> None:
+    """Aerobic efficiency of the environment with most comparable easy runs up to `day` (nothing without any)."""
+    vals = running.efficiency(inp.runs, inp.plans, date.min, day)
+    counts: dict[str, int] = {}
+    for m in vals:
+        if m.metric_id == "run_efficiency":
+            counts[m.subject] = counts.get(m.subject, 0) + 1
+    if not counts:
+        return
+    env = max(sorted(counts), key=lambda e: counts[e])
+    k, need = int(p("run_eff_window")), max(2 * int(p("run_eff_window")), int(p("run_eff_window")) + int(
+        p("run_eff_min_noise_runs")))
+    q.refs.append("run_efficiency_change@1")
+    ch = [m for m in vals if m.metric_id == "run_efficiency_change" and m.subject == env]
+    pace = [m for m in vals if m.metric_id == "run_pace_at_ref_hr" and m.subject == env]
+    verdict = running.beyond_noise(ch[-1]) if ch else None
+    if verdict is None:
+        q.facts.append(f"efficienza aerobica: rumore non ancora stimabile ({counts[env]} corse facili "
+                       f"confrontabili, ne servono {need})")
+        return
+    word = {"better": "migliorata oltre il rumore", "worse": "peggiorata oltre il rumore",
+            "within": "dentro il rumore"}[verdict]
+    q.facts.append(f"efficienza aerobica (corse facili confrontabili, a FC {_f(pace[-1].detail['ref_hr'])}): passo "
+                   f"{running.mmss(pace[-1].value)}/km, {word} rispetto alle {k} precedenti")
+
+
 def q_recovery(conn, inp: engine.Inputs, day: date, days: int) -> Question:
     q = Question("recovery", "Come stanno corsa e recupero?", refs=["sleep_mean_week@1", "run_volume_km@1",
                                                                      "steps_mean_week@1"])
@@ -260,6 +286,7 @@ def q_recovery(conn, inp: engine.Inputs, day: date, days: int) -> Question:
     km = next((m.value for m in runs if m.metric_id == "run_volume_km"), 0.0)
     n = next((int(m.value) for m in runs if m.metric_id == "run_count"), 0)
     q.facts.append(f"corsa {_f(km, 1)} km in {n} uscite nel periodo" if n else "nessuna corsa nel periodo")
+    _efficiency_fact(q, inp, day)
     if not statuses and not n:
         q.empty = "Servono almeno qualche notte di sonno o qualche giorno di passi registrati per un quadro."
         q.set("empty")

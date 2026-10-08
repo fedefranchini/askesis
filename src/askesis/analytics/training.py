@@ -108,6 +108,10 @@ class RunRow:
     distance_m: float
     elapsed_s: int
     avg_hr: int | None
+    moving_s: int | None = None
+    run_type: str | None = None
+    environment: str | None = None
+    elev_gain_m: float | None = None
 
 
 def running_week(runs: list[RunRow], start: date, end: date) -> list[MetricValue]:

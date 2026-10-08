@@ -16,10 +16,10 @@ from datetime import date, timedelta
 from askesis.interventions import registry
 from askesis.plan import store
 
-from . import review
+from . import review, running
 from .base import MetricValue
 from .params import p
-from .review import _cite, _fmt, _interval, _sign
+from .review import NOT_ESTIMABLE, _cite, _fmt, _interval, _sign
 
 VERDE, GIALLO, ROSSO, NV, INFO = "verde", "giallo", "rosso", "non valutabile", "informativo"
 EMOJI = {VERDE: "🟢", GIALLO: "🟡", ROSSO: "🔴", NV: "⚪", INFO: "ℹ️"}
@@ -407,6 +407,22 @@ def _load(s: _Series) -> Area:
                 "nessuna azione dal solo carico; leggilo insieme a sonno e sedute")
 
 
+def _efficiency_line(values: list[MetricValue], week_end: date) -> str:
+    """Latest aerobic-efficiency reading up to the week end (cites the pace and the change metrics)."""
+    pace = [m for m in values if m.metric_id == "run_pace_at_ref_hr" and m.period_end <= week_end]
+    if not pace:
+        return "- Efficienza aerobica: nessuna corsa facile confrontabile"
+    last = max(pace, key=lambda m: (m.period_end, m.subject))
+    ch = next((m for m in values if m.metric_id == "run_efficiency_change" and m.subject == last.subject
+               and m.period_end == last.period_end), None)
+    word = {"better": "migliorata oltre il rumore", "worse": "peggiorata oltre il rumore",
+            "within": "dentro il rumore", None: NOT_ESTIMABLE}[running.beyond_noise(ch)]
+    vs = "" if ch is None or ch.lo is None else f" rispetto alle {last.detail['window']} precedenti"
+    return (f"- Efficienza aerobica (corse facili confrontabili, a FC {_fmt(last.detail['ref_hr'], 0)} bpm): passo "
+            f"{running.mmss(last.value)}/km, {word}{vs} — "
+            f"{_cite(last)}, {_cite(ch) if ch else ''}".rstrip(", "))
+
+
 # ---------------------------------------------------------------- render
 def _e1rm_table(values: list[MetricValue], week_end: date) -> list[str]:
     def get(metric: str, subject: str) -> MetricValue | None:
@@ -470,7 +486,7 @@ def render(values: list[MetricValue], week_start: date, issues: list[tuple[str, 
     table = [i for i, line in enumerate(lag) if line.startswith("|")]
     if table:  # the e1RM table, rebuilt so that each row cites both the best e1RM and its change
         lag[table[0]:table[-1] + 1] = _e1rm_table(values, week_end)
-    L += [*lag, ""]
+    L += [*lag, _efficiency_line(values, week_end), ""]
     L += [old[old.index("## Qualità dei dati"):].rstrip()]
     L.append("")
     return "\n".join(L)

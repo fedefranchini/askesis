@@ -16,11 +16,11 @@ from askesis.core.ids import new_id
 from askesis.core.timeutil import iso, now_utc
 from askesis.store import repository as repo
 
-from . import adherence, body, energy, load, session, training
+from . import adherence, body, energy, load, running, session, training
 from .base import MetricValue, r6
 from .params import PARAMS_DIR, p
 
-ENGINE_VERSION = "0.5.0"
+ENGINE_VERSION = "0.6.0"
 
 
 @dataclass
@@ -64,7 +64,8 @@ def load_inputs(conn: sqlite3.Connection, cutoff: datetime | None = None) -> Inp
                                             pl["set_type"], pl["load_kg"], pl.get("load_kind", "external"),
                                             pl["reps"], pl.get("rir"), pl.get("rpe")))
         elif e == "running_session":
-            inp.runs.append(training.RunRow(d, pl["distance_m"], pl["elapsed_s"], pl.get("avg_hr")))
+            inp.runs.append(training.RunRow(d, pl["distance_m"], pl["elapsed_s"], pl.get("avg_hr"), pl.get("moving_s"),
+                                            pl.get("run_type"), pl.get("environment"), pl.get("elev_gain_m")))
         elif e == "daily_activity":
             inp.steps[d] = pl["steps"]
         elif e == "daily_context":
@@ -155,6 +156,7 @@ def compute(inp: Inputs, start: date, end: date) -> list[MetricValue]:
     strength_days = {s.day for s in inp.sets if s.set_type in training.WORK_TYPES}
     run_days = {r.day for r in inp.runs}
     vals += load.session_load(inp.feedback, start, end)
+    vals += running.efficiency(inp.runs, inp.plans, start, end)
     for ws, we in iso_weeks(start, end):
         for m in (body.weight_ema(daily, we), body.weight_ma7(daily, we),
                   energy.adaptive_tdee(inp.nutrition, daily, athlete_as_of(inp, we), we),

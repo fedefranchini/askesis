@@ -215,3 +215,29 @@ parameters:
     value: population
     basis: engineering_choice
     rationale: "Monotony divides the mean daily load by the population SD (ddof=0) of the 7 days, as in common practice with Foster's spreadsheet; the sample SD would give a larger value for the same week. Revisable."
+
+  # ---------------- aerobic running efficiency
+  # Assumption (all parameters below): within the easy range speed is taken as proportional to heart rate, so
+  # metres per heartbeat is comparable between runs. Heat, hydration, terrain, fatigue and cardiac drift add noise
+  # that is not modelled; the noise is the run-to-run variability of comparable runs, which also contains real
+  # changes (conservative).
+  run_eff_min_minutes:
+    value: 15
+    unit: min
+    basis: engineering_choice
+    rationale: "A run counts as comparable only if it lasts at least this long (moving time when present): the average heart rate of a shorter run is dominated by the warm-up. Assumption: speed proportional to heart rate within the easy range."
+  run_eff_max_elev_m_per_km:
+    value: 10
+    unit: m/km
+    basis: engineering_choice
+    rationale: "A run with more climb per km is not comparable (climbing raises heart rate at equal speed); unknown elevation is allowed and flagged. Terrain and heat are otherwise not modelled."
+  run_eff_window:
+    value: 3
+    unit: runs
+    basis: engineering_choice
+    rationale: "Efficiency change compares the mean of the last k comparable runs with the k before; k = 3 smooths single-run noise while reacting within weeks. Revisable."
+  run_eff_min_noise_runs:
+    value: 4
+    unit: runs
+    basis: engineering_choice
+    rationale: "Noise (sample SD of efficiency) is estimated from the comparable runs before the current window only with at least this many; fewer: the change is reported as not estimable. The noise is run-to-run variability, which also contains real changes (conservative); no default value is invented."

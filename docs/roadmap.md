@@ -288,6 +288,13 @@ duplicata):
   cala oltre il rumore per 3 settimane consecutive (come il criterio di uscita della fase). Le azioni non cambiano il
   piano. In fondo i dettagli degli indicatori ritardati e la qualità dei dati. Le settimane precedenti alla fase
   restano nel formato precedente. Modulo `analytics/weekly_review.py`.
+- **Efficienza aerobica (fatto, H)**: passo a parità di frequenza cardiaca, solo da corse facili confrontabili
+  (tipo dichiarato "easy", o tipo assente e corsa facile prevista dal programma quel giorno; con FC, almeno 15 min,
+  dislivello fino a 10 m/km o ignoto; ambienti separati). Metri per battito per corsa, variazione tra le ultime 3 e le 3
+  precedenti contro la differenza minima (rumore = variabilità tra corse confrontabili, non ancora stimabile con poche
+  corse), passo alla FC di riferimento (mediana delle corse confrontabili). Ipotesi dichiarata: nel range facile la
+  velocità è proporzionale alla FC; caldo, idratazione, terreno, fatica e deriva cardiaca non sono modellati. Mostrata
+  in "Come stanno corsa e recupero?" e nei dettagli della review settimanale. Modulo `analytics/running.py`, motore 0.6.0.
 - **Recuperi tra le serie (fatto)**: nella scheda della palestra e nella pagina Piano, una riga per esercizio
   (multiarticolari 2–3 min, monoarticolari 1,5–2 min) da parametri con base dichiarata (`rest_compound_range_s`,
   `rest_isolation_range_s`; claim `rt.rest_strength`, `rt.rest_hypertrophy`, evidenza di bassa certezza).
