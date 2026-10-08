@@ -19,6 +19,7 @@ from askesis.ingestion.pipeline import Receipt, ingest
 from askesis.model.entities import Envelope
 from askesis.parsers.text import Intent, ParseError, parse_day, parse_gym, parse_run
 from askesis.store import backup as backup_mod
+from askesis.store import export as export_mod
 from askesis.store import repository as repo
 from askesis.store.db import connect
 
@@ -433,6 +434,29 @@ def import_hevy(
     typer.echo(r.summary())
     for label, reason in r.rejected[:10]:
         typer.secho(f"✗ rifiutato {label}: {reason}", fg="red")
+
+
+@app.command("export")
+def export_cmd(
+    out: Annotated[Path | None, typer.Option("--out", help="Cartella di destinazione (solo cartelle private)")] = None,
+    fmt: Annotated[str, typer.Option("--format", help="both | json | csv")] = "both",
+) -> None:
+    """Esportazione completa (JSON e CSV) in una cartella privata; rifiuta cartelle pubbliche o sincronizzate."""
+    cfg, conn = _ctx()
+    now = datetime.now()
+    try:
+        dest = export_mod.resolve_destination(out, cfg.db_path, cfg.backup_dir, now)
+        res = export_mod.export(conn, dest, fmt, now.astimezone())
+    except export_mod.ExportError as e:
+        typer.secho(f"✗ {e}", fg="red")
+        raise typer.Exit(1) from e
+    typer.echo(f"✓ esportazione in {res.directory}")
+    for f in res.files:
+        typer.echo(f"  {f['file']}: {f['rows']} righe")
+    if res.skipped:
+        typer.echo(f"  tabelle escluse (segreti): {', '.join(res.skipped)}")
+    typer.echo(f"  manifest sha256 {res.manifest_sha256}")
+    typer.echo(f"  {export_mod.NOTE}")
 
 
 backup_app = typer.Typer(invoke_without_command=True, help="Backup del database, test di ripristino, agenti launchd.")

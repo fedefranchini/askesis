@@ -38,6 +38,15 @@ Questa repository è **pubblica**. I dati personali e sanitari dell'atleta non d
 7. Commit **solo su richiesta o approvazione esplicita**. **L'approvazione di un commit include il push**,
    salvo diversa indicazione; il controllo privacy prima del push resta obbligatorio.
 
+## Esportazione completa
+
+`bin/ak export [--out DIR] [--format both|json|csv]` scrive JSON e CSV solo in cartelle private: per
+impostazione predefinita `<cartella del database>/exports/<data_ora>/`; `--out` è ammesso solo dentro la cartella
+del database, dei backup o `private/` (percorso risolto, symlink inclusi). Il codice rifiuta (exit 1, nulla
+scritto) cartelle sincronizzate con un cloud (iCloud Drive, Dropbox, Google Drive, OneDrive, File Provider),
+cartelle dentro la repository non ignorate da git e cartelle già esistenti. Cartella 0700, file 0600; a schermo
+solo percorso, righe per file e hash del manifest. Trasferimento solo via AirDrop, mai iCloud Drive, mail o altri cloud.
+
 ## Skill
 
 La skill esterna `personal-trainer` è disattivata (spostata fuori dalla cartella delle skill attive): solo

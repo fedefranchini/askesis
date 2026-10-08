@@ -299,6 +299,10 @@ duplicata):
   corse intere di almeno 3, 5 o 10 km (ambienti separati; solo totali, non migliori sforzi dentro una corsa). La
   prima corsa è il riferimento, non un record; confronto solo con giorni precedenti. Timeline unica con i record di
   forza nella pagina Andamenti ("Record personali").
+- **Esportazione completa (fatto, F)**: `bin/ak export` scrive JSON (tutte le tabelle, storico completo e vista
+  corrente) e CSV (una tabella per file, più i record correnti per tipo) con manifest e hash, solo in cartelle
+  private (database, backup, `private/`), mai in cartelle cloud né in percorsi non ignorati da git. Modulo
+  `store/export.py`.
 - **Recuperi tra le serie (fatto)**: nella scheda della palestra e nella pagina Piano, una riga per esercizio
   (multiarticolari 2–3 min, monoarticolari 1,5–2 min) da parametri con base dichiarata (`rest_compound_range_s`,
   `rest_isolation_range_s`; claim `rt.rest_strength`, `rt.rest_hypertrophy`, evidenza di bassa certezza).
