@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Sincronizzazione · Askesis{% endblock %}
+{% macro step(kind, arg, label, css="secondary") %}
+<form method="post" action="/sincronizzazione">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="arg" value="{{ arg }}">
+  <button type="submit" name="action" value="ask_{{ kind }}" class="{{ css }}">{{ label }}</button>
+</form>
+{% endmacro %}
+{% block main %}
+<header class="pagehead"><div><span class="eyebrow">Salute</span><h1>Sincronizzazione</h1></div></header>
+
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if message %}<p class="card" role="status">{{ message }}</p>{% endif %}
+
+{% if secret %}
+<section class="card secret" role="status">
+  <h2>Token per «{{ new_label }}»</h2>
+  <p>Copialo adesso nel Comando Rapido: non verrà più mostrato.</p>
+  <textarea class="secret-field" readonly rows="2" aria-label="Token" autocomplete="off" autocapitalize="off" spellcheck="false">{{ secret }}</textarea>
+  <p class="hint">Nel Comando Rapido, intestazione <code>Authorization</code>: «Bearer » seguito dal token.</p>
+</section>
+{% endif %}
+
+{% if confirm %}
+<section class="card confirm-step" role="alertdialog" aria-live="polite">
+  <h2>{{ confirm.text }}</h2>
+  <form method="post" action="/sincronizzazione" class="sync-actions">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="arg" value="{{ confirm.arg }}">
+    <input type="hidden" name="nonce" value="{{ confirm.nonce }}">
+    <button type="submit" name="action" value="do_{{ confirm.kind }}">{% if confirm.kind == "create" %}Crea il token{% elif confirm.kind == "revoke" %}Revoca{% else %}Confermo: giornata completa{% endif %}</button>
+    <a class="button-link" href="/sincronizzazione">Annulla</a>
+  </form>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Dispositivi</h2>
+  {% if tokens %}
+  <ul class="plain devices sync-devices">
+    {% for t in tokens %}
+    <li>
+      <div class="sync-main">
+        <strong>{{ t.label }}</strong>
+        <span class="hint">creato il {{ t.created|date }} · ultimo invio {% if t.last_used %}{{ t.last_used|date }}{% else %}mai{% endif %}</span>
+        {% set r = t.last_result %}
+        {% if r %}
+          {% if r.error %}
+          <span class="error">Ultimo invio non riuscito: {{ r.error }}</span>
+          {% else %}
+          <span class="sync-line">{{ summary_line(r) }}</span>
+          {% if r.probe %}<span class="pill">Prova: nulla salvato</span>{% endif %}
+          <ul class="plain sync-types">
+            {% for kind, v in r.report.types.items() %}
+            <li><strong>{{ kind }}</strong> {{ v.understood }}/{{ v.received }} letti
+              {% if v.units %}· unità {{ v.units|join(", ") }}{% endif %}
+              {% if v.labels %}· etichette {{ v.labels|join(", ") }}{% endif %}
+              {% if v.problems %}<span class="warn">· problemi: {% for k, n in v.problems.items() %}{{ k }} ({{ n }}){% if not loop.last %}; {% endif %}{% endfor %}</span>{% endif %}</li>
+            {% endfor %}
+            {% for line in r.report.get("not_synced", []) %}<li class="hint">{{ line }}</li>{% endfor %}
+          </ul>
+          {% endif %}
+        {% endif %}
+      </div>
+      {{ step("revoke", t.id, "Revoca") }}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Nessun dispositivo collegato.</p>
+  {% endif %}
+  <form method="post" action="/sincronizzazione" class="sync-new">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label for="sync-label" class="hint">Nuovo dispositivo</label>
+    <input id="sync-label" name="arg" type="text" value="iPhone" maxlength="40" autocomplete="off">
+    <button type="submit" name="action" value="ask_create">Crea token</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Giornate di cibo da confermare</h2>
+  <p class="hint">Calorie e proteine importate da Salute restano parziali (non usate per TDEE e aderenza) finché non le confermi.</p>
+  {% if partial %}
+  <ul class="plain devices">
+    {% for d in partial %}
+    <li>
+      <div><strong>{{ d.day.strftime("%d/%m/%Y") }}</strong>
+        <span class="hint">{{ d.payload.get("energy_kcal")|num }} kcal · {{ d.payload.get("protein_g")|num }} g proteine</span></div>
+      {{ step("confirm", d.day.isoformat(), "Confermo: giornata completa") }}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Nessuna giornata da confermare negli ultimi 14 giorni.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Come funziona</h2>
+  <ul class="plain">
+    <li>Il Comando Rapido parte quando l'iPhone è sbloccato (sveglia fermata o app aperta): da bloccato Salute non è leggibile.</li>
+    <li>I dati inseriti a mano vincono sempre su quelli importati.</li>
+    <li>Il peso non viene sincronizzato, a meno che non sia attivato nella configurazione privata (<code>health_sync_weight</code>){% if weight_sync %}: ora è attivo{% else %}: ora è disattivato{% endif %}.</li>
+  </ul>
+</section>
+{% endblock %}

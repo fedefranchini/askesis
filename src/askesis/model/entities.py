@@ -138,6 +138,12 @@ class RestingHrDaily(Strict):
     method: str | None = None
 
 
+class HrvDaily(Strict):
+    sdnn_ms: float  # Apple Health HRV is SDNN at irregular times: reduced validity, compare only with itself
+    n_samples: int
+    method: str | None = None
+
+
 class SubjectiveCheckin(Strict):
     fatigue_1_5: int | None = Field(default=None, ge=1, le=5)
     soreness_1_5: int | None = Field(default=None, ge=1, le=5)
@@ -249,6 +255,7 @@ ENTITIES: dict[str, tuple[type[BaseModel], EntityKind]] = {
     "daily_activity": (DailyActivity, "daily"),
     "sleep_session": (SleepSession, "interval"),
     "resting_hr_daily": (RestingHrDaily, "daily"),
+    "hrv_daily": (HrvDaily, "daily"),
     "subjective_checkin": (SubjectiveCheckin, "daily"),
     "daily_context": (DailyContext, "daily"),
     "athlete_attribute": (AthleteAttribute, "instant"),

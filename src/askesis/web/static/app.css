@@ -477,3 +477,15 @@ button.danger-soft { background: transparent; border-color: var(--warn); color: 
 .gym-extra label { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-s); color: var(--text-2); font-weight: 600; margin-top: 10px; }
 .receipt ul.plain { margin: 6px 0; padding-left: 18px; }
 .defaultsubmit { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+/* Health sync page */
+.sync-devices li { align-items: flex-start; flex-wrap: wrap; }
+.sync-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 14em; overflow-wrap: anywhere; }
+.sync-types { margin: 4px 0 0; padding-left: 16px; font-size: var(--fs-s); }
+.sync-line { font-size: var(--fs-s); }
+.sync-new { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 10px; margin-top: 16px; }
+.sync-new label { flex: 1 0 100%; }
+.sync-new input { flex: 1 1 10em; min-width: 0; font-size: 16px; }
+.sync-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.secret-field { width: 100%; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 16px; padding: 12px; user-select: all; -webkit-user-select: all;
+  resize: none; word-break: break-all; overflow-wrap: anywhere; }

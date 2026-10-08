@@ -333,6 +333,14 @@ duplicata):
 2. **Sincronizzazione quotidiana** con un'automazione di Comandi Rapidi che legge i campioni di Salute (sonno,
    passi, FC a riposo, HRV, allenamenti, energia e proteine scritte dall'app di nutrizione) e li invia in JSON alla
    dashboard sulla rete locale, senza cloud.
+   **Fatto (F4c, lato Mac)**: endpoint `/api/health-sync` con token per dispositivo; il JSON del Comando Rapido
+   (liste parallele per tipo) diventa lo stesso input dell'import dall'esportazione e passa dalle stesse regole
+   (validazioni, chiavi naturali idempotenti, priorità delle sorgenti: il manuale vince sempre, sorgenti escluse,
+   giorni non chiusi esclusi, solo giorni interi della finestra). HRV come `hrv_daily` (media SDNN del giorno,
+   validità ridotta). Cibo sempre «parziale» finché l'atleta non conferma la giornata (pagina Sincronizzazione o
+   `bin/ak sync food-confirm`). Peso non sincronizzato salvo `health_sync_weight = true`. Modalità prova senza
+   salvataggio per verificare sul telefono cosa viene letto. Lato iPhone: da verificare sul dispositivo, tipo per
+   tipo.
 
 **Vincoli verificati e punti da verificare sul dispositivo:**
 - **iPhone bloccato**: i dati di Salute sono cifrati quando il dispositivo è bloccato e non leggibili in

@@ -47,6 +47,15 @@ scritto) cartelle sincronizzate con un cloud (iCloud Drive, Dropbox, Google Driv
 cartelle dentro la repository non ignorate da git e cartelle già esistenti. Cartella 0700, file 0600; a schermo
 solo percorso, righe per file e hash del manifest. Trasferimento solo via AirDrop, mai iCloud Drive, mail o altri cloud.
 
+## Sincronizzazione da Salute (Comandi Rapidi)
+- L'iPhone invia i campioni di Salute alla dashboard solo dentro il tunnel privato; nessun cloud. L'endpoint
+  `/api/health-sync` accetta solo un **token per dispositivo** (mostrato una volta, salvato solo come hash accanto al
+  database, revocabile dalla pagina Sincronizzazione o con `bin/ak sync token-revoke`); restano attivi la lista dei
+  client ammessi e il controllo dell'host.
+- La risposta e lo stato salvato contengono solo conteggi, unità, etichette e nomi delle sorgenti, mai valori; la
+  modalità prova (`?prova=1`) non salva nulla.
+- Il token non va mai in file versionati, chat o note: si copia dalla dashboard direttamente nel Comando Rapido.
+
 ## Skill
 
 La skill esterna `personal-trainer` è disattivata (spostata fuori dalla cartella delle skill attive): solo

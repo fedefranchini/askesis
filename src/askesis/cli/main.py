@@ -29,6 +29,7 @@ show_app = typer.Typer(no_args_is_help=True, help="Mostra i dati registrati.")
 app.add_typer(log_app, name="log")
 metrics_app = typer.Typer(no_args_is_help=True, help="Metriche derivate (cache ricalcolabile).")
 from askesis.cli import f3  # noqa: E402
+from askesis.cli import sync as sync_cli  # noqa: E402
 
 app.add_typer(f3.plan_app, name="plan")
 app.add_typer(f3.iv_app, name="intervention")
@@ -36,6 +37,7 @@ app.add_typer(f3.safety_app, name="safety")
 app.add_typer(f3.gym_app, name="gym-note")
 app.add_typer(show_app, name="show")
 app.add_typer(metrics_app, name="metrics")
+app.add_typer(sync_cli.sync_app, name="sync")
 
 DateOpt = Annotated[str | None, typer.Option("--date", "-d", help="Data YYYY-MM-DD (default: oggi)")]
 

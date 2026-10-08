@@ -56,6 +56,8 @@ def hard_checks(env: Envelope) -> list[Issue]:
         out += _range(p.get("steps"), 0, 150_000, "steps.range", "passi")
     elif e == "resting_hr_daily":
         out += _range(p.get("bpm"), 25, 150, "rhr.range", "FC a riposo")
+    elif e == "hrv_daily":
+        out += _range(p.get("sdnn_ms"), 1, 300, "hrv.range", "HRV ms")
     elif e == "sleep_session":
         out += _range(p.get("asleep_s"), 0, 20 * 3600, "sleep.range", "sonno s")
     return out

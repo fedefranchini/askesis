@@ -33,7 +33,8 @@ from askesis.analytics import body, engine, records, trends
 from askesis.analytics import today as today_mod
 from askesis.analytics.params import p
 from askesis.core.timeutil import now_utc
-from askesis.ingestion import gymsheet
+from askesis.ingestion import gymsheet, health_sync
+from askesis.ingestion.pipeline import ingest
 from askesis.interventions import present
 from askesis.interventions import registry as reg
 from askesis.parsers.text import ParseError
@@ -480,6 +481,91 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
             ctx["nonce"] = nonce
         return page(request, "palestra.html", **ctx)
 
+    # ------------------------------------------------------------------ Health sync (iOS Shortcut)
+    async def api_health_sync(request: Request) -> Response:
+        """POST from the Shortcut with a device token (not the session: the Shortcut has no cookies). The client
+        allowlist and host check still apply. The answer holds counts only, never values."""
+        tpath = health_sync.tokens_path(cfg)
+        tid = health_sync.check_token(tpath, request.headers.get("authorization"))
+        if tid is None:
+            return JSONResponse({"ok": False, "message": "Token mancante, revocato o non valido."}, status_code=401)
+        body = await request.body()
+        if len(body) > health_sync.MAX_BODY:
+            return JSONResponse({"ok": False, "message": "Invio troppo grande."}, status_code=413)
+        try:
+            payload = json.loads(body or b"{}")
+            probe = bool(payload.get("probe")) or request.query_params.get("prova") == "1"
+            result = health_sync.run(conn(), cfg, payload, probe=probe)
+        except (ValueError, health_sync.SyncError) as exc:
+            msg = str(exc) if isinstance(exc, health_sync.SyncError) else "JSON non leggibile"
+            health_sync.note_use(tpath, tid, {"error": msg})
+            return JSONResponse({"ok": False, "message": f"Nulla salvato: {msg}."}, status_code=400)
+        health_sync.note_use(tpath, tid, result)
+        if result.get("last_day"):
+            safety.evaluate(conn(), date.fromisoformat(result["last_day"]))  # flags show up in the dashboard
+        return JSONResponse({"ok": True, "message": health_sync.summary_line(result), "result": result})
+
+    # ------------------------------------------------------------------ Health sync page
+    def sync_ctx(request: Request, **extra) -> dict:
+        tpath = health_sync.tokens_path(cfg)
+        partial = health_sync.partial_days(conn(), today() - timedelta(days=14))
+        return {"tokens": health_sync.tokens(tpath), "partial": partial,
+                "summary_line": health_sync.summary_line, "weight_sync": cfg.health_sync_weight,
+                "confirm": None, "secret": None, "message": None, "error": None} | extra
+
+    async def sincronizzazione(request: Request) -> Response:
+        """Device tokens, last sends and confirmation of partial food days. Every change is two steps: the first POST
+        stores a one-time nonce in the session and shows what will happen, the second must carry it. A new token's
+        secret is rendered only in the response that creates it (never stored in the session, never shown again)."""
+        if request.method != "POST":
+            return page(request, "sincronizzazione.html", **sync_ctx(request))
+        form = await form_checked(request)
+        if form is None:
+            return page(request, "sincronizzazione.html", **sync_ctx(request, error="Richiesta non valida: riprova."))
+        action, arg = str(form.get("action", "")), str(form.get("arg", "")).strip()
+        tpath = health_sync.tokens_path(cfg)
+        pending = request.session.pop("sync", None)  # a nonce is valid once, whatever happens next
+        if action.startswith("ask_"):
+            kind = action.removeprefix("ask_")
+            names = {t["id"]: t["label"] for t in health_sync.tokens(tpath)}
+            if kind == "create":
+                arg = (arg or "iPhone")[:40]
+                text = f"Creare un nuovo token per «{arg}»?"
+            elif kind == "revoke" and arg in names:
+                text = f"Confermi la revoca di «{names[arg]}»? Il Comando Rapido smette subito di funzionare."
+            elif kind == "confirm" and any(d["day"].isoformat() == arg for d in sync_ctx(request)["partial"]):
+                text = f"Confermi che la giornata {arg} è completa?"
+            else:
+                return page(request, "sincronizzazione.html",
+                            **sync_ctx(request, error="Nulla da confermare: l'elemento non c'è più."))
+            nonce = secrets.token_urlsafe(16)
+            request.session["sync"] = {"nonce": nonce, "kind": kind, "arg": arg}
+            return page(request, "sincronizzazione.html",
+                        **sync_ctx(request, confirm={"nonce": nonce, "kind": kind, "arg": arg, "text": text}))
+        kind = action.removeprefix("do_") if action.startswith("do_") else ""
+        if not (pending and kind == pending["kind"] and arg == pending["arg"]
+                and hmac.compare_digest(str(form.get("nonce", "")), pending["nonce"])):
+            return page(request, "sincronizzazione.html",
+                        **sync_ctx(request, error="Conferma scaduta o non valida: nulla è stato modificato."))
+        if kind == "create":
+            secret, rec = health_sync.create_token(tpath, arg)
+            resp = page(request, "sincronizzazione.html", **sync_ctx(request, secret=secret, new_label=rec["label"]))
+            resp.headers["Cache-Control"] = "no-store"
+            return resp
+        if kind == "revoke":
+            ok = health_sync.revoke_token(tpath, arg)
+            return page(request, "sincronizzazione.html", **sync_ctx(
+                request, message="Token revocato." if ok else None, error=None if ok else "Token non trovato."))
+        try:
+            rec = health_sync.confirmation_record(conn(), cfg, date.fromisoformat(arg))
+        except (health_sync.SyncError, ValueError):
+            return page(request, "sincronizzazione.html",
+                        **sync_ctx(request, error="Nulla da confermare per questa giornata."))
+        ingest(conn(), [rec], "manual")
+        safety.evaluate(conn(), date.fromisoformat(arg))
+        return page(request, "sincronizzazione.html",
+                    **sync_ctx(request, message="Giornata confermata: ora entra in TDEE e aderenza."))
+
     # ------------------------------------------------------------------ trends
     async def andamenti(request: Request) -> Response:
         try:
@@ -663,6 +749,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         Route("/palestra", guard(palestra), methods=["GET", "POST"]),
         Route("/andamenti", guard(andamenti)),
         Route("/api/series", guard(api_series)),
+        Route("/api/health-sync", api_health_sync, methods=["POST"]),
         Route("/review", guard(review)),
         Route("/coach", guard(coach_view)),
         Route("/coach/decisione", guard(coach_decision), methods=["POST"]),
@@ -671,6 +758,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         Route("/interventi", guard(interventi)),
         Route("/safety", guard(safety_page)),
         Route("/accesso", guard(accesso), methods=["GET", "POST"]),
+        Route("/sincronizzazione", guard(sincronizzazione), methods=["GET", "POST"]),
         Mount("/static", StaticFiles(directory=HERE / "static"), name="static"),
     ]
     app = Starlette(routes=routes, middleware=[

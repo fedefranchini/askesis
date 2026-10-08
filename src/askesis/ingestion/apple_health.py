@@ -2,6 +2,8 @@
 
 Mapping and rules (docs/roadmap.md F4b):
 - body mass → body_weight; waist circumference → body_measurement (waist_navel); resting HR → resting_hr_daily;
+- heart rate variability (SDNN, taken by the Watch at irregular times) → hrv_daily: mean of the day's samples, with
+  their number (reduced validity: compare only with itself);
 - steps → daily_activity: iPhone and Watch count the same steps, so per day the source with the highest total is
   used, never the sum (engineering choice);
 - sleep → sleep_session on the wake day: the source with sleep stages is preferred; asleep and in-bed time kept apart;
@@ -35,6 +37,7 @@ HK = "HKQuantityTypeIdentifier"
 TYPES = {
     f"{HK}BodyMass": "weight", f"{HK}WaistCircumference": "waist", f"{HK}StepCount": "steps",
     f"{HK}RestingHeartRate": "rhr", f"{HK}DietaryEnergyConsumed": "kcal", f"{HK}DietaryProtein": "protein",
+    f"{HK}HeartRateVariabilitySDNN": "hrv",
     "HKCategoryTypeIdentifierSleepAnalysis": "sleep",
 }
 ASLEEP = {"HKCategoryValueSleepAnalysisAsleep", "HKCategoryValueSleepAnalysisAsleepUnspecified",
@@ -244,6 +247,16 @@ def build(data: HealthData, cfg: Config, conn: sqlite3.Connection, since: date |
             rhr[d] = (s, round(float(v)), src)
     for day, (_s, bpm, src) in rhr.items():
         add("resting_hr_daily", day, {"bpm": bpm}, _fp("rhr", day, bpm, src), src, {"value": bpm}, True, open_day,
+            occurred_at=noon(day))
+
+    hrv: dict[date, list[tuple[float, str]]] = defaultdict(list)
+    for s, _e, v, _unit, src in data.samples.get("hrv", []):
+        hrv[local_date(s, tz)].append((float(v), src))
+    for day, xs in hrv.items():
+        mean = round(sum(v for v, _ in xs) / len(xs), 1)
+        srcs = ",".join(sorted({src for _, src in xs}))
+        add("hrv_daily", day, {"sdnn_ms": mean, "n_samples": len(xs), "method": "apple_sdnn_daily_mean"},
+            _fp("hrv", day, mean, len(xs), srcs), srcs, {"values_ms": [v for v, _ in xs]}, True, open_day,
             occurred_at=noon(day))
 
     nights: dict[date, dict[str, dict]] = defaultdict(lambda: defaultdict(lambda: {"asleep": [], "bed": [],
