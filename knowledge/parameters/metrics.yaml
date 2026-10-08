@@ -191,3 +191,14 @@ parameters:
     unit: reps_at_the_same_load
     basis: engineering_choice
     rationale: "Minimal difference of a session e1RM is never below the e1RM effect of this many reps at the session's top load (Epley: load × reps / 30): with few or identical past sessions the measured spread can be near zero."
+
+  # --- training load (Foster) ---
+  session_load_formula:
+    value: cr10_x_minutes
+    basis: evidence
+    rationale: "Session load = session-RPE (CR-10 scale) × duration in minutes, in arbitrary units (AU); the code supports only this formula."
+    claims: [load.monotony_strain]
+  monotony_sd:
+    value: population
+    basis: engineering_choice
+    rationale: "Monotony divides the mean daily load by the population SD (ddof=0) of the 7 days, as in common practice with Foster's spreadsheet; the sample SD would give a larger value for the same week. Revisable."

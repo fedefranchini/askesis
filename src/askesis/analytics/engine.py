@@ -16,11 +16,11 @@ from askesis.core.ids import new_id
 from askesis.core.timeutil import iso, now_utc
 from askesis.store import repository as repo
 
-from . import adherence, body, energy, session, training
+from . import adherence, body, energy, load, session, training
 from .base import MetricValue, r6
 from .params import PARAMS_DIR, p
 
-ENGINE_VERSION = "0.4.0"
+ENGINE_VERSION = "0.5.0"
 
 
 @dataclass
@@ -36,6 +36,7 @@ class Inputs:
     attr_history: list[tuple[date, str, object]] = field(default_factory=list)  # (valid from, key, value)
     sleep: list[tuple[date, float]] = field(default_factory=list)  # (wake day, seconds asleep)
     plans: list[tuple[date, str, str, dict]] = field(default_factory=list)  # (valid from, recorded_at, kind, content)
+    feedback: list[tuple[date, str, float | None, int | None]] = field(default_factory=list)  # post-session
     fingerprint: str = ""
     dates: list[date] = field(default_factory=list)
 
@@ -70,6 +71,9 @@ def load_inputs(conn: sqlite3.Connection, cutoff: datetime | None = None) -> Inp
             inp.context.append((d, pl["key"], pl["value"]))
         elif e == "sleep_session" and pl.get("asleep_s"):
             inp.sleep.append((d, float(pl["asleep_s"])))
+        elif e == "subjective_checkin" and pl.get("moment") == "post_session":
+            inp.feedback.append((d, pl["session_kind"], _num(pl.get("session_rpe_cr10")),
+                                 int(pl["session_minutes"]) if pl.get("session_minutes") is not None else None))
         elif e == "athlete_attribute":
             valid = pl.get("valid_from")
             inp.attr_history.append((date.fromisoformat(str(valid)) if valid else d, pl["key"], pl["value"]))
@@ -148,6 +152,9 @@ def compute(inp: Inputs, start: date, end: date) -> list[MetricValue]:
                 if m.metric_id == "e1rm_best_week" and m.value is not None:
                     weekly_e1rm.setdefault(m.subject.split(":", 1)[1], []).append((we, m.value))
     vals += session.session_metrics(inp.sets, start, end)
+    strength_days = {s.day for s in inp.sets if s.set_type in training.WORK_TYPES}
+    run_days = {r.day for r in inp.runs}
+    vals += load.session_load(inp.feedback, start, end)
     for ws, we in iso_weeks(start, end):
         for m in (body.weight_ema(daily, we), body.weight_ma7(daily, we),
                   energy.adaptive_tdee(inp.nutrition, daily, athlete_as_of(inp, we), we),
@@ -167,6 +174,7 @@ def compute(inp: Inputs, start: date, end: date) -> list[MetricValue]:
         vals += [m for m in (sv, sl) if m]
         vals += adherence.waist_change(inp.waist, ws, we)
         vals += adherence.e1rm_change(weekly_e1rm, ws, we)
+        vals += load.load_week(inp.feedback, strength_days, run_days, ws, we, max(inp.dates, default=None))
     return sorted(vals, key=lambda m: (m.metric_id, m.subject, m.period_start, m.period_end))
 
 

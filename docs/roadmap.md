@@ -268,6 +268,11 @@ duplicata):
   e risposte identiche ripetute (parametri, scelte tecniche). Analisi (baseline personale, indice ispirato a Hooper,
   carico di Foster con monotonia e strain, convergenza, collegamenti nel tempo, segnali di safety) nelle fasi
   successive, quando ci sono abbastanza risposte.
+- **Carico di Foster (fatto, A2a)**: carico di seduta (fatica CR-10 × minuti), carico settimanale, monotonia (media
+  dei 7 carichi giornalieri, riposo = 0, diviso la deviazione standard di popolazione) e strain nel motore, senza
+  look-ahead; monotonia e strain non sono definiti se manca il carico di una seduta registrata o se la deviazione è
+  zero o finché la settimana è in corso. Metriche `session_load`, `training_load_week`, `training_monotony_week`, `training_strain_week`. Il
+  collegamento a review e soglie individuali resta alle fasi successive.
 - **Commento dopo ogni seduta (fatto, B)**: all'import della scheda il codice scrive il commento della seduta,
   validato e mostrato in Coach. Per esercizio: e1RM della serie migliore contro la seduta precedente (migliorato /
   stabile / calato), con soglia = z × deviazione standard dei cambi passati di quell'esercizio, mai sotto l'effetto
