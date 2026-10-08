@@ -225,12 +225,14 @@ def test_remembered_device_skips_the_password_until_revoked(env):
     r = remember_login(client, password)
     cookie = r.cookies.get("askesis_device")
     header = r.headers["set-cookie"].lower()
-    assert cookie and "httponly" in header and "samesite=strict" in header
+    assert cookie and "httponly" in header and "samesite=lax" in header and "secure" not in header
     stored = paths(cfg)[2].read_text()
     assert cookie.split(".", 1)[1] not in stored  # only the hash is kept
     assert oct(paths(cfg)[2].stat().st_mode)[-3:] == "600"
     fresh = TestClient(client.app, base_url="http://127.0.0.1", cookies={"askesis_device": cookie})
     assert fresh.get("/", follow_redirects=False).status_code == 200  # no password, new session
+    bookmark = TestClient(client.app, base_url="http://127.0.0.1", cookies={"askesis_device": cookie})
+    assert bookmark.get("/login", follow_redirects=False).headers["location"] == "/"  # login page bookmarked
     forged = TestClient(client.app, base_url="http://127.0.0.1", cookies={"askesis_device": cookie[:-2] + "xx"})
     assert forged.get("/", follow_redirects=False).status_code == 303
     did = cookie.split(".", 1)[0]

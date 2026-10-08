@@ -237,7 +237,8 @@ duplicata):
   API); nessuna esposizione su internet; HTTPS in rete locale da valutare (certificato locale).
 - **Login (fatto)**: campo password compatibile con il portachiavi di iPhone e Mac (campo utente nascosto e
   `autocomplete`), "ricorda questo dispositivo" con scadenza fissa dichiarata (`web_remember_days`, default 30,
-  mai allungata), token casuale in cookie HttpOnly/SameSite=Strict e solo hash sul Mac; revoca da Accesso e da
+  mai allungata), token casuale in cookie HttpOnly/SameSite=Lax (Strict non arrivava
+  quando la dashboard si apre da un link in un'altra app; la sessione resta Strict) e solo hash sul Mac; revoca da Accesso e da
   `bin/ak web devices`; cambiare password chiude sessioni e dispositivi; allowlist, host, CSRF e attesa
   progressiva restano attivi. Uscire fa dimenticare anche il dispositivo.
 - **Coach (fatto)**: i testi dell'assistente (controllo serale, review, retrospettiva, proposte) sono rivalidati dal

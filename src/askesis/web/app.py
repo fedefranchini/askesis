@@ -268,6 +268,10 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         if request.method == "GET":
             if session_valid(request):
                 return RedirectResponse("/", status_code=303)
+            dev = auth.device_for(devices_file, request.cookies.get(DEVICE_COOKIE), touch=True)
+            if dev is not None:  # a bookmark of the login page on a remembered device
+                start_session(request, dev["id"])
+                return RedirectResponse("/", status_code=303)
             return login_page(request, wait=throttle.blocked_for())
         form = await form_checked(request)
         if form is None:
@@ -289,8 +293,11 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         start_session(request, device)
         resp = RedirectResponse("/", status_code=303)
         if cookie:
+            # Lax, not Strict: Safari withholds Strict cookies when the dashboard is opened from a link in another
+            # app (a cross-site navigation), so the device was never recognised. Lax is sent only on top-level GET
+            # navigations, which change nothing; form posts still need the session (Strict) and the CSRF token.
             resp.set_cookie(DEVICE_COOKIE, cookie, max_age=cfg.web_remember_days * 86400, httponly=True,
-                            samesite="strict", secure=cfg.web_secure_cookies, path="/")
+                            samesite="lax", secure=cfg.web_secure_cookies, path="/")
         return resp
 
     async def logout(request: Request) -> Response:

@@ -165,3 +165,55 @@ def test_checkin_on_a_phone_by_tapping_the_scales(server):
         assert scroll <= 0  # no horizontal scrolling on a phone
         browser.close()
     assert errors == []
+
+
+def _engine(p, name):
+    try:
+        return getattr(p, name).launch(headless=True)
+    except Exception as exc:  # browser binary not installed
+        pytest.skip(f"{name} non installato: {exc}")
+
+
+@pytest.mark.parametrize("engine", ["webkit", "chromium"])
+def test_remembered_device_survives_a_restart_and_a_link_from_another_app(server, engine):
+    """'Ricorda questo dispositivo' on plain HTTP inside the tunnel: the device cookie must not be Secure (dropped on
+    http) and must reach the dashboard when it is opened from a link elsewhere (a top-level cross-site navigation,
+    like tapping a link in another app). Cross-site form posts stay refused."""
+    url, password = server
+    with playwright.sync_playwright() as p:
+        browser = _engine(p, engine)
+        ctx = browser.new_context()
+        page = ctx.new_page()
+        page.goto(f"{url}/login")
+        page.fill("#password", password)
+        page.check("input[name=remember]")
+        page.click("button[type=submit]")
+        page.wait_for_load_state("networkidle")
+        assert page.url == f"{url}/"
+        device = next(c for c in ctx.cookies() if c["name"] == "askesis_device")
+        assert device["secure"] is False and device["httpOnly"] is True and device["sameSite"] == "Lax"
+        assert next(c for c in ctx.cookies() if c["name"] == "askesis_session")["sameSite"] == "Strict"
+        # browser restarted after the 12-hour session expired: only the device cookie is left
+        state = ctx.storage_state()
+        state["cookies"] = [c for c in state["cookies"] if c["name"] == "askesis_device"]
+        ctx.close()
+        ctx = browser.new_context(storage_state=state)
+        page = ctx.new_page()
+        page.goto(f"{url}/")
+        assert page.url == f"{url}/" and page.locator("#password").count() == 0
+        # opened from a link on another site (another app), with no session yet
+        ctx.clear_cookies(name="askesis_session")
+        elsewhere = "http://elsewhere.test/"
+        page.route(elsewhere, lambda r: r.fulfill(content_type="text/html", body=(
+            f'<a id="go" href="{url}/">dashboard</a>'
+            f'<form id="post" method="post" action="{url}/oggi"><input name="line" value="p 70"></form>')))
+        page.goto(elsewhere)
+        page.click("#go")
+        page.wait_for_load_state("networkidle")
+        assert page.url == f"{url}/" and page.locator("#password").count() == 0
+        # a cross-site form post carries no session (Strict) and no device cookie (Lax): refused
+        page.goto(elsewhere)
+        page.evaluate("document.getElementById('post').submit()")
+        page.wait_for_load_state("networkidle")
+        assert "Salvato" not in page.content()
+        browser.close()
