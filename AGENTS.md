@@ -45,3 +45,6 @@ Procedure e formati: `docs/agent/coaching.md`.
 ## Git
 Commit solo su approvazione (che include il push, salvo diversa indicazione). Nessuna attribuzione all'assistente IA nei commit.
 Riscrittura dello storico solo se un contenuto pubblicato rivela un dato reale dell'atleta.
+**Agenti in background** (sottoagenti, attività delegate): mai `git stash`, `reset`, `checkout`, `restore`, `clean` o
+altre operazioni che possano toccare modifiche non committate di altri; lavorano solo sui file loro assegnati oppure in un
+worktree separato, e non fanno commit.
