@@ -127,6 +127,19 @@ parameters:
     basis: engineering_choice
     rationale: "Day-to-day change above this opens a soft data-quality issue (not a rejection)."
 
+  # ---------------- weekly review traffic light
+  review_sessions_missed_yellow:
+    value: 1
+    unit: sessions
+    basis: engineering_choice
+    rationale: "Weekly review: up to this many planned strength sessions missed is yellow; more is red; none is green."
+  review_strength_red_weeks:
+    value: 3
+    unit: consecutive_weeks
+    basis: engineering_choice
+    rationale: "Weekly review: an exercise whose e1RM falls beyond noise for this many consecutive weeks is red. Same
+      count as the fat-loss phase exit criterion (strength falling for 3 consecutive weeks: reassess the deficit)."
+
   # ---------------- adherence and noise (weekly review)
   sleep_recommended_min_h:
     value: 7

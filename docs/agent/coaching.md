@@ -21,6 +21,11 @@ propone**; l'atleta decide. Ogni numero viene da `bin/ak`; ogni scelta metodolog
 2. Ordine: **fondamentali** (aderenza calorica, proteine, sessioni svolte/pianificate, sonno, passi) →
    **indicatori ritardati** (peso, vita, forza, corsa), distinguendo "cambiamento reale" da "dentro il rumore"
    quando il codice lo calcola → al massimo **3 punti di attenzione** in linguaggio semplice.
+   **Dalla prima settimana dentro una fase** (piano `phase` in vigore con intervento collegato) la review usa il
+   **semaforo**: nove aree con criterio dichiarato (safety, dati, energia, proteine, sedute, velocità del peso, forza,
+   sonno, carico solo informativo), **tre azioni prioritarie** e lo schema dati → tendenza → interpretazione →
+   azione. Le azioni non cambiano mai il piano: un cambio è solo una proposta da approvare con «approvo». Le
+   settimane precedenti alla fase mantengono il formato precedente.
 3. Eventuali **proposte**: solo come interventi pre-registrati (`bin/ak intervention propose`), una variabile
    per dominio, con claim della KB e criteri di valutazione. Le regole versionate che scattano generano
    proposte (L2): presentarle con dati e regola@versione.

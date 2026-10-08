@@ -592,7 +592,7 @@ def review_cmd(
     month: Annotated[bool, typer.Option("--month", help="Retrospettiva mensile (default: mese scorso)")] = False,
 ) -> None:
     """Review settimanale (lun–dom) o retrospettiva mensile, in Markdown, salvata in reports/."""
-    from askesis.analytics import engine, review
+    from askesis.analytics import engine, review, weekly_review
 
     if month:
         md = f3.month_cmd(date_)
@@ -613,7 +613,8 @@ def review_cmd(
     issues += [(f"safety {r['tier']}", f"{r['message']} [flag:{r['id'][-8:]}]") for r in conn.execute(
         "SELECT id, tier, message FROM safety_flag WHERE local_date BETWEEN ? AND ?",  # only this week's flags
         (ws.isoformat(), (ws + timedelta(days=6)).isoformat()))]
-    md = review.render(values, ws, issues)
+    phase_ctx = weekly_review.context(conn, ws)  # inside a phase: traffic-light format; earlier weeks unchanged
+    md = weekly_review.render(values, ws, issues, phase_ctx) if phase_ctx else review.render(values, ws, issues)
     if stdout_only:
         typer.echo(md)
         return

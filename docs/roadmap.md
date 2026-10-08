@@ -280,6 +280,14 @@ duplicata):
   fa da riferimento); al massimo un punto di attenzione (dolore, ripetizioni sotto il range, calo oltre il rumore).
   Metriche `e1rm_session`, `e1rm_session_change`, `best_reps_session`, `strength_record` nel motore (nessun
   look-ahead).
+- **Review settimanale con semaforo (fatto, E)**: dalla prima settimana dentro una fase (piano `phase` con intervento
+  collegato) la review mostra nove aree con criterio dichiarato e stato a parole (verde, giallo, rosso, non
+  valutabile; il carico di Foster solo informativo), tre azioni prioritarie e lo schema dati → tendenza →
+  interpretazione → azione. La velocità del peso è confrontata con l'intervallo atteso della preregistrazione e non è
+  valutabile finché la finestra di 14 giorni include giorni prima della fase; la forza è rossa se lo stesso esercizio
+  cala oltre il rumore per 3 settimane consecutive (come il criterio di uscita della fase). Le azioni non cambiano il
+  piano. In fondo i dettagli degli indicatori ritardati e la qualità dei dati. Le settimane precedenti alla fase
+  restano nel formato precedente. Modulo `analytics/weekly_review.py`.
 - **Recuperi tra le serie (fatto)**: nella scheda della palestra e nella pagina Piano, una riga per esercizio
   (multiarticolari 2–3 min, monoarticolari 1,5–2 min) da parametri con base dichiarata (`rest_compound_range_s`,
   `rest_isolation_range_s`; claim `rt.rest_strength`, `rt.rest_hypertrophy`, evidenza di bassa certezza).
