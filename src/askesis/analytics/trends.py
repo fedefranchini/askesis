@@ -24,7 +24,7 @@ from askesis.plan import store as plan_store
 from askesis.reference import catalog
 from askesis.reference import exercise_label as exercise_name
 
-from . import adherence, body, engine, running, training, wellbeing
+from . import adherence, body, engine, illness, running, training, wellbeing
 from .params import p
 
 PERIODS = (28, 91, 365)
@@ -312,7 +312,8 @@ def q_wellbeing(inp: engine.Inputs, day: date, days: int) -> Question:
         return q
     start = day - timedelta(days=days - 1)
     first = min((d for d, _ in inp.morning), default=day)
-    vals = wellbeing.daily(inp.morning, inp.rhr, inp.sleep, [], max(first, start - timedelta(days=1)), day)
+    vals = wellbeing.daily(inp.morning, inp.rhr, inp.sleep, [], max(first, start - timedelta(days=1)), day,
+                           ill=illness.ill_days(inp.illness, day))
     idx = [m for m in vals if m.metric_id == "wellbeing_index" and start <= m.period_end <= day]
     q.spark = [(m.period_end.isoformat(), m.value) for m in idx]
     if idx:

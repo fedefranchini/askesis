@@ -177,3 +177,22 @@ def test_weekly_review_mentions_the_illness_once_and_validates(conn):
 def test_episode_helpers_match_the_engine_input():
     e = illness.from_record("r", "2025-03-03", {"kind": "illness", "end": "2025-03-04"})
     assert illness.ill_days([e], date(2025, 3, 31)) == {D, D + timedelta(days=1)}
+
+
+def test_resting_hr_and_watch_sleep_baselines_skip_ill_days():
+    """A fever week with a high resting heart rate and short nights must not raise the usual values: after the
+    illness, an ordinary day is judged against the healthy days only."""
+    from askesis.analytics import wellbeing
+
+    start = date(2099, 1, 1)
+    healthy = {start + timedelta(days=i): 300.0 + (i % 3) for i in range(30)}  # synthetic, far from real values
+    ill = {start + timedelta(days=30 + i) for i in range(7)}
+    rhr = healthy | {d: 390.0 for d in ill}
+    sleep = {d: 20.0 + (d.toordinal() % 2) for d in healthy} | {d: 2.0 for d in ill}
+    day = start + timedelta(days=37)
+    rhr[day], sleep[day] = 330.0, 14.0  # clearly worse than the healthy days
+    with_ill = wellbeing.objective_signals(day, rhr, sleep, [], frozenset(ill))
+    assert "rhr" in with_ill and "sleep_watch" in with_ill
+    healthy_only = {d: v for d, v in rhr.items() if d not in ill}
+    n, mean, sd = wellbeing.baseline(healthy_only, day)
+    assert mean is not None and mean < 302  # the ill week did not move the usual value

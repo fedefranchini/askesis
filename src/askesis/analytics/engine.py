@@ -20,7 +20,7 @@ from . import adherence, body, energy, illness, load, records, running, session,
 from .base import MetricValue, r6
 from .params import PARAMS_DIR, p
 
-ENGINE_VERSION = "0.9.0"
+ENGINE_VERSION = "0.9.1"
 
 
 @dataclass

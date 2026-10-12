@@ -119,15 +119,16 @@ def readiness(morning: list[tuple[date, dict]], day: date) -> dict:
 
 # ------------------------------------------------------------------ objective signals
 def objective_signals(day: date, rhr: dict[date, float], sleep_h: dict[date, float],
-                      changes: list[MetricValue]) -> list[str]:
-    """Objective signals worse than usual on `day` (only data up to `day`)."""
+                      changes: list[MetricValue], ill: set[date] | frozenset = frozenset()) -> list[str]:
+    """Objective signals worse than usual on `day` (only data up to `day`). The usual values (baselines of resting
+    heart rate and watch sleep) never include declared ill days; the day itself is still judged."""
     out = []
     if day in rhr:
-        n, mean, sd = baseline(rhr, day)
+        n, mean, sd = baseline({d: v for d, v in rhr.items() if d not in ill}, day)
         if judge(rhr[day], n, mean, sd, "higher_worse", floor=0.0)["status"] == "worse" and sd:
             out.append("rhr")
     if day in sleep_h:
-        n, mean, sd = baseline(sleep_h, day)
+        n, mean, sd = baseline({d: v for d, v in sleep_h.items() if d not in ill}, day)
         if judge(sleep_h[day], n, mean, sd, "higher_better", floor=0.0)["status"] == "worse" and sd:
             out.append("sleep_watch")
     lookback = day - timedelta(days=int(p("convergence_objective_lookback_days")) - 1)
@@ -174,7 +175,7 @@ def daily(morning: list[tuple[date, dict]], rhr: dict[date, float], sleep_s: lis
             out.append(MetricValue("wellbeing_index", 1, "global", d, d, idx[d], "punti", "INFERENCE", n,
                                    detail=j | {"label": INDEX_LABEL, "items": list(INDEX_ITEMS)} | flag))
         ready = readiness(healthy, d)["ready"]
-        objective = objective_signals(d, rhr, sleep_h, changes) if ready else []
+        objective = objective_signals(d, rhr, sleep_h, changes, ill) if ready else []
         concordant = ready and d not in ill and len(worse) >= p("convergence_min_subjective") and \
             len(objective) >= p("convergence_min_objective")
         consecutive = prev_day is not None and (d - prev_day).days == 1
