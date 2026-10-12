@@ -170,8 +170,11 @@ if [[ $WITH_NORDVPN -eq 1 ]] && ! command -v nordvpn >/dev/null; then
   tmp=$(mktemp -d)
   curl -fsSL -o "$tmp/install.sh" https://downloads.nordcdn.com/apps/linux/install.sh
   echo "  sha256 $(sha256sum "$tmp/install.sh" | cut -d' ' -f1)"
-  sh "$tmp/install.sh"
+  # used only to add the vendor's signed repository: its own apt prompt aborts without a terminal
+  sh "$tmp/install.sh" </dev/null || true
   rm -rf "$tmp"
+  apt-get install -y -q --no-install-recommends nordvpn >/dev/null  # daemon and CLI only, no desktop app
+  command -v nordvpn >/dev/null || die "installazione di NordVPN non riuscita"
   usermod -aG nordvpn askesis || true
 fi
 
