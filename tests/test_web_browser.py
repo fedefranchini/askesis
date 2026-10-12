@@ -120,7 +120,7 @@ def test_coach_decision_flow_on_a_phone(server):
         page.fill("#password", password)
         page.click("button[type=submit]")
         page.wait_for_load_state("networkidle")
-        assert page.locator(".nav .badge-pending").inner_text() == "1"
+        assert page.locator(".nav .badge-pending").locator("visible=true").inner_text() == "1"
         page.click(".nav a[href='/coach']")
         page.fill("input[name=text]", "approvo")
         page.click("form.decide button[type=submit]")
@@ -128,7 +128,7 @@ def test_coach_decision_flow_on_a_phone(server):
         page.click(".confirm-actions button[type=submit]")
         page.wait_for_load_state("networkidle")
         assert "approvato" in page.locator(".notice.ok").inner_text()
-        assert page.locator(".nav .badge-pending").count() == 0
+        assert page.locator(".nav .badge-pending").locator("visible=true").count() == 0
         scroll = page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
         assert scroll <= 0  # no horizontal scrolling on a phone
         browser.close()
@@ -151,11 +151,16 @@ def test_checkin_on_a_phone_by_tapping_the_scales(server):
         page.click("button[type=submit]")
         page.wait_for_load_state("networkidle")
         form = page.locator("section.checkin form").first
-        assert form.is_visible()  # open when today's check-in is missing
+        assert not form.is_visible()  # compact until opened: the day's numbers come first
+        page.locator("a[href='#checkin']").tap()  # the "Da fare" item opens it
+        assert form.is_visible() and form.locator(".stepcount").inner_text() == "Domanda 1 di 7"
         box = form.locator("label[for='ck_sonno-10']").bounding_box()
-        assert box["height"] >= 44 and box["width"] >= 28  # tappable on a phone, ten in a row
+        assert box["height"] >= 44 and box["width"] >= 44  # five per row: comfortable for a thumb
         form.locator("label[for='ck_sonno-6']").tap()
         assert form.locator("fieldset.scale").first.locator(".picked").inner_text() == "6 · tra «Discreto» e «Buono»"
+        form.locator(".stepcount", has_text="Domanda 2 di 7").wait_for()  # a tap moves on to the next question
+        while not form.locator("label[for='ck_stress-3']").is_visible():
+            form.locator(".step-next").tap()
         form.locator("label[for='ck_stress-3']").tap()
         form.locator("button[value=save]").tap()
         page.wait_for_load_state("networkidle")

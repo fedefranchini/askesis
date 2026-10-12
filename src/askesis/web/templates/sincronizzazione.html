@@ -8,7 +8,7 @@
 </form>
 {% endmacro %}
 {% block main %}
-<header class="pagehead"><div><span class="eyebrow">Salute</span><h1>Sincronizzazione</h1></div></header>
+<header class="pagehead"><div><h1>Sincronizzazione</h1></div></header>
 
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 {% if message %}<p class="card" role="status">{{ message }}</p>{% endif %}
@@ -101,7 +101,7 @@
   <ul class="plain">
     <li>Il Comando Rapido parte quando l'iPhone è sbloccato (sveglia fermata o app aperta): da bloccato Salute non è leggibile.</li>
     <li>I dati inseriti a mano vincono sempre su quelli importati.</li>
-    <li>Il peso non viene sincronizzato, a meno che non sia attivato nella configurazione privata (<code>health_sync_weight</code>){% if weight_sync %}: ora è attivo{% else %}: ora è disattivato{% endif %}.</li>
+    {% if weight_sync %}<li>Anche il peso viene sincronizzato.</li>{% else %}<li>Il peso non viene sincronizzato: vale quello che registri tu.</li>{% endif %}
   </ul>
 </section>
 {% endblock %}

@@ -57,19 +57,23 @@
   {% endif %}
 </section>
 
-<div class="tiles">
-  {{ ring(T.energy, unit="kcal") }}
-  {{ ring(T.protein, unit="g") }}
-  {{ ring(T.sleep, nd=1, unit="ore") }}
-  {{ ring(T.sessions, unit=T.sessions.unit) }}
-  {{ ring(T.steps, unit="passi" if T.steps.value is not none else "") }}
+{# Rings only for values that exist: an empty ring says nothing and pushes the day's tasks down. #}
+{% set rings = [(T.energy, 0, "kcal", "energia di ieri"), (T.protein, 0, "g", "proteine di ieri"),
+                (T.sleep, 1, "ore", "sonno"), (T.sessions, 0, T.sessions.unit, "sedute"), (T.steps, 0, "passi", "passi")] %}
+{% set shown = rings|selectattr("0.value", "ne", none)|list %}
+{% set missing = rings|selectattr("0.value", "none")|map(attribute="3")|list %}
+{% if shown %}
+<div class="tiles n{{ shown|length }}">
+  {% for t, nd, unit, _ in shown %}{{ ring(t, nd=nd, unit=unit) }}{% endfor %}
 </div>
+{% endif %}
+{% if missing %}<p class="hint nodata">Ancora senza dati: {{ missing|join(", ") }}.</p>{% endif %}
 
 <div class="split">
   <section class="card">
     <h2>Da fare</h2>
     {% if S.todo %}
-    <ul class="chips">{% for x in S.todo %}<li>{{ x }}</li>{% endfor %}</ul>
+    <ul class="chips todo">{% for x in S.todo %}<li><a href="{{ '#checkin' if 'heck-in' in x else '#line' }}">{{ x }}</a></li>{% endfor %}</ul>
     {% else %}
     <p class="done">{{ icon("ok") }}Pesata, cibo di ieri e check-in registrati.</p>
     {% endif %}
@@ -98,11 +102,12 @@
 </div>
 
 {% set K = status.checkin %}
-<section class="card checkin" aria-labelledby="ck-title">
-  <details{% if not K.answers.morning %} open{% endif %}>
+<section class="card checkin" id="checkin" aria-labelledby="ck-title">
+  <details>
     <summary><h2 id="ck-title">Check-in del mattino</h2>
-      <span class="ck-state">{% if K.answers.morning %}{{ icon("ok") }}{{ K.n_morning }} {{ 'risposta' if K.n_morning == 1 else 'risposte' }} · modifica{% else %}20–30 secondi · tutte saltabili{% endif %}</span></summary>
-    <form method="post" action="/" class="ck-form">
+      {% if K.answers.morning %}<span class="ck-state">{{ icon("ok") }}{{ K.n_morning }} {{ 'risposta' if K.n_morning == 1 else 'risposte' }}, modifica</span>
+      {% else %}<span class="ck-state">{{ K.morning|length }} domande, circa 30 secondi</span><span class="ck-go">Inizia</span>{% endif %}</summary>
+    <form method="post" action="/" class="ck-form" data-stepper>
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <input type="hidden" name="day" value="{{ status.day.isoformat() }}">
       {% for it in K.morning %}{{ scale(it, "ck_", K.answers.morning.get(it.field)) }}{% endfor %}

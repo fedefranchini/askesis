@@ -1,7 +1,8 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}Accesso · Askesis{% endblock %}
 {% block main %}
-<header class="pagehead"><div><span class="eyebrow">Sicurezza</span><h1>Accesso</h1></div></header>
+<header class="pagehead"><div><h1>Accesso</h1></div></header>
 <section class="card">
   <h2>Dispositivi ricordati</h2>
   <p class="hint">Entrano senza password fino alla scadenza, fissata al momento dell'accesso ({{ remember_days }} giorni) e mai allungata. Cambiare la password li revoca tutti.</p>
@@ -25,11 +26,12 @@
   {% else %}
   <p>Nessun dispositivo ricordato.</p>
   {% endif %}
-  <p class="hint">Dal terminale: <code>bin/ak web devices</code> per l'elenco, <code>--revoke ID</code> oppure <code>--revoke-all</code> per revocare.</p>
+  <details class="sources"><summary>Dal Mac</summary><p class="hint"><code>bin/ak web devices</code> elenca i dispositivi; <code>--revoke ID</code> o <code>--revoke-all</code> li revoca.</p></details>
 </section>
 <section class="card">
-  <h2>Sincronizzazione</h2>
-  <p><a href="/sincronizzazione">Sincronizzazione da Salute</a></p>
+  <ul class="plain links-list">
+    <li><a href="/sincronizzazione">Sincronizzazione da Salute{{ icon("chevron") }}</a></li>
+  </ul>
 </section>
 <section class="card">
   <h2>Esci</h2>

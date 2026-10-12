@@ -3,7 +3,7 @@
 {% block title %}Coach · Askesis{% endblock %}
 {% block main %}
 <header class="pagehead">
-  <div><span class="eyebrow">Testi e decisioni</span><h1>Coach</h1></div>
+  <div><h1>Coach</h1></div>
 </header>
 
 {% if done %}<p class="card notice ok" role="status">{{ icon("ok") }}<span>{{ done }}</span></p>{% endif %}
@@ -58,6 +58,22 @@
 </section>
 {% elif not confirm %}
 <p class="card done">{{ icon("ok") }}Nessuna proposta in attesa.</p>
+{% endif %}
+
+{% if not current and not confirm %}
+<section class="card">
+  <h2>Testi</h2>
+  <p class="hint">Qui arrivano la review del lunedì, i commenti alle sedute e le retrospettive. La prossima review è prevista lunedì {{ next_review.strftime("%d/%m") }}.</p>
+</section>
+{% endif %}
+
+{% if not confirm %}
+<section class="card more-sections phone-block">
+  <ul class="plain links-list">
+    <li><a href="/interventi">{{ icon("interventi") }}Interventi{{ icon("chevron") }}</a></li>
+    <li><a href="/safety">{{ icon("safety") }}Safety{% if open_flags %}<span class="flagcount" aria-label="{{ open_flags }} flag aperti">{{ open_flags }}</span>{% else %}{{ icon("chevron") }}{% endif %}</a></li>
+  </ul>
+</section>
 {% endif %}
 
 {% if current and not confirm %}

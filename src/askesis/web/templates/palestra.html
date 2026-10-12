@@ -19,15 +19,18 @@
 {% set weekdays = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"] %}
 <header class="pagehead">
   <div>
-    <span class="eyebrow">{{ weekdays[day.weekday()]|capitalize }} {{ day.strftime("%d/%m/%Y") }}{% if sheet.title %} · sessione {{ sheet.title }}{% endif %}</span>
+    <span class="eyebrow">{{ weekdays[day.weekday()]|capitalize }} {{ day.strftime("%d/%m") }}{% if sheet.title %}, seduta {{ sheet.title }}{% endif %}</span>
     <h1>Palestra</h1>
   </div>
+</header>
+<details class="gym-other"{% if day != today %} open{% endif %}>
+  <summary>{% if day != today %}Giorno scelto{% else %}Un altro giorno{% endif %}</summary>
   <form method="get" action="/palestra" class="gym-day">
-    <label for="gday" class="hint">Giorno</label>
+    <label for="gday" class="visually-hidden">Giorno</label>
     <input id="gday" name="data" type="date" value="{{ day.isoformat() }}" max="{{ today.isoformat() }}">
     <button type="submit" class="secondary">Apri</button>
   </form>
-</header>
+</details>
 
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 
@@ -111,9 +114,9 @@
     {% else %}<input type="hidden" name="run" value="">{% endif %}
     <label>Note
       <textarea name="notes" rows="2">{{ values.notes }}</textarea></label>
-    <p class="hint">Una serie conta solo se ha le ripetizioni. Il carico consigliato è solo un suggerimento: scrivi quello usato. La scheda in Note resta il metodo principale: i due non creano doppioni.</p>
-    <div class="gym-actions"><button type="submit" name="action" value="preview">Mostra anteprima</button></div>
+    <p class="hint">Conta una serie solo se ha le ripetizioni. Il carico consigliato è un suggerimento: scrivi quello usato. Puoi usare anche la nota della palestra: nessun doppione.</p>
   </section>
+  <div class="gym-submit"><button type="submit" name="action" value="preview">Mostra anteprima</button></div>
 </form>
 {% endif %}
 {% endblock %}

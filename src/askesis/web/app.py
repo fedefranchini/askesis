@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hmac
 import json
+import mimetypes
 import secrets
 from datetime import date, timedelta
 from pathlib import Path
@@ -48,11 +49,13 @@ from . import auth, md
 from .netwatch import bind_sockets, check_bind  # noqa: F401  (public: used by the CLI and tests)
 
 HERE = Path(__file__).parent
+mimetypes.add_type("application/manifest+json", ".webmanifest")  # served as JSON, not text (nosniff)
 CSP = ("default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; "
        "frame-ancestors 'none'; form-action 'self'; base-uri 'none'")
 RECORDS_SHOWN = 30
-NAV = [("/", "Oggi"), ("/palestra", "Palestra"), ("/andamenti", "Andamenti"), ("/coach", "Coach"), ("/piano", "Piano"),
-       ("/interventi", "Interventi"), ("/safety", "Safety")]
+NAV = [("/", "Oggi"), ("/palestra", "Palestra"), ("/andamenti", "Andamenti"), ("/piano", "Piano"), ("/coach", "Coach")]
+# Rarely used sections: in the side bar on wide screens, reachable from Coach on the phone (five tabs at most).
+NAV_MORE = [("/interventi", "Interventi"), ("/safety", "Safety")]
 
 
 def asset_version() -> str:
@@ -60,7 +63,7 @@ def asset_version() -> str:
     import hashlib
 
     h = hashlib.sha256()
-    for f in sorted((HERE / "static").glob("*.*")):
+    for f in sorted([*(HERE / "static").glob("*.*"), *(HERE / "static" / "icons").glob("*.*")]):
         h.update(f.read_bytes())
     return h.hexdigest()[:10]
 
@@ -221,7 +224,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
     def page(request: Request, template: str, **ctx) -> HTMLResponse:
         c = conn()
         user = request.session.get("user")
-        ctx |= {"nav": NAV, "asset_v": asset_v, "path": request.url.path, "csrf": csrf(request),
+        ctx |= {"nav": NAV, "nav_more": NAV_MORE, "asset_v": asset_v, "path": request.url.path, "csrf": csrf(request),
                 "open_flags": len(safety.open_flags(c)), "user": user,
                 "pending_count": len(coach_mod.pending(c)) if user else 0}
         return HTMLResponse(env.get_template(template).render(**ctx))
@@ -675,8 +678,10 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         if current is None and not ctx.get("confirm"):
             current = next((d for d in docs if d.kind == "review" and "commento" not in d.name),
                            docs[0] if docs else None)
+        t = today()
+        next_review = t + timedelta(days=(7 - t.weekday()) % 7 or 7)  # the weekly review comes on Monday morning
         return page(request, "coach.html", pending=coach_mod.pending(c), docs=docs, latest=latest, current=current,
-                    current_html=md.render(current.body) if current else None, **ctx)
+                    current_html=md.render(current.body) if current else None, next_review=next_review, **ctx)
 
     async def coach_view(request: Request) -> Response:
         return coach_page(request)

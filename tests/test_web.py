@@ -197,7 +197,9 @@ def test_static_files_are_cacheable_and_pages_are_not(env):
     css = client.get(f"/static/app.css?v={v}")
     assert css.status_code == 200 and "max-age" in css.headers["cache-control"]
     assert "default-src 'self'" in css.headers["content-security-policy"]
-    assert 'class="ring"' in page.text and "Peso di tendenza" in page.text
+    assert "Peso di tendenza" in page.text
+    # no data yet: empty rings are not drawn, they are named in one line instead
+    assert 'class="ring"' not in page.text and "Ancora senza dati: energia di ieri" in page.text
 
 
 def test_login_form_is_keychain_friendly(env):
@@ -435,3 +437,21 @@ def test_coach_shows_the_latest_session_comment_as_a_tab(env, tmp_path):
     login(client, password)
     page = client.get("/coach").text
     assert 'href="/coach?f=seduta-2025-03-24.md"' in page and "Commento seduta 2025-03-24" in page
+
+
+def test_home_screen_app_icon_and_manifest_are_local(env):
+    """Icon, favicon and manifest for 'Add to Home Screen' (standalone, no Safari bars): local files only."""
+    client, _, password = env
+    html = client.get("/login").text
+    for ref in ('rel="manifest"', 'rel="apple-touch-icon"', 'rel="icon"', 'apple-mobile-web-app-capable'):
+        assert ref in html
+    links = re.findall(r'(?:href)="([^"]+)"', html)
+    assert all(not u.startswith(("http:", "https:", "//")) for u in links)
+    m = client.get(re.search(r'href="(/static/manifest\.webmanifest[^"]*)"', html).group(1))
+    assert m.status_code == 200 and m.headers["content-type"].startswith("application/manifest+json")
+    data = m.json()
+    assert data["display"] == "standalone" and data["start_url"] == "/"
+    for icon in data["icons"]:
+        r = client.get(icon["src"])
+        assert r.status_code == 200 and r.headers["content-type"] in ("image/png", "image/svg+xml")
+    assert client.get(re.search(r'rel="apple-touch-icon" href="([^"]+)"', html).group(1)).status_code == 200

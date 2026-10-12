@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#0F1317">
   <meta name="color-scheme" content="dark">
   <title>{% block title %}Askesis{% endblock %}</title>
+  {% include "_app_head.html" %}
   <link rel="preload" href="/static/vendor/barlow/Barlow-SemiBold.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="stylesheet" href="/static/app.css?v={{ asset_v }}">
   {% block head %}{% endblock %}
@@ -17,7 +18,11 @@
       <span class="brand">Askesis</span>
       <ul>
         {% for href, label in nav %}
-        <li><a href="{{ href }}"{% if path == href %} aria-current="page"{% endif %}>{{ icon(label|lower) }}<span>{{ label }}</span>{% if href == "/safety" and open_flags %}<span class="flagcount" aria-label="{{ open_flags }} flag aperti">{{ open_flags }}</span>{% endif %}{% if href == "/coach" and pending_count %}<span class="flagcount badge-pending" aria-label="{{ pending_count }} proposte in attesa">{{ pending_count }}</span>{% endif %}</a></li>
+        {% set badge = (pending_count or 0) + (open_flags or 0) if href == "/coach" else 0 %}
+        <li><a href="{{ href }}"{% if path == href %} aria-current="page"{% endif %}>{{ icon(label|lower) }}<span>{{ label }}</span>{% if href == "/coach" and pending_count %}<span class="flagcount badge-pending wide-only" aria-label="{{ pending_count }} proposte in attesa">{{ pending_count }}</span>{% endif %}{% if badge %}<span class="flagcount phone-only{% if not open_flags %} badge-pending{% endif %}" aria-label="{% if open_flags %}{{ open_flags }} flag di safety aperti{% if pending_count %}, {% endif %}{% endif %}{% if pending_count %}{{ pending_count }} proposte in attesa{% endif %}">{{ badge }}</span>{% endif %}</a></li>
+        {% endfor %}
+        {% for href, label in nav_more %}
+        <li class="wide-only"><a href="{{ href }}"{% if path == href %} aria-current="page"{% endif %}>{{ icon(label|lower) }}<span>{{ label }}</span>{% if href == "/safety" and open_flags %}<span class="flagcount" aria-label="{{ open_flags }} flag aperti">{{ open_flags }}</span>{% endif %}</a></li>
         {% endfor %}
       </ul>
       <div class="logout">
@@ -30,8 +35,8 @@
     </nav>
     {% endif %}
     <main class="main">
+      {% if user %}<a href="/accesso" class="acct phone-only" aria-label="Accesso e dispositivi"{% if path == "/accesso" %} aria-current="page"{% endif %}>{{ icon("accesso") }}</a>{% endif %}
       {% block main %}{% endblock %}
-      {% if user and path != "/accesso" %}<p class="mobile-only footer-link"><a href="/accesso">Accesso e dispositivi</a></p>{% endif %}
     </main>
   </div>
   {% block scripts %}{% endblock %}

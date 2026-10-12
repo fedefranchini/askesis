@@ -100,7 +100,9 @@ def q_rate(conn, inp: engine.Inputs, day: date, days: int) -> Question:
         q.set("empty")
         return q
     q.value, q.unit = _f(rate.value, 2, sign=True), "% a settimana"
-    q.facts.append(f"intervallo {_f(rate.lo, 2, True)} / {_f(rate.hi, 2, True)} %")
+    lo, hi = _f(rate.lo, 2, True), _f(rate.hi, 2, True)
+    if lo != hi:  # an interval with equal ends says nothing
+        q.facts.append(f"intervallo {lo} / {hi} %")
     if rate.lo <= 0 <= rate.hi:
         q.set("noise")
     elif band and band[0] <= rate.value <= band[1]:

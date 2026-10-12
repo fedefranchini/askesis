@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Piano · Askesis{% endblock %}
 {% block main %}
-<header class="pagehead"><div><span class="eyebrow">In vigore oggi</span><h1>Piano</h1></div></header>
+<header class="pagehead"><div><h1>Piano</h1></div></header>
 {% if not content.phase and not content.programme and not content.nutrition_target %}
 <p class="card">Nessun piano attivo oggi. Il piano entra in vigore quando un intervento approvato viene attivato.</p>
 {% endif %}
@@ -25,7 +25,8 @@
 <section class="card">
   <h2>Seduta di oggi · {{ s.name }}</h2>
   <ul class="lifts">{% for l in s.lifts %}<li><span class="ex">{{ l.exercise|exercise }}</span><span class="rx">{{ l.sets }} × {{ l.rep_target }}{% if l.load_kg %} · {{ "%g"|format(l.load_kg) }} kg{% endif %}</span><span class="why">RIR {{ "%g"|format(l.target_rir) }} · {{ l.exercise|rest }} · {{ l.reason }}</span></li>{% endfor %}</ul>
-  <p class="hint">Recuperi tra le serie di lavoro: oltre 2 minuti per massimizzare la forza nei soggetti allenati (rt.rest_strength); per l'ipertrofia nessuna differenza apprezzabile oltre 90 secondi (rt.rest_hypertrophy). Evidenza di bassa certezza.</p>
+  <p class="hint">Recuperi: oltre 2 minuti aiutano la forza; per la massa muscolare oltre 90 secondi cambia poco. Evidenza di bassa certezza.</p>
+  <details class="sources"><summary>Fonti</summary><p class="hint">rt.rest_strength · rt.rest_hypertrophy</p></details>
   {% if s.run %}<p class="hint">Corsa: {{ s.run.kind }}{% if s.run.duration_min %}, {{ "%g"|format(s.run.duration_min) }} min{% endif %}</p>{% endif %}
 </section>
 {% endfor %}
@@ -37,7 +38,8 @@
 {% if volume %}
 <section class="card volume" aria-labelledby="vol-title">
   <h2 id="vol-title">Volume per muscolo</h2>
-  <p class="hint">Serie settimanali (frazionarie) previste dal programma{% if volume.has_recorded %} e registrate nella settimana dal {{ volume.week.strftime("%d/%m") }}{% endif %}. Fascia {{ volume.lo }}–{{ volume.hi }} serie: riferimento per l'ipertrofia, evidenza di bassa certezza (rt.volume_range_12_20).</p>
+  <p class="hint">Serie settimanali (frazionarie) previste dal programma{% if volume.has_recorded %} e registrate nella settimana dal {{ volume.week.strftime("%d/%m") }}{% endif %}. Fascia {{ volume.lo }}–{{ volume.hi }} serie: riferimento per la massa muscolare, evidenza di bassa certezza.</p>
+  <details class="sources"><summary>Fonti</summary><p class="hint">rt.volume_range_12_20</p></details>
   <ul class="legend"><li><i class="k-s3"></i>previste</li>{% if volume.has_recorded %}<li><i class="k-s1"></i>registrate</li>{% endif %}<li><i class="k-ref"></i>fascia di riferimento</li></ul>
   <ul class="vbars">
     {% for r in volume.rows %}
