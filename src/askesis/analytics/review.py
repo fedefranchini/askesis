@@ -167,8 +167,8 @@ def render(values: list[MetricValue], week_start: date, issues: list[tuple[str, 
             change = f"{_sign(ch.value, 1)} kg" if ch else "prima settimana"
             verdict = _beyond_noise(ch) if ch else NOT_ESTIMABLE
             lb = " (limite inferiore)" if v.detail.get("lower_bound") else ""
-            L.append(f"| {v.subject.split(':', 1)[1]} | {_fmt(v.value, 1)} kg{lb} | {change} | {verdict} | "
-                     f"{_cite(ch or v)} |")
+            refs = _cite(v) + (f", {_cite(ch)}" if ch else "")  # the value and its change, each with its source
+            L.append(f"| {v.subject.split(':', 1)[1]} | {_fmt(v.value, 1)} kg{lb} | {change} | {verdict} | {refs} |")
         L.append("")
     else:
         L.append("- Forza: nessuna sessione di pesi registrata")
