@@ -604,3 +604,15 @@ button[disabled] { opacity: 0.6; cursor: default; }
 
 .offline { max-width: 520px; margin: 0 auto; padding-top: max(48px, env(safe-area-inset-top)); }
 .offline img { border-radius: 16px; margin-bottom: 16px; }
+
+/* ask the data */
+.ask-entry { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--text); min-height: 64px; }
+.ask-entry span { display: flex; flex-direction: column; flex: 1; }
+.ask-entry small { color: var(--text-2); font-size: var(--fs-s); }
+.ask-entry .ico:last-child { color: var(--text-3); }
+.ask-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin: 12px 0; }
+.ask-form input { font-size: 16px; min-height: 48px; }
+.ask-help { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.chip-btn { min-height: 44px; border-radius: 22px; font-size: var(--fs-s); text-align: left; }
+.answer .asked { color: var(--text-2); font-weight: 600; margin: 0 0 8px; }
+.sources-row { font-size: var(--fs-s); color: var(--text-2); margin: 10px 0 0; }

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Chiedi ai dati · Askesis{% endblock %}
+{% block main %}
+<header class="pagehead"><div><h1>Chiedi ai dati</h1></div></header>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if answer %}
+<section class="card answer{% if not answer.ok %} unverified{% endif %}" aria-live="polite">
+  <p class="asked">{{ question }}</p>
+  <div class="report">{{ answer_html|safe }}</div>
+  {% if answer.sources %}<p class="sources-row">Fonti: {% for label, href in answer.sources %}<a href="{{ href }}">{{ label }}</a>{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+  {% if not answer.ok %}<details class="sources"><summary>Perché «non lo so»</summary><ul>{% for i in answer.issues %}<li>{{ i }}</li>{% endfor %}</ul></details>{% endif %}
+</section>
+{% endif %}
+<form method="post" action="/chiedi" class="ask-form">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="q" class="visually-hidden">Domanda</label>
+  <input id="q" name="q" maxlength="300" autocomplete="off" placeholder="Scrivi una domanda sui tuoi dati" value="">
+  <button type="submit">Chiedi</button>
+</form>
+<section class="ask-help" aria-label="Domande pronte">
+  {% for h in helps %}
+  <form method="post" action="/chiedi"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="q" value="{{ h }}"><button type="submit" class="secondary chip-btn">{{ h }}</button></form>
+  {% endfor %}
+</section>
+<p class="hint">Rispondo solo con i tuoi dati e solo in lettura: i numeri vengono dal codice e passano dal validatore; se non so, lo dico. Il piano cambia solo con una proposta in Coach e il tuo «approvo».</p>
+{% endblock %}

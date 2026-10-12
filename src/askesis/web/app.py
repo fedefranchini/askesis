@@ -29,6 +29,7 @@ from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Re
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
+from askesis import ask as ask_mod
 from askesis import checkin, services
 from askesis import coach as coach_mod
 from askesis import config as config_mod
@@ -870,6 +871,19 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
     async def coach_view(request: Request) -> Response:
         return coach_page(request)
 
+    async def chiedi(request: Request) -> Response:
+        """«Chiedi ai dati»: POST only (a question may contain personal details: never in the URL); read only."""
+        if request.method == "GET":
+            return page(request, "chiedi.html", helps=ask_mod.HELP, answer=None, question="")
+        form = await form_checked(request)
+        if form is None:
+            return page(request, "chiedi.html", helps=ask_mod.HELP, answer=None, question="",
+                        error="Sessione scaduta: ricarica la pagina.")
+        question = str(form.get("q", ""))[:300]
+        ans = ask_mod.ask(conn(), question, today())
+        return page(request, "chiedi.html", helps=ask_mod.HELP, question=question, answer=ans,
+                    answer_html=md.render(ask_mod.display(ans.text)))
+
     async def coach_decision(request: Request) -> Response:
         """Step 1: the typed answer is checked and a confirmation is asked (nothing is recorded yet)."""
         form = await form_checked(request)
@@ -946,6 +960,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         Route("/api/health-sync", api_health_sync, methods=["POST"]),
         Route("/review", guard(review)),
         Route("/coach", guard(coach_view)),
+        Route("/chiedi", guard(chiedi), methods=["GET", "POST"]),
         Route("/coach/decisione", guard(coach_decision), methods=["POST"]),
         Route("/coach/conferma", guard(coach_confirm), methods=["POST"]),
         Route("/piano", guard(piano)),

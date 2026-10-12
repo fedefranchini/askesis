@@ -9,6 +9,8 @@ Reference syntax inside texts:
   `rule_id@N`       versioned rule (knowledge/rules/*.yaml), e.g. its preconditions and limits
   [record:<id>]     RAW record (full id or its last 8 characters)
   [flag:<id>]       safety flag (message and signals)
+  [dati:<key>]      values a deterministic tool returned for this very text (the "ask the data" answers): only
+                    when the caller passes them; a model may comment only on these numbers
 Table rows inherit the references written in the table's header row.
 
 Rules (per segment = paragraph, list item or table row):
@@ -44,6 +46,7 @@ CLAIM_REF = re.compile(r"\[claim:([a-z0-9_.]+)\]", re.I)
 PARAM_REF = re.compile(r"\[param:([a-z0-9_]+)\]", re.I)
 RECORD_REF = re.compile(r"\[record:([0-9a-f-]{8,36})\]", re.I)
 FLAG_REF = re.compile(r"\[flag:([0-9a-f-]{8,36})\]", re.I)
+DATA_REF = re.compile(r"\[dati:([a-z0-9_.-]+)\]", re.I)
 METRIC_REF = re.compile(r"`([a-z0-9_]+)@(\d+)`")
 DOI = re.compile(r"\b10\.\d{4,9}/[^\s)\]>,;]+", re.I)
 MONTHS = {"gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre",
@@ -195,7 +198,7 @@ def segments(text: str) -> list[str]:
 
 
 # ------------------------------------------------------------------ validation
-def validate(text: str, conn: sqlite3.Connection | None = None) -> Result:
+def validate(text: str, conn: sqlite3.Connection | None = None, data: dict[str, list[float]] | None = None) -> Result:
     claims, sources = _kb()
     params = all_params()
     res = Result()
@@ -211,7 +214,7 @@ def validate(text: str, conn: sqlite3.Connection | None = None) -> Result:
                 continue  # separator row
             if i + 1 < len(segs) and re.fullmatch(r"\|[\s:|-]+\|?", segs[i + 1]):
                 header_refs = " ".join(m.group(0) for m in re.finditer(
-                    r"`[a-z0-9_]+@\d+`|\[(?:claim|param|record|flag):[^\]]*\]", seg, re.I))
+                    r"`[a-z0-9_]+@\d+`|\[(?:claim|param|record|flag|dati):[^\]]*\]", seg, re.I))
                 continue  # header row: its references apply to the rows below
             seg = f"{seg} {header_refs}" if header_refs else seg
         else:
@@ -257,6 +260,12 @@ def validate(text: str, conn: sqlite3.Connection | None = None) -> Result:
                 res.issues.append(Issue(seg, f"record inesistente: {rid}"))
                 continue
             support.append((f"record:{rid}", _numbers_in(json.loads(row["payload"])), False))
+
+        for key in DATA_REF.findall(seg):
+            if data is None or key not in data:
+                res.issues.append(Issue(seg, f"dati non forniti dagli strumenti: {key}"))
+                continue
+            support.append((f"dati:{key}", [float(v) for v in data[key]], False))
 
         for fid in FLAG_REF.findall(seg):
             row = None

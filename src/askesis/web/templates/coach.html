@@ -6,6 +6,8 @@
   <div><h1>Coach</h1></div>
 </header>
 
+<a href="/chiedi" class="card ask-entry">{{ icon("coach") }}<span><strong>Chiedi ai dati</strong><small>peso, calorie, esercizi, seduta di oggi…</small></span>{{ icon("chevron") }}</a>
+
 {% if done %}<p class="card notice ok" role="status">{{ icon("ok") }}<span>{{ done }}</span></p>{% endif %}
 {% if error %}<p class="card notice attn" role="alert">{{ icon("warn") }}<span>{{ error }}</span></p>{% endif %}
 
