@@ -60,6 +60,11 @@ def weight_tile(inp: engine.Inputs, day: date) -> Tile:
         else:
             verdict = f"{'in calo' if rate.value < 0 else 'in aumento'} oltre il rumore"
         detail |= {"rate_pct_week": rate.value, "lo": rate.lo, "hi": rate.hi, "rate_ref": rate.ref}
+    # For the page: the verdict as a label of its own, the rest as one short line.
+    detail |= {"verdict": verdict, "verdict_kind": "noise" if "rumore" in verdict and "oltre" not in verdict else
+               ("down" if "calo" in verdict else "up") if verdict else "",
+               "short": ", ".join(x for x in (sub, f"ultima pesata {last.strftime('%d/%m')}" if last < day else "")
+                                  if x)}
     sub = " · ".join(x for x in (sub, verdict) if x)
     if last < day:
         sub += f" · ultima pesata {last.strftime('%d/%m')}"

@@ -89,7 +89,7 @@
     <h2 id="lift-{{ i }}">{{ lift.name }}</h2>
     {% if lift.prescription %}<p class="meta">{{ lift.prescription }}</p>{% endif %}
     {% if lift.rest %}<p class="meta">{{ lift.rest }}</p>{% endif %}
-    {% if lift.last %}<p class="meta">ultima {{ lift.last }}</p>{% endif %}
+    {% if lift.last %}<p class="last-perf"><span>Ultima volta</span> {{ lift.last }}</p>{% endif %}
     {% if lift.machine %}<p class="meta">macchina: {{ lift.machine }}</p>{% endif %}
     <input type="hidden" name="ex_{{ i }}" value="{{ lift.key }}">
     <input type="hidden" name="n_{{ i }}" value="{{ values.rows[i]|length }}">
@@ -97,9 +97,9 @@
       <span></span><span class="col">{{ 'kg (vuoto = corpo)' if lift.bodyweight else 'kg' }}</span><span class="col">Ripetizioni</span><span class="col">RIR</span>
       {% for row in values.rows[i] %}{% set j = loop.index0 %}
       <span class="n">{{ loop.index }}</span>
-      <input name="kg_{{ i }}_{{ j }}" value="{{ row.kg }}" inputmode="decimal" placeholder="{{ lift.load_hint }}" aria-label="{{ lift.name }}, serie {{ loop.index }}, kg">
-      <input name="reps_{{ i }}_{{ j }}" value="{{ row.reps }}" inputmode="numeric" pattern="[0-9]*" aria-label="{{ lift.name }}, serie {{ loop.index }}, ripetizioni">
-      <input name="rir_{{ i }}_{{ j }}" value="{{ row.rir }}" inputmode="decimal" aria-label="{{ lift.name }}, serie {{ loop.index }}, RIR">
+      <input name="kg_{{ i }}_{{ j }}" value="{{ row.kg }}" inputmode="decimal" placeholder="{{ lift.load_hint }}" data-lift="{{ i }}" data-set="{{ j }}" aria-label="{{ lift.name }}, serie {{ loop.index }}, kg">
+      <input name="reps_{{ i }}_{{ j }}" value="{{ row.reps }}" inputmode="numeric" pattern="[0-9]*" placeholder="{{ lift.reps_hint }}" aria-label="{{ lift.name }}, serie {{ loop.index }}, ripetizioni">
+      <input name="rir_{{ i }}_{{ j }}" value="{{ row.rir }}" inputmode="decimal" placeholder="{{ lift.rir_hint }}" aria-label="{{ lift.name }}, serie {{ loop.index }}, RIR">
       {% endfor %}
     </div>
     {% if values.rows[i]|length < lift.base_rows + extra %}
@@ -120,3 +120,4 @@
 </form>
 {% endif %}
 {% endblock %}
+{% block scripts %}{{ super() }}<script src="/static/gym.js?v={{ asset_v }}"></script>{% endblock %}

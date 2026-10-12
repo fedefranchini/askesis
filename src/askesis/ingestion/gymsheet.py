@@ -52,6 +52,8 @@ class Lift:
     base_rows: int
     bodyweight: bool
     load_hint: str  # recommended load, shown as a placeholder only
+    reps_hint: str = ""  # target range, e.g. "6–8" (placeholder only)
+    rir_hint: str = ""  # target RIR (placeholder only)
     existing: dict[int, dict] = field(default_factory=dict)  # n -> current payload (note or page)
 
 
@@ -181,7 +183,8 @@ def build_sheet(conn: sqlite3.Connection, day: date, settings: dict[str, str] | 
                 rest=rest_label(key), last=last_performance(conn, lift["exercise"], day), machine=settings.get(key),
                 planned_sets=lift["sets"], base_rows=max(lift["sets"], max(existing, default=0)),
                 bodyweight=bool(ref and ref.get("load_kind") == "bodyweight"),
-                load_hint=_n(load) if load is not None else "", existing=existing))
+                load_hint=_n(load) if load is not None else "", existing=existing,
+                reps_hint=f"{lift['rep_range'][0]}–{lift['rep_range'][1]}", rir_hint=_n(lift["target_rir"])))
         if s.get("run") and not sheet.has_run:
             r = s["run"]
             sheet.has_run = True

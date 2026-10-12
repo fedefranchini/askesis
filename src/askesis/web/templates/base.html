@@ -39,6 +39,6 @@
       {% block main %}{% endblock %}
     </main>
   </div>
-  {% block scripts %}{% endblock %}
+  {% block scripts %}<script src="/static/app.js?v={{ asset_v }}"></script>{% endblock %}
 </body>
 </html>

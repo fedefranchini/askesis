@@ -308,5 +308,6 @@ def test_reading_a_planned_day_records_no_rule_execution(env):
 
 def test_no_inline_script_or_style_in_the_template():
     t = (config.ROOT / "src/askesis/web/templates/palestra.html").read_text()
-    assert "<script" not in t and " style=" not in t and not re.search(r'(src|href)="https?://', t)
+    assert not re.search(r"<script(?![^>]*\bsrc=)", t)  # scripts only as local files, never inline
+    assert " style=" not in t and not re.search(r'(src|href)="https?://', t)
     assert gymnote.SOURCE_ID == "gym_note"

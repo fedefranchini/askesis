@@ -40,7 +40,8 @@
   <div>
     <span class="label">{{ w.label }}</span>
     <p class="big">{{ w.value|num(1) }}<small>kg</small></p>
-    <span class="sub">{{ w.sub }}</span>
+    {% if w.detail and w.detail.verdict %}<span class="verdict v-{{ w.detail.verdict_kind }}">{{ w.detail.verdict|capitalize }}</span>{% endif %}
+    <span class="sub">{{ w.detail.short if w.detail and w.detail.short is defined else w.sub }}</span>
   </div>
   {% set sp = status.spark %}
   {% if sp %}
@@ -73,7 +74,23 @@
   <section class="card">
     <h2>Da fare</h2>
     {% if S.todo %}
-    <ul class="chips todo">{% for x in S.todo %}<li><a href="{{ '#checkin' if 'heck-in' in x else '#line' }}">{{ x }}</a></li>{% endfor %}</ul>
+    {% set need_w = "Pesata di oggi" in S.todo %}
+    {% set need_f = "Cibo di ieri" in S.todo %}
+    {% if need_w or need_f %}
+    <form method="post" action="/" class="quicklog" data-busy>
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="day" value="{{ status.day.isoformat() }}">
+      <input type="hidden" name="line" value="">
+      {% if need_w %}<label>Peso di oggi<span class="unit-in"><input name="peso" inputmode="decimal" autocomplete="off" aria-label="Peso di oggi, kg"><i>kg</i></span></label>{% endif %}
+      {% if need_f %}<fieldset class="food"><legend>Cibo di ieri</legend>
+        <span class="unit-in"><input name="kcal" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="Energia di ieri, kcal"><i>kcal</i></span>
+        <span class="unit-in"><input name="proteine" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="Proteine di ieri, g"><i>g proteine</i></span>
+      </fieldset>{% endif %}
+      <button type="submit" name="action" value="save">Salva</button>
+    </form>
+    {% endif %}
+    {% set rest = S.todo|reject("in", ["Pesata di oggi", "Cibo di ieri"])|list %}
+    {% if rest %}<ul class="chips todo">{% for x in rest %}<li><a href="{{ '#checkin' if 'heck-in' in x else '#line' }}">{{ x }}</a></li>{% endfor %}</ul>{% endif %}
     {% else %}
     <p class="done">{{ icon("ok") }}Pesata, cibo di ieri e check-in registrati.</p>
     {% endif %}
@@ -106,7 +123,7 @@
   <details>
     <summary><h2 id="ck-title">Check-in del mattino</h2>
       {% if K.answers.morning %}<span class="ck-state">{{ icon("ok") }}{{ K.n_morning }} {{ 'risposta' if K.n_morning == 1 else 'risposte' }}, modifica</span>
-      {% else %}<span class="ck-state">{{ K.morning|length }} domande, circa 30 secondi</span><span class="ck-go">Inizia</span>{% endif %}</summary>
+      {% else %}<span class="ck-go">Inizia</span><span class="ck-state ck-sub">{{ K.morning|length }} domande, circa 30 secondi</span>{% endif %}</summary>
     <form method="post" action="/" class="ck-form" data-stepper>
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <input type="hidden" name="day" value="{{ status.day.isoformat() }}">
@@ -120,9 +137,10 @@
   {% if Q.identical_warning %}<p class="warn">Le risposte sono identiche da {{ Q.identical_streak }} giorni: se ti senti davvero così va benissimo, altrimenti rispondi a come ti senti oggi.</p>{% endif %}
 </section>
 
-<section class="card checkin" aria-labelledby="sd-title">
+{% set training_day = S.session.status == "session" or K.current_post %}
+<section class="card checkin{% if not training_day %} offday{% endif %}" aria-labelledby="sd-title">
   <details{% if K.post_open %} open{% endif %}>
-    <summary><h2 id="sd-title">Dopo l'allenamento</h2>
+    <summary><h2 id="sd-title">{% if training_day %}Dopo l'allenamento{% else %}Allenamento fuori programma?{% endif %}</h2>
       <span class="ck-state">{% if K.current_post %}{{ icon("ok") }}registrato · modifica{% else %}circa 30 minuti dopo la seduta{% endif %}</span></summary>
     <form method="post" action="/" class="ck-form">
       <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -203,4 +221,4 @@
 </section>
 {% endif %}
 {% endblock %}
-{% block scripts %}<script src="/static/checkin.js?v={{ asset_v }}"></script>{% endblock %}
+{% block scripts %}{{ super() }}<script src="/static/checkin.js?v={{ asset_v }}"></script>{% endblock %}

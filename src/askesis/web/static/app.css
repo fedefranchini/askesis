@@ -528,3 +528,32 @@ button.danger-soft { background: transparent; border-color: var(--warn); color: 
 .links-list .flagcount { margin-left: auto; position: static; }
 .links-list .ico:last-child { margin-left: auto; color: var(--text-3); }
 .chart-block .legend { margin-top: 14px; }
+
+/* ------------------------------------------------------------------ daily friction */
+.hero .verdict { display: inline-flex; align-self: flex-start; margin: 2px 0 6px; padding: 4px 10px; border-radius: 12px; font-size: var(--fs-s); font-weight: 600; background: var(--card-2); border: 1px solid var(--line); color: var(--text-2); }
+.hero .verdict.v-down, .hero .verdict.v-up { color: var(--text); border-color: var(--accent); background: rgba(57, 135, 229, 0.14); }
+.hero > div:first-child { display: flex; flex-direction: column; }
+.quicklog { display: flex; flex-direction: column; gap: 14px; margin: 4px 0 12px; }
+.quicklog label, .quicklog legend { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-s); font-weight: 600; color: var(--text-2); min-width: 0; }
+.quicklog .food { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.quicklog .food legend { padding: 0; margin-bottom: 6px; }
+.unit-in { position: relative; display: block; }
+.unit-in input { width: 100%; font-size: 18px; padding-right: 5.2em; }
+.unit-in i { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-style: normal; color: var(--text-3); font-size: var(--fs-s); pointer-events: none; }
+.quicklog button { align-self: flex-start; min-width: 120px; }
+.tiles.n1 { grid-template-columns: 1fr; }
+.tiles.n1 .tile { display: grid; grid-template-columns: 72px 1fr; grid-template-areas: "ring name" "ring status" "ring sub"; align-items: center; justify-items: start; column-gap: 16px; text-align: left; }
+.tiles.n1 .tile .ring { grid-area: ring; width: 72px; height: 72px; }
+.tiles.n1 .tile .name { grid-area: name; }
+.tiles.n1 .tile .status { grid-area: status; }
+.tiles.n1 .tile .sub { grid-area: sub; }
+.checkin > details > summary { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "title go" "sub sub"; }
+.checkin > details > summary h2 { grid-area: title; }
+.checkin > details > summary .ck-go { grid-area: go; }
+.checkin > details > summary .ck-state { grid-area: sub; }
+.checkin > details > summary .ck-state:only-of-type { grid-area: go; }
+.checkin.offday { padding-top: 10px; padding-bottom: 10px; }
+.checkin.offday h2 { font-size: 16px; color: var(--text-2); }
+.last-perf { margin: 8px 0 0; font-size: 15px; font-weight: 600; }
+.last-perf span { color: var(--text-2); font-weight: 600; font-size: var(--fs-s); margin-right: 4px; }
+button[disabled] { opacity: 0.6; cursor: default; }

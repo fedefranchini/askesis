@@ -455,3 +455,19 @@ def test_home_screen_app_icon_and_manifest_are_local(env):
         r = client.get(icon["src"])
         assert r.status_code == 200 and r.headers["content-type"] in ("image/png", "image/svg+xml")
     assert client.get(re.search(r'rel="apple-touch-icon" href="([^"]+)"', html).group(1)).status_code == 200
+
+
+def test_quick_weight_and_food_from_the_to_do_list(env):
+    """Missing weigh-in and yesterday's food: two fields in 'Da fare', saved at once like the dictation line, with
+    decimal commas from the Italian keypad. Once saved, the fields disappear."""
+    client, _, password = env
+    login(client, password)
+    html = client.get("/").text
+    form = re.search(r'<form method="post" action="/" class="quicklog".*?</form>', html, re.S).group(0)
+    for name in ("peso", "kcal", "proteine"):
+        assert f'name="{name}"' in form
+    day = re.search(r'name="day" value="([0-9-]+)"', form).group(1)
+    r = client.post("/", data={"csrf": csrf_of(html), "day": day, "line": "", "peso": "240,5", "kcal": "9000",
+                               "proteine": "300", "action": "save"})
+    assert "Salvato" in r.text and "240,5" in r.text
+    assert 'class="quicklog"' not in client.get("/").text
