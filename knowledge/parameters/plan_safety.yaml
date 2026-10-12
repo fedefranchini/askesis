@@ -20,6 +20,16 @@ parameters:
     unit: consecutive_weeks
     basis: engineering_choice
     rationale: "Requires persistence; the first diet week is excluded (water and glycogen)."
+  illness_max_open_days:
+    value: 14
+    unit: days
+    basis: engineering_choice
+    rationale: "An illness episode nobody closed counts at most this long (as a confounder and for the safety notice); the athlete closes it with 'Sto meglio'."
+  illness_after_days:
+    value: 3
+    unit: days
+    basis: engineering_choice
+    rationale: "A session this close to the end of an illness is still a confounded comparison (noted in the session comment)."
   safety_pain_threshold:
     value: 4
     unit: "0-10"

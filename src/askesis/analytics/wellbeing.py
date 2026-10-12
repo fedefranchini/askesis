@@ -15,6 +15,9 @@ Everything is judged against the athlete's own recent answers, never against pop
   below its baseline, a strength session or an easy-run efficiency down beyond noise in the last
   `convergence_objective_lookback_days` days); the signal is on after `convergence_min_days` consecutive concordant
   days. A day without answers breaks the streak;
+- illness is a declared confounder: answers given on ill days never enter a baseline (they are still judged, against
+  the baseline of the other days, and flagged `ill`), an ill day never counts as concordant, and lagged-link pairs
+  touching an ill day are dropped;
 - lagged links (A2c): a fixed, declared list of pairs (no fishing among all combinations), Spearman correlation with a
   confidence interval, only after `links_min_weeks` weeks of questionnaire and `links_min_pairs` pairs. Always
   presented as a hypothesis, never as a cause.
@@ -137,10 +140,16 @@ def objective_signals(day: date, rhr: dict[date, float], sleep_h: dict[date, flo
 
 # ------------------------------------------------------------------ daily metrics
 def daily(morning: list[tuple[date, dict]], rhr: dict[date, float], sleep_s: list[tuple[date, float]],
-          changes: list[MetricValue], start: date, end: date) -> list[MetricValue]:
-    """Per answered day in [start, end]: item z-scores, the Hooper-inspired index, the convergence streak."""
+          changes: list[MetricValue], start: date, end: date, ill: set[date] | frozenset = frozenset()
+          ) -> list[MetricValue]:
+    """Per answered day in [start, end]: item z-scores, the Hooper-inspired index, the convergence streak.
+
+    `ill`: declared ill days; their answers are judged but excluded from every baseline."""
     series = morning_series([(d, pl) for d, pl in morning if d <= end])
+    healthy = [(d, pl) for d, pl in morning if d <= end and d not in ill]
+    base = morning_series(healthy)  # baselines never see ill days
     idx = index_series(series)
+    idx_base = index_series(base)
     sleep_h = {d: s / 3600 for d, s in sleep_s if d <= end}
     rhr = {d: v for d, v in rhr.items() if d <= end}
     answered = sorted({d for s in series.values() for d in s})
@@ -148,24 +157,25 @@ def daily(morning: list[tuple[date, dict]], rhr: dict[date, float], sleep_s: lis
     streak, prev_day = 0, None
     for d in answered:
         worse = []
+        flag = {"ill": True} if d in ill else {}
         for item in checkin.MORNING:
             if d not in series[item.field]:
                 continue
-            n, mean, sd = baseline(series[item.field], d)
+            n, mean, sd = baseline(base[item.field], d)
             j = judge(series[item.field][d], n, mean, sd, item.direction)
             if j["status"] == "worse":
                 worse.append(item.key)
             if start <= d <= end:
                 out.append(MetricValue("wellbeing_item_z", 1, f"item:{item.key}", d, d, j.get("z"), "z",
-                                       "INFERENCE", n, detail=j | {"direction": item.direction}))
+                                       "INFERENCE", n, detail=j | {"direction": item.direction} | flag))
         if d in idx and start <= d <= end:
-            n, mean, sd = baseline(idx, d)
+            n, mean, sd = baseline(idx_base, d)
             j = judge(idx[d], n, mean, sd, "higher_worse")
             out.append(MetricValue("wellbeing_index", 1, "global", d, d, idx[d], "punti", "INFERENCE", n,
-                                   detail=j | {"label": INDEX_LABEL, "items": list(INDEX_ITEMS)}))
-        ready = readiness(morning, d)["ready"]
+                                   detail=j | {"label": INDEX_LABEL, "items": list(INDEX_ITEMS)} | flag))
+        ready = readiness(healthy, d)["ready"]
         objective = objective_signals(d, rhr, sleep_h, changes) if ready else []
-        concordant = ready and len(worse) >= p("convergence_min_subjective") and \
+        concordant = ready and d not in ill and len(worse) >= p("convergence_min_subjective") and \
             len(objective) >= p("convergence_min_objective")
         consecutive = prev_day is not None and (d - prev_day).days == 1
         streak = (streak + 1 if consecutive else 1) if concordant else 0
@@ -173,7 +183,7 @@ def daily(morning: list[tuple[date, dict]], rhr: dict[date, float], sleep_s: lis
         if start <= d <= end and ready:
             out.append(MetricValue("wellbeing_convergence", 1, "global", d, d, float(streak), "giorni", "INFERENCE",
                                    1, detail={"subjective": worse, "objective": objective,
-                                              "active": streak >= p("convergence_min_days")}))
+                                              "active": streak >= p("convergence_min_days")} | flag))
     return out
 
 
@@ -239,8 +249,8 @@ def spearman_ci(xs: list[float], ys: list[float], level: float) -> tuple[float, 
 
 def link_pairs(link: Link, morning: list[tuple[date, dict]], sleep_s: list[tuple[date, float]],
                feedback: list[tuple[date, str, float | None, int | None]], quality: dict[date, float],
-               end: date) -> list[tuple[float, float]]:
-    """(x, y) pairs for a link with both days ≤ end."""
+               end: date, ill: set[date] | frozenset = frozenset()) -> list[tuple[float, float]]:
+    """(x, y) pairs for a link with both days ≤ end; a pair touching an ill day is dropped."""
     series = morning_series([(d, pl) for d, pl in morning if d <= end])
     rpe: dict[date, float] = {}
     load: dict[date, float] = {}
@@ -259,14 +269,14 @@ def link_pairs(link: Link, morning: list[tuple[date, dict]], sleep_s: list[tuple
     out = []
     for d in sorted(x):
         dy = d + timedelta(days=link.lag_days)
-        if dy <= end and dy in y:
+        if dy <= end and dy in y and d not in ill and dy not in ill:
             out.append((float(x[d]), float(y[dy])))
     return out
 
 
 def links(morning: list[tuple[date, dict]], sleep_s: list[tuple[date, float]],
           feedback: list[tuple[date, str, float | None, int | None]], quality: dict[date, float],
-          end: date) -> list[MetricValue]:
+          end: date, ill: set[date] | frozenset = frozenset()) -> list[MetricValue]:
     """One `lagged_link` per declared pair, as of `end`; value None (with what is missing) until the thresholds."""
     answered = [d for d, pl in morning if d <= end and any(pl.get(i.field) is not None for i in checkin.ITEMS)]
     answered += [d for d in quality if d <= end]
@@ -275,7 +285,7 @@ def links(morning: list[tuple[date, dict]], sleep_s: list[tuple[date, float]],
     need_w, need_n, level = int(p("links_min_weeks")), int(p("links_min_pairs")), float(p("rate_ci_level"))
     out = []
     for link in LINKS:
-        pairs = link_pairs(link, morning, sleep_s, feedback, quality, end)
+        pairs = link_pairs(link, morning, sleep_s, feedback, quality, end, ill)
         detail = {"x": link.x_label, "y": link.y_label, "lag_days": link.lag_days, "weeks": weeks,
                   "weeks_needed": need_w, "pairs_needed": need_n, "tests": len(LINKS), "ci_level": level,
                   "method": "spearman_fisher_z_fieller"}

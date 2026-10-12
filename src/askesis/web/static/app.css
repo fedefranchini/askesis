@@ -574,3 +574,21 @@ button[disabled] { opacity: 0.6; cursor: default; }
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23A9B4BC' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 10l5 5 5-5'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 12px center; background-size: 18px; }
 .picker input { min-height: 48px; }
+
+/* illness */
+.illness { border-color: var(--warn); }
+.illness h2 { display: flex; align-items: center; gap: 8px; margin-top: 0; }
+.illness h2 .ico { color: var(--warn); }
+.ill-actions { margin: 12px 0; }
+.ill-report, .ill-update { margin-top: 12px; }
+.ill-report summary, .ill-update summary { cursor: pointer; color: var(--text-2); font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+.ill-form { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.ill-form > button { align-self: flex-start; }
+.symptoms { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.symptoms legend { padding: 0; margin-bottom: 8px; font-size: var(--fs-s); font-weight: 600; color: var(--text-2); }
+.symptoms input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.symptoms label { display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border-radius: 22px; background: var(--card-2); border: 1px solid var(--line); font-weight: 600; cursor: pointer; user-select: none; }
+.symptoms input:checked + label { background: var(--accent); border-color: var(--accent); color: #fff; }
+.symptoms input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ill-note { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-s); font-weight: 600; color: var(--text-2); }
+.ill-form .check { display: flex; align-items: center; gap: 10px; min-height: 44px; font-weight: 600; }

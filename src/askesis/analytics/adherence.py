@@ -91,19 +91,24 @@ def planned_on(plans, day: date) -> int | None:
     return sum(1 for s in week if s["day"] == WEEKDAYS[day.weekday()] and s.get("lifts"))
 
 
-def sessions_vs_plan(sets, plans, start: date, end: date) -> MetricValue | None:
-    planned, any_prog = 0, False
+def sessions_vs_plan(sets, plans, start: date, end: date, ill_days=frozenset()) -> MetricValue | None:
+    """Sessions done vs planned; planned sessions on declared ill days are excused (not counted as planned)."""
+    planned, excused, any_prog = 0, 0, False
     for i in range(7):  # the weekly metric always covers the ISO week starting at `start`
-        n = planned_on(plans, start + timedelta(days=i))
+        day = start + timedelta(days=i)
+        n = planned_on(plans, day)
         if n is None:
             continue
         any_prog = True
+        if day in ill_days:
+            excused += n
+            continue
         planned += n
     if not any_prog:
         return None
     done = len({s.session_id for s in sets if start <= s.day <= end and s.set_type != "warmup"})
     return MetricValue("sessions_vs_plan_week", 1, "global", start, end, float(done), "sessions", "MEASUREMENT", done,
-                       detail={"planned": planned})
+                       detail={"planned": planned} | ({"excused_ill": excused} if excused else {}))
 
 
 def sleep_week(sleep: list[tuple[date, float]], start: date, end: date) -> MetricValue | None:

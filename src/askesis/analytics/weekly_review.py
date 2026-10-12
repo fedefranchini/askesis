@@ -186,6 +186,19 @@ def _safety(issues, s: _Series) -> Area:
                 extra=[f"- ⚠ {f}" for f in flags])
 
 
+def _day_ranges(days: list[str]) -> str:
+    """'il 12/10' | 'dal 12/10 al 14/10, il 16/10' from ISO dates (consecutive days grouped)."""
+    ds = sorted(date.fromisoformat(x) for x in days)
+    groups: list[list[date]] = []
+    for d in ds:
+        if groups and (d - groups[-1][-1]).days == 1:
+            groups[-1].append(d)
+        else:
+            groups.append([d])
+    f = lambda d: f"{d.day}/{d.month}"  # noqa: E731
+    return ", ".join(f"il {f(g[0])}" if len(g) == 1 else f"dal {f(g[0])} al {f(g[-1])}" for g in groups)
+
+
 def _data_quality(s: _Series) -> Area:
     parts, grades, trends = [], [], []
     for subject, what in (("domain:body", "pesate"), ("domain:nutrition", "giorni di cibo completi")):
@@ -210,6 +223,11 @@ def _data_quality(s: _Series) -> Area:
               "D": "copertura scarsa: le altre valutazioni restano incerte"}[key]
     action = ("registra il peso ogni mattina e il cibo completo del giorno prima"
               if status in (GIALLO, ROSSO, NV) else "continua a registrare peso e cibo come ora")
+    ill = s.get("illness_days_week")
+    if ill is not None:  # declared illness: a confounder, said once (here) for the whole review
+        interp += ("; settimana con malattia dichiarata " + _day_ranges(ill.detail.get("days", [])) +
+                   ": le sedute pianificate in quei giorni non contano come saltate e i confronti con le altre "
+                   f"settimane sono meno affidabili — {_cite(ill)}")
     reason = {"missing": "nessun dato", "A": "copertura ampia", "B": "copertura ampia", "C": "copertura parziale",
               "D": "copertura scarsa"}[key]
     return Area("Dati", status, reason, "peggior grado tra pesate e cibo: A o B verde, C giallo, D rosso "

@@ -55,6 +55,12 @@ def lines(records: list[dict]) -> list[str]:
             free = (f" (di cui ~{_n(p['free_meal_estimate_kcal'], 0)} kcal stimate, pasto libero)"
                     if p.get("free_meal_estimate_kcal") else "")
             out.append(f"Cibo {_d(d)}: {_n(p.get('energy_kcal', 0), 0)} kcal{free}{prot}{tag}")
+        elif e == "health_event" and p.get("kind") == "illness":
+            if p.get("status") == "risolto":
+                out.append(f"Malessere iniziato il {_d(d)}: concluso, ultimo giorno {_d(p.get('end') or d)}")
+            else:
+                out.append(f"Malessere dal {_d(d)}: {p.get('description') or 'senza dettagli'}"
+                           + (" (con febbre)" if p.get("fever") else ""))
         elif e == "body_measurement":
             out.append(f"Vita {_d(d)}: " + " · ".join(f"{_n(x)} cm" for x in p["readings_cm"]))
         elif e == "training_session":

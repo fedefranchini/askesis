@@ -21,7 +21,7 @@ from askesis.plan import calorie_rule
 from askesis.plan import rules as plan_rules
 from askesis.plan import store as plan_store
 
-from . import adherence, body, engine
+from . import adherence, body, engine, illness
 from .params import p
 
 
@@ -110,13 +110,14 @@ def nutrition_tiles(inp: engine.Inputs, day: date) -> list[Tile]:
 def sessions_tile(inp: engine.Inputs, day: date) -> Tile:
     """Strength sessions this ISO week: done vs planned. Attention only for sessions planned before today."""
     monday = day - timedelta(days=day.weekday())
-    week = adherence.sessions_vs_plan(inp.sets, inp.plans, monday, monday + timedelta(days=6))
+    ill = frozenset(illness.ill_days(inp.illness, day))  # sessions planned on ill days are excused, not missed
+    week = adherence.sessions_vs_plan(inp.sets, inp.plans, monday, monday + timedelta(days=6), ill)
     if week is None:
         return Tile("sessions", "Sedute della settimana", None, "", "nessun programma attivo",
                     ref="sessions_vs_plan_week@1")
     yesterday = day - timedelta(days=1)
     done_before = len({s.session_id for s in inp.sets if monday <= s.day <= yesterday and s.set_type != "warmup"})
-    planned_before = _planned(inp, monday, yesterday)
+    planned_before = _planned(inp, monday, yesterday, ill)
     done = len({s.session_id for s in inp.sets if monday <= s.day <= day and s.set_type != "warmup"})
     planned = week.detail["planned"]
     tile = Tile("sessions", "Sedute della settimana", float(done), f"di {planned}", ref="sessions_vs_plan_week@1",
@@ -128,8 +129,9 @@ def sessions_tile(inp: engine.Inputs, day: date) -> Tile:
     return tile
 
 
-def _planned(inp: engine.Inputs, start: date, end: date) -> int:
-    return sum(adherence.planned_on(inp.plans, start + timedelta(days=i)) or 0 for i in range((end - start).days + 1))
+def _planned(inp: engine.Inputs, start: date, end: date, ill=frozenset()) -> int:
+    days = [start + timedelta(days=i) for i in range((end - start).days + 1)]
+    return sum(adherence.planned_on(inp.plans, d) or 0 for d in days if d not in ill)
 
 
 def sleep_tile(inp: engine.Inputs, day: date) -> Tile:

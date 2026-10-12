@@ -27,7 +27,40 @@
   {% endif %}
 </header>
 
-{% for f in status.flags %}
+{% set ILL = status.illness %}
+{% macro symptom_boxes(selected=[]) -%}
+<fieldset class="symptoms"><legend>Sintomi</legend>
+  {% for key, (label, below, fever) in status.symptoms.items() %}
+  <input type="checkbox" id="sym_{{ key }}" name="sym_{{ key }}" value="1"{% if label in selected %} checked{% endif %}><label for="sym_{{ key }}">{{ label|capitalize }}</label>
+  {% endfor %}
+</fieldset>
+<label class="ill-note">Altro (facoltativo)<input name="ill_note" maxlength="200" autocomplete="off"></label>
+{%- endmacro %}
+
+{% if ILL %}
+{% set row, ep = ILL %}
+<section class="card illness" aria-labelledby="ill-title">
+  <h2 id="ill-title">{{ icon("alert") }}Malessere dal {{ ep.start.strftime("%d/%m") }}</h2>
+  <p>{{ ep.description or "senza dettagli" }}.
+    {% if ep.fever or ep.below_neck %}<strong>Niente allenamento finché non passa.</strong>
+    {% else %}<strong>Niente allenamento intenso</strong>: camminare va bene se ti senti.{% endif %}
+    Le sedute di questi giorni non contano come saltate e i confronti tengono conto del malessere.</p>
+  <form method="post" action="/" class="ill-actions">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button type="submit" name="action" value="ill_recover">Sto meglio</button>
+  </form>
+  <details class="ill-update"><summary>Aggiorna i sintomi</summary>
+    <form method="post" action="/" class="ill-form">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      {{ symptom_boxes(ep.symptoms) }}
+      <button type="submit" name="action" value="ill_update" class="secondary">Aggiorna</button>
+    </form>
+  </details>
+  <p class="hint">Dolore o oppressione al petto, palpitazioni con capogiro, fiato corto: stop e medico, 112 se acuti.</p>
+</section>
+{% endif %}
+
+{% for f in status.flags if not (ILL and f.rule_id == "safety.illness@1") %}
 <section class="flag tier-{{ f.tier }}" role="alert">
   {{ icon("alert") }}
   <p><strong>{{ f.message }}</strong></p>
@@ -93,6 +126,18 @@
     {% if rest %}<ul class="chips todo">{% for x in rest %}<li><a href="{{ '#checkin' if 'heck-in' in x else '#line' }}">{{ x }}</a></li>{% endfor %}</ul>{% endif %}
     {% else %}
     <p class="done">{{ icon("ok") }}Pesata, cibo di ieri e check-in registrati.</p>
+    {% endif %}
+    {% if not ILL %}
+    <details class="ill-report"><summary>Non sto bene oggi</summary>
+      <form method="post" action="/" class="ill-form">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        {{ symptom_boxes() }}
+        <label class="check"><input type="checkbox" name="food_today" value="1"> Il cibo di oggi non lo registro</label>
+        {% if not status.food %}<label class="check"><input type="checkbox" name="food_yesterday" value="1"> Nemmeno quello di ieri</label>{% endif %}
+        <p class="hint">Le sedute di questi giorni non contano come saltate. Con febbre o sintomi sotto il collo niente allenamento finché non passa.</p>
+        <button type="submit" name="action" value="ill_report">Segna il malessere</button>
+      </form>
+    </details>
     {% endif %}
   </section>
   <section class="card">

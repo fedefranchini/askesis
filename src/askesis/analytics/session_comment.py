@@ -11,10 +11,23 @@ import json
 import sqlite3
 from datetime import date
 
+from askesis.analytics import illness
 from askesis.analytics.base import MetricValue
 from askesis.analytics.params import p
 from askesis.plan import rules as plan_rules
 from askesis.reference import exercise_label
+
+ILLNESS_NOTE = ("Nota: la seduta è avvenuta durante o subito dopo un malessere dichiarato, quindi il confronto con la "
+                "seduta precedente è meno affidabile.")
+
+
+def _near_illness(conn: sqlite3.Connection, day: date) -> bool:
+    """True when `day` is an ill day or within `illness_after_days` after the end of a declared episode."""
+    eps = [e for r in conn.execute("SELECT id, local_date, payload FROM v_current WHERE entity_type = 'health_event'")
+           if (e := illness.from_record(r["id"], r["local_date"], json.loads(r["payload"]))) is not None]
+    if day in illness.ill_days(eps, day):
+        return True
+    return any(e.end is not None and 0 < (day - e.end).days <= p("illness_after_days") for e in eps)
 
 
 def _n(v: float, nd: int = 1) -> str:
@@ -60,6 +73,8 @@ def render(conn: sqlite3.Connection, values: list[MetricValue], day: date) -> st
          "Per ogni esercizio: la serie migliore della seduta come e1RM stimato, confrontata con la seduta precedente "
          "e con il rumore delle tue sedute passate; senza e1RM, le ripetizioni allo stesso carico.", "",
          "## Esercizi", ""]
+    if _near_illness(conn, day):
+        L[2:2] = [ILLNESS_NOTE, ""]
     downs = []
     for subj in subjects:
         name = exercise_label(subj.split(":", 1)[1])

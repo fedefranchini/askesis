@@ -177,6 +177,46 @@ def _health_signals(conn, on: date) -> list[Flag]:
     return out
 
 
+def _illness_episodes(conn, on: date) -> list:
+    from askesis.analytics import illness
+
+    rows = conn.execute("""SELECT id, local_date, payload FROM v_current WHERE entity_type='health_event'
+                           AND local_date BETWEEN ? AND ?""",
+                        ((on - timedelta(days=int(p("illness_max_open_days")) + 60)).isoformat(), on.isoformat()))
+    return [e for r in rows if (e := illness.from_record(r["id"], r["local_date"], json.loads(r["payload"])))]
+
+
+def _illness(conn, on: date) -> list[Flag]:
+    """An illness the athlete reported and has not closed: no intense training until it passes (plan stop criterion).
+    T1, so interventions that add stress (including calorie cuts) wait; the phase itself is not paused."""
+    out = []
+    for e in _illness_episodes(conn, on):
+        if not e.open_on(on):
+            continue
+        heavy = e.fever or e.below_neck
+        what = ", ".join(e.symptoms) or e.description or "malessere"
+        out.append(Flag(
+            "safety.illness@1", "T1", e.start,
+            ("Malattia in corso con febbre o sintomi sotto il collo (" + what + "): niente allenamento finché non "
+             "passa." if heavy else
+             "Malessere in corso (" + what + "): niente allenamento intenso; attività leggera solo se ti senti bene."),
+            {"record": e.record_id, "symptoms": list(e.symptoms), "fever": e.fever, "below_neck": e.below_neck},
+            (["riposo", "riprendere dopo la fine della febbre, con volume ridotto"] if heavy else
+             ["nessuna seduta intensa", "camminare va bene", "alla ripresa volume ridotto"])
+            + ["sintomi al petto, palpitazioni con capogiro o fiato corto: stop e medico (112 se acuti)"],
+            e.record_id,
+        ))
+    return out
+
+
+def _close_finished_illness(conn, on: date) -> None:
+    """An illness flag closes by itself when its episode is over (closed by the athlete, or too old)."""
+    open_now = {e.record_id for e in _illness_episodes(conn, on) if e.open_on(on)}
+    for f in conn.execute("SELECT id, signals FROM v_safety_open WHERE rule_id = 'safety.illness@1'").fetchall():
+        if json.loads(f["signals"]).get("record") not in open_now:
+            resolve(conn, f["id"], "episodio di malattia concluso")
+
+
 def _low_intake(inp, on: date) -> list[Flag]:
     daily = body.daily_weights(inp.weighins)
     means = energy.intake_mean(inp.nutrition, on, 7)
@@ -250,8 +290,9 @@ def _reds_pattern(inp, on: date) -> list[Flag]:
 def evaluate(conn: sqlite3.Connection, on: date, cutoff: datetime | None = None, persist: bool = True) -> list[Flag]:
     inp = load_inputs(conn, cutoff)
     flags = (_rapid_weight_loss(conn, inp, on) + _pain(conn, on) + _health_signals(conn, on) + _low_intake(inp, on)
-             + _reds_pattern(inp, on))
+             + _reds_pattern(inp, on) + _illness(conn, on))
     if persist:
+        _close_finished_illness(conn, on)
         with conn:
             for f in flags:
                 conn.execute(

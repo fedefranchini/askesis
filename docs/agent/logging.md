@@ -72,3 +72,9 @@ JSON per record, **solo in append** (`>>`). Formato envelope v0:
 (es. manuale) vince; passi = sorgente con il totale più alto del giorno; sonno sul giorno del risveglio; cibo da Salute
 importato come `partial` (completezza non verificabile); il giorno dell'esportazione è escluso; reimportare è
 idempotente e un totale cambiato diventa una correzione. Dopo l'import il file si elimina o si archivia cifrato.
+
+## Malessere
+- `bin/ak log ill raffreddore gola [--note …] [--food-not-logged]` apre l'episodio (sintomi da un elenco fisso: febbre e
+  sintomi sotto il collo sono dedotti); `bin/ak log recovered` lo chiude (ultimo giorno = il giorno prima). Dalla
+  dashboard: «Non sto bene oggi» in Oggi, poi «Aggiorna i sintomi» o «Sto meglio».
+- Il cibo non registrato per malattia si segna come `completeness: not_logged`, mai come stima o zero.

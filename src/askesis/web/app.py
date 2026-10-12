@@ -34,7 +34,7 @@ from askesis.analytics import body, engine, records, trends
 from askesis.analytics import today as today_mod
 from askesis.analytics.params import p
 from askesis.core.timeutil import now_utc
-from askesis.ingestion import gymsheet, health_sync
+from askesis.ingestion import gymsheet, health_sync, illness_log
 from askesis.ingestion.pipeline import ingest
 from askesis.interventions import present
 from askesis.interventions import registry as reg
@@ -341,7 +341,33 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         return {"day": day, "weight": has("body_weight", day), "food": has("nutrition_day", day - timedelta(days=1)),
                 "flags": [dict(f) | {"actions": json.loads(f["actions"])} for f in safety.open_flags(c)],
                 "summary": (s := today_mod.summary(c, day)), "spark": sparkline(c, day),
-                "checkin": checkin_ctx(c, day, s)}
+                "checkin": checkin_ctx(c, day, s), "illness": illness_log.open_episode(c, day),
+                "symptoms": illness_log.SYMPTOMS}
+
+    def illness_action(c, form: dict) -> dict:
+        """'Non sto bene' (new episode), symptom update, 'Sto meglio' (episode closed). Saved at once with a
+        read-back, like weight and food; safety is re-evaluated for today (the episode may have started earlier)."""
+        t, now = today(), now_utc()
+        action = str(form.get("action"))
+        keys = [k for k in illness_log.SYMPTOMS if form.get(f"sym_{k}")]
+        note = str(form.get("ill_note") or "")[:200]
+        current = illness_log.open_episode(c, t)
+        try:
+            if action == "ill_report" and current is None:
+                food = tuple(d for d, key in ((t, "food_today"), (t - timedelta(days=1), "food_yesterday"))
+                             if form.get(key))
+                records = illness_log.report(cfg, now, t, keys, note, food)
+            elif action == "ill_update" and current is not None:
+                records = [illness_log.update(current[0], now, keys, note)]
+            elif action == "ill_recover" and current is not None:
+                records = [illness_log.recover(current[0], now, t)]
+            else:
+                return {"error": "Niente da aggiornare: ricarica la pagina.", "status": status_today(c, t)}
+        except illness_log.IllnessError as exc:
+            return {"error": str(exc), "status": status_today(c, t)}
+        saved = services.save(c, records, "web_day")
+        safety.evaluate(c, t)
+        return {"saved": saved, "status": status_today(c, t)}
 
     def compose_line(f: dict) -> str:
         """Ready-made fields → the same dictation line the CLI parses (one path for every interface)."""
@@ -404,6 +430,8 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
             if form is None:
                 ctx["error"] = "Sessione scaduta: ricarica la pagina e ripeti l'inserimento."
                 return page(request, "oggi.html", **ctx)
+            if str(form.get("action", "")).startswith("ill_"):
+                return page(request, "oggi.html", **(ctx | illness_action(c, form)))
             line = str(form.get("line") or "").strip() or compose_line(form)
             ctx["line"] = line
             try:

@@ -16,11 +16,11 @@ from askesis.core.ids import new_id
 from askesis.core.timeutil import iso, now_utc
 from askesis.store import repository as repo
 
-from . import adherence, body, energy, load, records, running, session, training, wellbeing
+from . import adherence, body, energy, illness, load, records, running, session, training, wellbeing
 from .base import MetricValue, r6
 from .params import PARAMS_DIR, p
 
-ENGINE_VERSION = "0.8.0"
+ENGINE_VERSION = "0.9.0"
 
 
 @dataclass
@@ -40,6 +40,7 @@ class Inputs:
     morning: list[tuple[date, dict]] = field(default_factory=list)  # morning questionnaire payloads
     session_quality: dict[date, float] = field(default_factory=dict)  # post-session quality (mean of the day)
     rhr: dict[date, float] = field(default_factory=dict)  # resting heart rate per day
+    illness: list[illness.Episode] = field(default_factory=list)  # declared illness episodes (a confounder)
     fingerprint: str = ""
     dates: list[date] = field(default_factory=list)
 
@@ -85,6 +86,8 @@ def load_inputs(conn: sqlite3.Connection, cutoff: datetime | None = None) -> Inp
             inp.morning.append((d, pl))
         elif e == "resting_hr_daily" and pl.get("bpm") is not None:
             inp.rhr[d] = float(pl["bpm"])
+        elif e == "health_event" and (ep := illness.from_record(r["id"], r["local_date"], pl)) is not None:
+            inp.illness.append(ep)  # versions are resolved by repo.current at the cutoff: no look-ahead
         elif e == "athlete_attribute":
             valid = pl.get("valid_from")
             inp.attr_history.append((date.fromisoformat(str(valid)) if valid else d, pl["key"], pl["value"]))
@@ -174,7 +177,8 @@ def compute(inp: Inputs, start: date, end: date) -> list[MetricValue]:
     changes = [m for m in session.session_metrics(inp.sets, lookback, end) if m.metric_id == "e1rm_session_change"]
     changes += [m for m in running.efficiency(inp.runs, inp.plans, lookback, end)
                 if m.metric_id == "run_efficiency_change"]
-    vals += wellbeing.daily(inp.morning, inp.rhr, inp.sleep, changes, start, end)
+    vals += wellbeing.daily(inp.morning, inp.rhr, inp.sleep, changes, start, end,
+                            ill=illness.ill_days(inp.illness, end))
     for ws, we in iso_weeks(start, end):
         for m in (body.weight_ema(daily, we), body.weight_ma7(daily, we),
                   energy.adaptive_tdee(inp.nutrition, daily, athlete_as_of(inp, we), we),
@@ -189,14 +193,19 @@ def compute(inp: Inputs, start: date, end: date) -> list[MetricValue]:
         vals += training.context_week(inp.context, ws, we)
         vals += dq_week(inp, daily, ws, we)
         vals += adherence.vs_target(inp.nutrition, inp.plans, ws, we)
-        sv = adherence.sessions_vs_plan(inp.sets, inp.plans, ws, we)
+        week_ill = sorted(d for d in illness.ill_days(inp.illness, we) if ws <= d <= we)
+        if week_ill:  # declared confounder of the week (read by the review)
+            vals.append(MetricValue("illness_days_week", 1, "global", ws, we, float(len(week_ill)), "giorni",
+                                    "FACT", len(week_ill), detail={"days": [d.isoformat() for d in week_ill]}))
+        sv = adherence.sessions_vs_plan(inp.sets, inp.plans, ws, we, ill_days=set(week_ill))
         sl = adherence.sleep_week(inp.sleep, ws, we)
         vals += [m for m in (sv, sl) if m]
         vals += adherence.waist_change(inp.waist, ws, we)
         vals += adherence.e1rm_change(weekly_e1rm, ws, we)
         vals += load.load_week(inp.feedback, strength_days, run_days, ws, we, max(inp.dates, default=None))
         if inp.morning or inp.session_quality:
-            vals += wellbeing.links(inp.morning, inp.sleep, inp.feedback, inp.session_quality, min(we, end))
+            vals += wellbeing.links(inp.morning, inp.sleep, inp.feedback, inp.session_quality, min(we, end),
+                                   ill=illness.ill_days(inp.illness, min(we, end)))
     return sorted(vals, key=lambda m: (m.metric_id, m.subject, m.period_start, m.period_end))
 
 

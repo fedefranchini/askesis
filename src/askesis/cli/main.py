@@ -58,6 +58,11 @@ def _describe(env: Envelope) -> str:
     e = env.entity_type
     if e == "body_weight":
         return f"peso {p['value_kg']} kg ({env.local_date})"
+    if e == "nutrition_day" and p.get("completeness") == "not_logged":
+        return f"cibo {env.local_date}: non registrato"
+    if e == "health_event" and p.get("kind") == "illness":
+        state = f"concluso il {p['end']}" if p.get("status") == "risolto" and p.get("end") else "in corso"
+        return f"malessere dal {env.local_date}: {p.get('description', '')} ({state})"
     if e == "nutrition_day":
         prot = f" · {p['protein_g']:g} g proteine" if "protein_g" in p else ""
         return f"cibo {env.local_date}: {p.get('energy_kcal', 0):g} kcal{prot} [{p['completeness']}]"
@@ -237,6 +242,47 @@ def checkin_scales() -> None:
 def why(number: int) -> None:
     """Perché abbiamo cambiato X (intervento n.), cosa sapevamo e cosa è successo."""
     f3.why_cmd(number)
+
+
+@log_app.command("ill")
+def log_ill(
+    symptoms: Annotated[list[str], typer.Argument(
+        help="raffreddore gola testa febbre tosse dolori stomaco stanchezza")],
+    note: Annotated[str, typer.Option("--note", help="Altro, in breve")] = "",
+    food_not_logged: Annotated[bool, typer.Option("--food-not-logged", help="Cibo del giorno non registrato")] = False,
+    date_: DateOpt = None,
+) -> None:
+    """Malessere: inizio dell'episodio (le sedute non contano come saltate; con febbre o sintomi sotto il collo,
+    niente allenamento finché non passa). Chiuderlo con «log recovered»."""
+    from askesis.ingestion import illness_log
+
+    cfg, conn = _ctx()
+    d = _day(date_, cfg)
+    unknown = [s for s in symptoms if s not in illness_log.SYMPTOMS]
+    if unknown:
+        raise typer.BadParameter(f"sintomi non riconosciuti: {', '.join(unknown)}")
+    if illness_log.open_episode(conn, d):
+        raise typer.BadParameter("c'è già un malessere aperto: aggiornalo dalla dashboard o chiudilo («log recovered»)")
+    try:
+        records = illness_log.report(cfg, now_utc(), d, symptoms, note, (d,) if food_not_logged else ())
+    except illness_log.IllnessError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    _commit(records, "manual_cli")
+
+
+@log_app.command("recovered")
+def log_recovered(date_: DateOpt = None) -> None:
+    """Sto meglio: chiude il malessere aperto (ultimo giorno di malattia = il giorno prima)."""
+    from askesis.ingestion import illness_log
+    from askesis.safety import rules as safety_rules
+
+    cfg, conn = _ctx()
+    d = _day(date_, cfg)
+    current = illness_log.open_episode(conn, d)
+    if current is None:
+        raise typer.BadParameter("nessun malessere aperto")
+    _commit([illness_log.recover(current[0], now_utc(), d)], "manual_cli")
+    safety_rules.evaluate(conn, d)
 
 
 @log_app.command("event")
