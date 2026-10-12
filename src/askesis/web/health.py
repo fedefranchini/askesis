@@ -1,7 +1,9 @@
-"""Dashboard reachability check, run by a launchd agent: everything that can be verified from this Mac.
+"""Dashboard reachability check, run by a launchd agent (macOS) or a systemd timer (Linux): everything that can be
+verified from this machine.
 
-What it cannot see: the phone's side (its VPN app, its permissions). An HTTP request from this Mac to its own tunnel
-address does not test that path either (it is routed into the tunnel), so listening sockets are read with lsof.
+What it cannot see: the phone's side (its VPN app, its permissions). An HTTP request from this machine to its own
+tunnel address does not test that path either (it is routed into the tunnel), so listening sockets are read with
+lsof (macOS) or ss (Linux).
 Notifications are sent only when the state changes (problem appears, changes, or is solved), never on every run.
 """
 
@@ -16,9 +18,19 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .. import notify
 from . import netwatch
 
 LABEL = "local.askesis.dashboard"
+SYSTEMD_UNIT = "askesis-dashboard.service"
+
+
+def _linux() -> bool:
+    return sys.platform.startswith("linux")
+
+
+def _host() -> str:
+    return "server" if _linux() else "Mac"
 
 
 @dataclass
@@ -39,14 +51,36 @@ def _run(args: list[str]) -> str:
 
 
 def agent_running(label: str = LABEL) -> bool:
+    if _linux():
+        return _run(["systemctl", "is-active", SYSTEMD_UNIT]).strip() == "active"
     out = _run(["/bin/launchctl", "print", f"gui/{os.getuid()}/{label}"])
     return bool(re.search(r"^\s*state = running", out, re.M))
 
 
 def listening(port: int) -> set[str]:
     """Local addresses with a TCP socket listening on the port (any process of this user)."""
+    if _linux():
+        return parse_ss_listening(_run(["ss", "-ltnH"]), port)
     out = _run(["/usr/sbin/lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-Fn"])
     return {m.group(1) for m in re.finditer(r"^n(\S+):\d+$", out, re.M)}
+
+
+def _ss_addr(local: str) -> tuple[str, str]:
+    """Split an ss `Local Address:Port` column into (address, port); IPv6 comes as `[addr]:port`."""
+    host, _, port = local.rpartition(":")
+    return host.strip("[]"), port
+
+
+def parse_ss_listening(text: str, port: int) -> set[str]:
+    """Local addresses from `ss -ltnH` (Recv-Q Send-Q Local:Port Peer:Port) listening on the port."""
+    found = set()
+    for line in text.splitlines():
+        cols = line.split()
+        if len(cols) >= 4:
+            host, p = _ss_addr(cols[3] if cols[0].isalpha() else cols[2])  # State column present or not
+            if p == str(port) and host:
+                found.add(host)
+    return found
 
 
 def loopback_answers(port: int) -> bool:
@@ -60,6 +94,8 @@ def loopback_answers(port: int) -> bool:
 
 def firewall_blocks(executable: str) -> bool:
     """True when the macOS application firewall would block incoming connections to this executable."""
+    if _linux():
+        return False
     tool = "/usr/libexec/ApplicationFirewall/socketfilterfw"
     state = _run([tool, "--getglobalstate"])
     if "enabled" not in state.lower():
@@ -111,12 +147,16 @@ def full_tunnel_vpns(nc_list: str | None = None, flags: dict[str, bool] | None =
     """Connected VPNs that force all traffic through the tunnel. Observed (NordVPN, Kill Switch on): the phone's
     request reaches the Mac but macOS drops the reply before any interface, so connections opened by the phone never
     complete; with the VPN connected and the kill switch off, they do."""
+    if _linux():
+        return []
     flags = include_all_networks() if flags is None else flags
     return [n for n in connected_vpns(nc_list) if flags.get(n)]
 
 
 def half_open(port: int, clients: list[str], netstat_text: str | None = None) -> list[str]:
     """Allowed clients with connections stuck in SYN_RCVD: their request arrives, the reply never completes."""
+    if _linux():
+        return [p for p in parse_ss_syn_recv(_run(["ss", "-tnH", "state", "syn-recv"]), port) if p in clients]
     if netstat_text is None:
         netstat_text = _run(["/usr/sbin/netstat", "-an", "-p", "tcp"])
     found = []
@@ -125,6 +165,19 @@ def half_open(port: int, clients: list[str], netstat_text: str | None = None) ->
         if len(cols) >= 6 and cols[3].endswith(f".{port}") and cols[5] == "SYN_RCVD":
             peer = cols[4].rsplit(".", 1)[0]
             if peer in clients and peer not in found:
+                found.append(peer)
+    return found
+
+
+def parse_ss_syn_recv(text: str, port: int) -> list[str]:
+    """Peer addresses from `ss -tnH state syn-recv` (Recv-Q Send-Q Local:Port Peer:Port) towards the port."""
+    found = []
+    for line in text.splitlines():
+        cols = line.split()
+        if len(cols) >= 4:
+            _, lport = _ss_addr(cols[2])
+            peer, _ = _ss_addr(cols[3])
+            if lport == str(port) and peer and peer not in found:
                 found.append(peer)
     return found
 
@@ -152,12 +205,12 @@ def check(cfg, port: int, since: str = "", executable: str = sys.executable) -> 
     remote = [a for a in netwatch.resolve(cfg.web_bind) if a not in ("127.0.0.1", "::1")]
     tunnels = [e for e in cfg.web_bind if e.startswith(netwatch.TUNNEL)]
     if tunnels and not remote:
-        r.problems.append("nessun indirizzo della VPN sul Mac (Meshnet spenta o disconnessa?)")
+        r.problems.append(f"nessun indirizzo della VPN sul {_host()} (Meshnet spenta o disconnessa?)")
     up = netwatch.present(remote)
     socks = listening(port)
     for a in remote:
         if a not in up:
-            r.problems.append(f"{a} non è presente sul Mac (Meshnet spenta o indirizzo cambiato?)")
+            r.problems.append(f"{a} non è presente sul {_host()} (Meshnet spenta o indirizzo cambiato?)")
         elif a not in socks:
             r.problems.append(f"{a} è attivo ma la dashboard non è in ascolto lì (riavvio in corso?)")
         else:
@@ -166,7 +219,7 @@ def check(cfg, port: int, since: str = "", executable: str = sys.executable) -> 
         r.problems.append(f"Kill Switch attivo sulla VPN «{name}» (tutto il traffico forzato nel tunnel): macOS scarta "
                           "le risposte alle connessioni dall'iPhone; spegni il Kill Switch, la VPN può restare accesa")
     for host in half_open(port, cfg.web_allowed_clients):
-        r.problems.append(f"connessioni da {host} bloccate a metà (la risposta del Mac non arriva)")
+        r.problems.append(f"connessioni da {host} bloccate a metà (la risposta del {_host()} non arriva)")
     if remote and firewall_blocks(executable):
         r.problems.append("il firewall di macOS blocca le connessioni in entrata verso Python")
     for host in rejected_clients(cfg.db_path.parent / "web.log", since):
@@ -188,6 +241,4 @@ def notify_on_change(report: Report, state_file: Path, send=None) -> bool:
 
 
 def _osascript(text: str) -> None:
-    safe = text.replace("\\", "").replace('"', "'")
-    subprocess.run(["osascript", "-e", f'display notification "{safe}" with title "Askesis — dashboard"'],
-                   check=False)
+    notify.send(text, "Askesis — dashboard")

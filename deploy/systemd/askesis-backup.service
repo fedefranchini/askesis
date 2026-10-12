@@ -1,0 +1,17 @@
+[Unit]
+Description=Askesis nightly backup: snapshot, restore test, sealed copy, offsite copy
+
+[Service]
+Type=oneshot
+User=askesis
+Group=askesis
+EnvironmentFile=/etc/askesis/env
+ExecStart=/opt/askesis/bin/ak backup
+ExecStart=/opt/askesis/bin/ak backup verify --notify
+ExecStart=/opt/askesis/bin/ak backup seal
+ExecStart=/opt/askesis/bin/ak backup offsite
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/askesis

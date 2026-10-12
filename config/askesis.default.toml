@@ -10,5 +10,13 @@ backup_dir = "data/backups"
 staging_dir = "data/staging"
 source_id = "manual_cli"
 
+# Sealed backups (bin/ak backup seal): encrypted with age to public keys only, private key never on the server.
+backup_age_recipients = []          # ["age1…"]: without a key nothing is sealed
+backup_sealed_dir = "data/sealed"   # *.db.gz.age + manifest.json: the only backup files that leave the machine
+backup_offsite = ""                 # rclone destination, e.g. "drive:askesis-backup" ("" = off)
+backup_pull_from = ""               # development machine: rsync source on the server, e.g. "askesis-backup:"
+backup_pull_dir = "data/pulled"     # development machine: where pulled sealed copies are kept
+backup_identity = ""                # development machine: age private key file or "keychain:<service>"
+
 # alias -> daily_context key, e.g.  myvar = "my_context_variable". Define personal ones privately.
 [context_aliases]

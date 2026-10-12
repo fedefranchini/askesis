@@ -1,0 +1,45 @@
+#!/usr/bin/python3 -I
+"""SSH forced command for the agent's key: only `ak <arguments>` is executed, without a shell.
+
+authorized_keys:  restrict,command="/opt/askesis/deploy/ak-gate" ssh-ed25519 AAAA… agent
+Anything else (a shell, scp, port forwarding, another program) is refused. Every command is logged to the journal.
+"""
+
+import os
+import shlex
+import subprocess
+import sys
+
+AK = "/opt/askesis/bin/ak"
+ENV_FILE = "/etc/askesis/env"
+
+
+def env() -> dict[str, str]:
+    out = {"PATH": "/opt/askesis-tools/bin:/usr/bin:/bin", "HOME": os.environ.get("HOME", "/var/lib/askesis"),
+           "LANG": "C.UTF-8"}
+    with open(ENV_FILE, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                out[k] = v
+    return out
+
+
+def main() -> int:
+    original = os.environ.get("SSH_ORIGINAL_COMMAND", "")
+    try:
+        argv = shlex.split(original)
+    except ValueError:
+        argv = []
+    if not argv or argv[0] not in ("ak", "bin/ak", AK):
+        print("solo comandi «ak …» sono ammessi con questa chiave", file=sys.stderr)
+        subprocess.run(["logger", "-t", "askesis-ak-gate", f"rifiutato: {original[:200]!r}"], check=False)
+        return 126
+    subprocess.run(["logger", "-t", "askesis-ak-gate", f"ak {shlex.join(argv[1:])[:200]}"], check=False)
+    os.execve(AK, [AK, *argv[1:]], env())
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

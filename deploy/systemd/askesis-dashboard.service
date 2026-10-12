@@ -1,0 +1,25 @@
+[Unit]
+Description=Askesis dashboard (only on the Meshnet address and loopback)
+After=network-online.target nordvpnd.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=askesis
+Group=askesis
+EnvironmentFile=/etc/askesis/env
+ExecStart=/opt/askesis/bin/ak web serve --port 8765
+# exit 75 = the Meshnet address appeared or changed: start again with fresh sockets
+Restart=on-failure
+RestartSec=30
+StandardOutput=append:/var/lib/askesis/web.log
+StandardError=append:/var/lib/askesis/web.log
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/askesis
+MemoryMax=400M
+
+[Install]
+WantedBy=multi-user.target

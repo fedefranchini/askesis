@@ -39,6 +39,13 @@ class Config:
     web_remember_days: int = 30  # "remember this device": fixed lifetime, never extended
     health_exclude_sources: list[str] = field(default_factory=list)  # Health sources that are not the athlete's
     health_sync_weight: bool = False  # daily sync of body weight from Health (off: the weight stays manual)
+    # Sealed backups (store/seal.py): public age keys only; the private key never lives on the server.
+    backup_age_recipients: list[str] = field(default_factory=list)
+    backup_sealed_dir: Path | None = None
+    backup_offsite: str = ""  # rclone destination for sealed copies, e.g. "drive:askesis-backup" ("" = off)
+    backup_pull_from: str = ""  # rsync source of sealed copies on the server (development machine side)
+    backup_pull_dir: Path | None = None
+    backup_identity: str = ""  # private key for restore tests: a file path or "keychain:<service>" (macOS)
 
 
 def _read(path: Path) -> dict:
@@ -72,4 +79,10 @@ def load(private: Path | None = None) -> Config:
         web_remember_days=int(data.get("web_remember_days", 30)),
         health_exclude_sources=list(data.get("health_exclude_sources", [])),
         health_sync_weight=bool(data.get("health_sync_weight", False)),
+        backup_age_recipients=list(data.get("backup_age_recipients", [])),
+        backup_sealed_dir=path("backup_sealed_dir"),
+        backup_offsite=str(data.get("backup_offsite", "")),
+        backup_pull_from=str(data.get("backup_pull_from", "")),
+        backup_pull_dir=path("backup_pull_dir"),
+        backup_identity=str(data.get("backup_identity", "")),
     )

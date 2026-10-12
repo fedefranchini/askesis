@@ -1,11 +1,11 @@
 """Listening addresses that follow the network: a VPN interface that comes up late, reconnects or changes address.
 
-`web_bind` entries are either explicit IP addresses or `tunnel:<CIDR>`, meaning "this Mac's current addresses in
+`web_bind` entries are either explicit IP addresses or `tunnel:<CIDR>`, meaning "this machine's current addresses in
 that range, on point-to-point (tunnel) interfaces only". Wildcards stay forbidden. The client allowlist is never
 derived from the network: a peer whose address changes stays rejected until the configuration says otherwise.
 
 The watcher never rebinds in place: when the set of addresses that should be served differs from the set being
-served, the process exits with RESTART so launchd starts it again with fresh sockets.
+served, the process exits with RESTART so the service manager (launchd, systemd) starts it again with fresh sockets.
 """
 
 from __future__ import annotations
@@ -14,9 +14,10 @@ import ipaddress
 import re
 import socket
 import subprocess
+import sys
 from collections.abc import Callable, Iterable
 
-RESTART = 75  # EX_TEMPFAIL: launchd (KeepAlive on failure) starts the dashboard again
+RESTART = 75  # EX_TEMPFAIL: launchd (KeepAlive on failure) or systemd (Restart=on-failure) starts the dashboard again
 TUNNEL = "tunnel:"
 WILDCARDS = ("0.0.0.0", "::", "", "*")
 
@@ -37,14 +38,46 @@ def check_bind(entries: Iterable[str]) -> list[str]:
     return out
 
 
+IP_PATHS = ("/usr/sbin/ip", "/sbin/ip", "/usr/bin/ip", "/bin/ip")
+_LINUX_HEAD = re.compile(r"^\d+:\s+([^\s:]+):\s+<([^>]*)>", re.M)
+
+
+def parse_ip_addr(text: str) -> list[tuple[str, bool, str]]:
+    """Rows from Linux `ip -4 addr show`: interface name without `@suffix`, POINTOPOINT flag, IPv4 address."""
+    rows, name, p2p = [], "", False
+    for line in text.splitlines():
+        head = re.match(r"^\d+:\s+([^\s:]+):\s+<([^>]*)>", line)
+        if head:
+            name, p2p = head.group(1).split("@")[0], "POINTOPOINT" in head.group(2).split(",")
+            continue
+        m = re.match(r"^\s+inet (\d+\.\d+\.\d+\.\d+)", line)
+        if m and name:
+            rows.append((name, p2p, m.group(1)))
+    return rows
+
+
+def _read_interfaces() -> str:
+    if sys.platform.startswith("linux"):
+        for exe in IP_PATHS:  # absolute path: services run with a minimal PATH
+            try:
+                return subprocess.run([exe, "-4", "addr", "show"], capture_output=True, text=True, check=False,
+                                      timeout=10).stdout
+            except (OSError, subprocess.TimeoutExpired):
+                continue
+        return ""
+    try:  # absolute path: launchd agents run with a minimal PATH without /sbin
+        return subprocess.run(["/sbin/ifconfig"], capture_output=True, text=True, check=False, timeout=10).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return ""  # unknown: serve loopback, the watcher retries
+
+
 def interfaces(ifconfig_text: str | None = None) -> list[tuple[str, bool, str]]:
-    """(interface, is point-to-point, IPv4 address) for every configured IPv4 address of this machine."""
+    """(interface, is point-to-point, IPv4 address) for every configured IPv4 address of this machine. Accepts macOS
+    `ifconfig` or Linux `ip -4 addr show` text (format detected); without text, reads the running system."""
     if ifconfig_text is None:
-        try:  # absolute path: launchd agents run with a minimal PATH without /sbin
-            ifconfig_text = subprocess.run(["/sbin/ifconfig"], capture_output=True, text=True, check=False,
-                                           timeout=10).stdout
-        except (OSError, subprocess.TimeoutExpired):
-            ifconfig_text = ""  # unknown: serve loopback, the watcher retries
+        ifconfig_text = _read_interfaces()
+    if _LINUX_HEAD.search(ifconfig_text):
+        return parse_ip_addr(ifconfig_text)
     rows, name, p2p = [], "", False
     for line in ifconfig_text.splitlines():
         head = re.match(r"^(\S+): flags=\w+<([^>]*)>", line)

@@ -1,0 +1,13 @@
+[Unit]
+Description=Askesis dashboard reachability check (server side)
+
+[Service]
+Type=oneshot
+User=askesis
+Group=askesis
+EnvironmentFile=/etc/askesis/env
+ExecStart=/opt/askesis/bin/ak web check --notify
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/askesis

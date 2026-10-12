@@ -494,10 +494,111 @@ def backup_verify(
         {k: v for k, v in res.items() if k not in ("snapshot", "verified_at")}, ensure_ascii=False))
     if not res["ok"]:
         if notify:
-            import subprocess
+            from askesis import notify as notify_mod
 
-            subprocess.run(["osascript", "-e", 'display notification "Test di ripristino del backup fallito" '
-                            'with title "Askesis"'], check=False)
+            notify_mod.send("Test di ripristino del backup fallito")
+        raise typer.Exit(1)
+
+
+@backup_app.command("seal")
+def backup_seal() -> None:
+    """Cifra l'ultimo backup con le chiavi pubbliche age (backup_age_recipients) per le copie fuori dal server."""
+    from askesis.store import seal
+
+    cfg, _ = _ctx()
+    snap = backup_mod.latest(cfg.backup_dir)
+    if snap is None:
+        typer.secho("✗ nessun backup da cifrare (prima: bin/ak backup)", fg="red")
+        raise typer.Exit(1)
+    try:
+        out = seal.seal(snap, cfg.backup_sealed_dir, cfg.backup_age_recipients)
+    except seal.SealError as e:
+        typer.secho(f"✗ {e}", fg="red")
+        raise typer.Exit(1) from e
+    removed = seal.rotate(cfg.backup_sealed_dir)
+    typer.echo(f"✓ cifrato {out.name} ({out.stat().st_size // 1024} KB) · rimossi {len(removed)} vecchi")
+
+
+@backup_app.command("offsite")
+def backup_offsite() -> None:
+    """Copia i backup cifrati nella destinazione rclone (backup_offsite). Solo file nuovi: nulla viene cancellato."""
+    import shutil
+    import subprocess
+
+    cfg, _ = _ctx()
+    if not cfg.backup_offsite:
+        typer.echo("copia esterna non configurata (backup_offsite): nulla da fare")
+        return
+    rclone = shutil.which("rclone")
+    if rclone is None:
+        typer.secho("✗ rclone non installato", fg="red")
+        raise typer.Exit(1)
+    dest = cfg.backup_offsite.rstrip("/")
+    # sealed files never change (--immutable refuses overwrites); the manifest is replaced every night
+    for args in (["copy", "--immutable", "--include", "*.db.gz.age", str(cfg.backup_sealed_dir), dest],
+                 ["copyto", str(cfg.backup_sealed_dir / "manifest.json"), f"{dest}/manifest.json"]):
+        res = subprocess.run([rclone, *args], capture_output=True, text=True, timeout=900)
+        if res.returncode != 0:
+            typer.secho(f"✗ rclone: {res.stderr.strip()[-300:]}", fg="red")
+            raise typer.Exit(1)
+    typer.echo(f"✓ copie cifrate aggiornate in {cfg.backup_offsite}")
+
+
+@backup_app.command("pull")
+def backup_pull() -> None:
+    """Computer di sviluppo: scarica i backup cifrati dal server (backup_pull_from) e ne controlla l'integrità."""
+    import shutil
+    import subprocess
+
+    from askesis.store import seal
+
+    cfg, _ = _ctx()
+    if not cfg.backup_pull_from:
+        typer.secho("✗ sorgente non configurata (backup_pull_from)", fg="red")
+        raise typer.Exit(1)
+    cfg.backup_pull_dir.mkdir(parents=True, exist_ok=True)
+    res = subprocess.run([shutil.which("rsync") or "rsync", "-a", "--include=*.db.gz.age", "--include=manifest.json",
+                          "--exclude=*", cfg.backup_pull_from, f"{cfg.backup_pull_dir}/"],
+                         capture_output=True, text=True, timeout=600)
+    if res.returncode != 0:
+        typer.secho(f"✗ rsync: {res.stderr.strip()[-300:]}", fg="red")
+        raise typer.Exit(1)
+    chk = seal.check_copies(cfg.backup_pull_dir)
+    typer.echo(("✓" if chk["ok"] else "✗") + f" copie scaricate in {cfg.backup_pull_dir}: "
+               + json.dumps({k: v for k, v in chk.items() if k != "ok"}, ensure_ascii=False))
+    if not chk["ok"]:
+        raise typer.Exit(1)
+
+
+@backup_app.command("check-sealed")
+def backup_check_sealed(
+    sealed: Annotated[Path | None, typer.Argument(help="Backup cifrato (default: il più recente scaricato)")] = None,
+    max_age_days: Annotated[int, typer.Option("--max-age-days", help="Allarme se l'ultimo dato è più vecchio")] = 3,
+    notify: Annotated[bool, typer.Option("--notify", help="Notifica se il test fallisce")] = False,
+) -> None:
+    """Test di ripristino di un backup cifrato con la chiave privata: integrità, conteggi, ultimo dato registrato."""
+    from askesis.store import seal
+
+    cfg, _ = _ctx()
+    path = sealed or seal.latest(cfg.backup_pull_dir) or seal.latest(cfg.backup_sealed_dir)
+    if path is None:
+        typer.secho("✗ nessun backup cifrato trovato", fg="red")
+        raise typer.Exit(1)
+    try:
+        with seal.identity_file(cfg.backup_identity) as key:
+            res = seal.check_sealed(path, key)
+    except seal.SealError as e:
+        res = {"sealed": path.name, "ok": False, "problem": str(e)}
+    last = res.get("last_recorded_at")
+    if res["ok"] and last and datetime.now() - datetime.fromisoformat(last).replace(tzinfo=None) > timedelta(
+            days=max_age_days):
+        res["ok"], res["problem"] = False, f"ultimo dato registrato più vecchio di {max_age_days} giorni"
+    typer.echo(("✓" if res["ok"] else "✗") + " test del backup cifrato: " + json.dumps(res, ensure_ascii=False))
+    if not res["ok"]:
+        if notify:
+            from askesis import notify as notify_mod
+
+            notify_mod.send("Test del backup cifrato fallito")
         raise typer.Exit(1)
 
 

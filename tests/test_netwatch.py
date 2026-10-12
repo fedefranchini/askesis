@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import secrets
+from types import SimpleNamespace
 
 import pytest
 
+from askesis import notify
 from askesis.web import health, netwatch
 
 IFCONFIG = """lo0: flags=8049<UP,LOOPBACK,RUNNING,MULTICAST> mtu 16384
@@ -129,3 +131,81 @@ def test_half_open_connections_from_allowed_clients_are_reported():
             "tcp4  0  0  100.64.0.1.8765  100.64.0.2.53602  ESTABLISHED\n")
     assert health.half_open(8765, ["100.64.0.2"], text) == ["100.64.0.2"]
     assert health.half_open(8443, ["100.64.0.2"], text) == []
+
+
+IP_ADDR = """1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+2: ens3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9000 qdisc mq state UP group default qlen 1000
+    inet 100.64.0.30/24 metric 100 brd 100.64.0.255 scope global dynamic ens3
+4: nordlynx: <POINTOPOINT,NOARP,UP,LOWER_UP> mtu 1420 qdisc noqueue state UNKNOWN group default qlen 1000
+    inet 100.64.0.7/32 scope global nordlynx
+5: veth1@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
+    inet 192.0.2.5/24 scope global veth1
+"""
+
+
+def test_linux_ip_addr_is_parsed_and_only_point_to_point_serves_tunnels():
+    rows = netwatch.interfaces(IP_ADDR)
+    assert rows == netwatch.parse_ip_addr(IP_ADDR)
+    assert ("nordlynx", True, "100.64.0.7") in rows
+    assert ("veth1", False, "192.0.2.5") in rows                        # @suffix stripped
+    assert ("lo", False, "127.0.0.1") in rows
+    assert netwatch.resolve(["tunnel:100.64.0.0/10"], rows) == ["100.64.0.7"]   # ens3 is in range but not p2p
+
+
+def test_linux_reads_ip_command(monkeypatch):
+    calls = []
+    monkeypatch.setattr(netwatch.sys, "platform", "linux")
+    monkeypatch.setattr(netwatch.subprocess, "run",
+                        lambda args, **kw: calls.append(args) or SimpleNamespace(stdout=IP_ADDR))
+    assert ("nordlynx", True, "100.64.0.7") in netwatch.interfaces()
+    assert calls[0][1:] == ["-4", "addr", "show"]
+
+
+SS_LISTEN = """LISTEN 0      4096     127.0.0.1:8765      0.0.0.0:*
+LISTEN 0      4096    100.64.0.7:8765      0.0.0.0:*
+LISTEN 0      128          [::1]:8765         [::]:*
+LISTEN 0      128        0.0.0.0:22        0.0.0.0:*
+"""
+SS_SYN = """0      0      100.64.0.7:8765  100.64.0.2:51000
+0      0      100.64.0.7:22    100.64.0.3:51001
+"""
+
+
+def test_ss_parsers():
+    assert health.parse_ss_listening(SS_LISTEN, 8765) == {"127.0.0.1", "100.64.0.7", "::1"}
+    assert health.parse_ss_listening(SS_LISTEN, 22) == {"0.0.0.0"}
+    assert health.parse_ss_syn_recv(SS_SYN, 8765) == ["100.64.0.2"]
+
+
+def test_notify_send_on_linux_writes_stderr_and_alerts_file(tmp_path, monkeypatch, capsys):
+    alerts = tmp_path / "sub" / "alerts.log"
+    monkeypatch.setattr(notify.sys, "platform", "linux")
+    monkeypatch.setenv("ASKESIS_ALERTS_FILE", str(alerts))
+    notify.send("problema\ndue", "Titolo")
+    assert "Titolo: problema" in capsys.readouterr().err
+    ts, title, text = alerts.read_text().rstrip("\n").split("\t")
+    assert (title, text) == ("Titolo", "problema due") and "T" in ts
+    monkeypatch.setenv("ASKESIS_ALERTS_FILE", str(tmp_path))            # unwritable target: never raises
+    notify.send("x")
+
+
+def test_check_on_linux_uses_no_macos_tools(tmp_path, monkeypatch):
+    monkeypatch.setattr(health.sys, "platform", "linux")
+    seen = []
+
+    def fake_run(args):
+        seen.append(args[0])
+        return "active\n" if args[0] == "systemctl" else ""
+
+    monkeypatch.setattr(health, "_run", fake_run)
+    monkeypatch.setattr(health, "loopback_answers", lambda port: True)
+    monkeypatch.setattr(netwatch, "interfaces", lambda text=None: netwatch.parse_ip_addr(IP_ADDR))
+    cfg = SimpleNamespace(web_bind=["127.0.0.1", "tunnel:100.64.0.0/10"], web_allowed_clients=["100.64.0.2"],
+                          db_path=tmp_path / "x.db")
+    monkeypatch.setattr(netwatch, "present", lambda addrs: set(addrs))
+    r = health.check(cfg, 8765)
+    assert r.problems == ["100.64.0.7 è attivo ma la dashboard non è in ascolto lì (riavvio in corso?)"]
+    assert set(seen) == {"systemctl", "ss"}
+    assert health.firewall_blocks("python") is False and health.full_tunnel_vpns() == []
