@@ -95,7 +95,7 @@ fi
 
 step "utente di servizio e cartelle"
 id askesis >/dev/null 2>&1 || useradd --system --home-dir $DATA --shell /bin/bash askesis
-install -d -m 0700 -o askesis -g askesis $DATA $DATA/reports
+install -d -m 0700 -o askesis -g askesis $DATA $DATA/reports $DATA/sealed
 install -d -m 0750 -o root -g askesis $ETC
 
 step "uv $UV_VERSION (versione fissata)"
