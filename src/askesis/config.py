@@ -37,6 +37,7 @@ class Config:
     web_bind: list[str] = field(default_factory=lambda: ["127.0.0.1"])  # addresses to listen on (never 0.0.0.0)
     web_allowed_clients: list[str] = field(default_factory=list)  # extra client IPs besides this Mac (loopback)
     web_remember_days: int = 30  # "remember this device": fixed lifetime, never extended
+    web_origin: str = ""  # https://domain when the dashboard has HTTPS on a real domain: enables passkeys
     health_exclude_sources: list[str] = field(default_factory=list)  # Health sources that are not the athlete's
     health_sync_weight: bool = False  # daily sync of body weight from Health (off: the weight stays manual)
     # Sealed backups (store/seal.py): public age keys only; the private key never lives on the server.
@@ -77,6 +78,7 @@ def load(private: Path | None = None) -> Config:
         web_bind=list(data.get("web_bind", ["127.0.0.1"])),
         web_allowed_clients=list(data.get("web_allowed_clients", [])),
         web_remember_days=int(data.get("web_remember_days", 30)),
+        web_origin=str(os.environ.get("ASKESIS_WEB_ORIGIN", data.get("web_origin", ""))),
         health_exclude_sources=list(data.get("health_exclude_sources", [])),
         health_sync_weight=bool(data.get("health_sync_weight", False)),
         backup_age_recipients=list(data.get("backup_age_recipients", [])),

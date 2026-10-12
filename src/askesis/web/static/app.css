@@ -592,3 +592,15 @@ button[disabled] { opacity: 0.6; cursor: default; }
 .symptoms input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ill-note { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-s); font-weight: 600; color: var(--text-2); }
 .ill-form .check { display: flex; align-items: center; gap: 10px; min-height: 44px; font-weight: 600; }
+
+/* passkeys and access log */
+.passkey-login { display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px; }
+.passkey-login > button { min-height: 52px; font-size: 18px; }
+.or { text-align: center; color: var(--text-3); font-size: var(--fs-s); margin: 8px 0; }
+.attempts li { font-size: var(--fs-s); padding: 6px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.attempts li:first-child { border-top: 0; }
+.attempts .ok { color: var(--ok); font-weight: 600; }
+.attempts .warn { color: var(--warn); font-weight: 600; }
+
+.offline { max-width: 520px; margin: 0 auto; padding-top: max(48px, env(safe-area-inset-top)); }
+.offline img { border-radius: 16px; margin-bottom: 16px; }

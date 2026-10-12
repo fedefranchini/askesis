@@ -49,3 +49,17 @@ sono nei backup: si ricreano (`bin/ak web set-password`, pagina Sincronizzazione
 
 Apple Notes (scheda della palestra, nota del piano) funziona solo su macOS: con il server si usa la pagina Palestra
 della dashboard.
+
+## HTTPS dentro la VPN e passkey
+Con un dominio proprio la dashboard passa a HTTPS **senza esporsi a internet**: il record DNS punta all'indirizzo
+del server nella VPN, il certificato Let's Encrypt si ottiene con la verifica DNS (certbot, token API limitato al
+dominio, rinnovo automatico) e Caddy lo serve sulla 443, aperta dal firewall solo ai peer della VPN.
+```bash
+sudo deploy/install.sh --tls-domain example.app --dns-provider cloudflare
+```
+Si sbloccano: passkey (Face ID), pagina «non raggiungibile» per l'app sulla schermata Home, e in seguito le notifiche.
+- **Passkey**: si aggiungono solo da una sessione aperta sulla rete fidata (VPN o la macchina stessa); da una
+  richiesta pubblica (che il front HTTPS marca con `X-Askesis-Edge: public`) la password è rifiutata e si entra solo
+  con la passkey. Revocare una passkey chiude le sessioni aperte con essa.
+- **Registro degli accessi** (`web_access.log`, solo sul server): metodo, esito, indirizzo, mai ciò che è stato
+  digitato; gli ultimi tentativi e quelli falliti nelle 24 ore sono nella pagina Accesso.

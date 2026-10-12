@@ -138,3 +138,26 @@ def device_label(user_agent: str) -> str:
     browser = "Firefox" if "Firefox/" in ua else "Chrome" if ("Chrome/" in ua or "CriOS/" in ua) else \
         "Safari" if "Safari/" in ua else "browser"
     return f"{kind} · {browser}"
+
+
+# ------------------------------------------------------------------ access log (monitoring)
+def log_attempt(path: Path, method: str, ok: bool, ip: str, detail: str = "") -> None:
+    """One JSON line per login attempt (password or passkey): who tried from where, never what was typed."""
+    line = json.dumps({"at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "method": method, "ok": ok, "ip": ip,
+                       "detail": detail[:80]}, ensure_ascii=False)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    with os.fdopen(fd, "a") as fh:
+        fh.write(line + "\n")
+
+
+def recent_attempts(path: Path, limit: int = 2000) -> list[dict]:
+    if not path.exists():
+        return []
+    out = []
+    for line in path.read_text(errors="replace").splitlines()[-limit:]:
+        try:
+            out.append(json.loads(line))
+        except ValueError:
+            continue
+    return out

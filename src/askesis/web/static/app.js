@@ -39,4 +39,9 @@
   document.querySelectorAll("select[data-autosubmit]").forEach((sel) => {
     sel.addEventListener("change", () => { if (sel.form.requestSubmit) sel.form.requestSubmit(); else sel.form.submit(); });
   });
+
+  // 4. Offline page: a service worker exists only over HTTPS (secure context); on plain HTTP nothing happens.
+  if (window.isSecureContext && location.protocol === "https:" && "serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  }
 })();

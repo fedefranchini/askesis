@@ -7,6 +7,16 @@
     <h1 class="mark">ASKESIS</h1>
     <p class="mark-sub"><span class="greek" lang="grc">ἄσκησις</span><span class="meaning">allenamento costante</span></p>
   </header>
+  {% if passkey_login %}
+  <div class="passkey-login" id="passkey-login" data-csrf="{{ csrf }}" hidden>
+    <button type="button" id="passkey-go">Accedi con Face ID</button>
+    <label class="remember"><input type="checkbox" id="passkey-remember" value="1">
+      <span>Ricorda questo dispositivo · <small>{{ remember_days }} giorni, revocabile</small></span></label>
+    <p class="error" id="passkey-error" role="alert" hidden></p>
+  </div>
+  {% endif %}
+  {% if password_login %}
+  {% if passkey_login %}<p class="or">oppure con la password</p>{% endif %}
   <form method="post" action="/login" id="login" data-wait="{{ wait or 0 }}">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     {# A username field lets the iPhone and Mac Keychain save and fill the password (hidden from view, not from autofill). #}
@@ -22,6 +32,10 @@
       <span>Ricorda questo dispositivo · <small>{{ remember_days }} giorni, revocabile</small></span>
     </label>
   </form>
+  {% else %}
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  {% if not passkey_login %}<p class="hint">Da qui si entra solo con una passkey: aggiungila prima da Accesso, collegato alla VPN.</p>{% endif %}
+  {% endif %}
 </div>
 {% endblock %}
-{% block scripts %}<script src="/static/login.js?v={{ asset_v }}"></script>{% endblock %}
+{% block scripts %}{{ super() }}<script src="/static/login.js?v={{ asset_v }}"></script>{% if passkey_login %}<script src="/static/passkey.js?v={{ asset_v }}"></script>{% endif %}{% endblock %}

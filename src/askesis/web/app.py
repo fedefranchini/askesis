@@ -7,10 +7,12 @@ strict Content-Security-Policy (no external resources).
 
 from __future__ import annotations
 
+import base64
 import hmac
 import json
 import mimetypes
 import secrets
+import time
 from datetime import date, timedelta
 from pathlib import Path
 from urllib.parse import quote
@@ -45,7 +47,7 @@ from askesis.plan.rest import rest_label
 from askesis.safety import rules as safety
 from askesis.store.db import connect
 
-from . import auth, md
+from . import auth, md, passkeys
 from .netwatch import bind_sockets, check_bind  # noqa: F401  (public: used by the CLI and tests)
 
 HERE = Path(__file__).parent
@@ -197,6 +199,8 @@ def paths(cfg: config_mod.Config) -> tuple[Path, Path]:
 def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | None = None) -> Starlette:
     cfg = cfg or config_mod.load()
     auth_file, secret_file, devices_file = paths(cfg)
+    passkeys_file, access_log = cfg.db_path.parent / "web_passkeys.json", cfg.db_path.parent / "web_access.log"
+    party = passkeys.Party.from_origin(cfg.web_origin)  # None: no HTTPS domain, passkeys off
     if not 1 <= cfg.web_remember_days <= 90:
         raise ValueError("web_remember_days deve essere tra 1 e 90")
     throttle = auth.Throttle()
@@ -240,13 +244,33 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         sess = request.session
         if not sess.get("user") or sess.get("epoch") != auth.credential_epoch(auth_file):
             return False
+        if sess.get("passkey") and not passkeys.alive(passkeys_file, sess["passkey"]):
+            return False  # a revoked passkey ends the sessions it opened
         return not sess.get("device") or auth.device_alive(devices_file, sess["device"])
 
-    def start_session(request: Request, device: str | None = None) -> None:
+    def start_session(request: Request, device: str | None = None, passkey: str | None = None) -> None:
         request.session.clear()
         request.session.update({"user": "athlete", "epoch": auth.credential_epoch(auth_file)})
         if device:
             request.session["device"] = device
+        if passkey:
+            request.session["passkey"] = passkey
+
+    def client_ip(request: Request) -> str:
+        """The client: the direct peer, or the address a local reverse proxy (HTTPS front) reports."""
+        host = request.client.host if request.client else ""
+        if host in ("127.0.0.1", "::1") and request.headers.get("x-forwarded-for"):
+            return request.headers["x-forwarded-for"].split(",")[0].strip()
+        return host
+
+    def trusted_network(request: Request) -> bool:
+        """The VPN (or this machine), never the public internet: the HTTPS front marks public requests."""
+        if request.headers.get("x-askesis-edge") == "public":
+            return False
+        return client_ip(request) in ("127.0.0.1", "::1", "testclient", *cfg.web_allowed_clients)
+
+    def json_checked(request: Request, body: dict) -> bool:
+        return hmac.compare_digest(str(request.headers.get("x-csrf", "")), request.session.get("csrf", "!"))
 
     def guard(handler):
         async def wrapped(request: Request) -> Response:
@@ -264,7 +288,9 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
     # ------------------------------------------------------------------ login
     def login_page(request: Request, error: str | None = None, wait: float = 0.0, status: int = 200) -> HTMLResponse:
         r = page(request, "login.html", error=error, wait=int(wait + 0.999),
-                 wait_text=seconds(wait) if wait > 0 else "", remember_days=cfg.web_remember_days)
+                 wait_text=seconds(wait) if wait > 0 else "", remember_days=cfg.web_remember_days,
+                 passkey_login=party is not None and bool(passkeys.listing(passkeys_file)),
+                 password_login=trusted_network(request))
         r.status_code = status
         return r
 
@@ -284,12 +310,18 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
             return login_page(request, "Sessione scaduta: ricarica la pagina e riprova.")
         wait = throttle.blocked_for()
         if wait > 0:
+            auth.log_attempt(access_log, "password", False, client_ip(request), "in attesa")
             return login_page(request, "Troppi tentativi con la password sbagliata.", wait, 429)
+        if not trusted_network(request):  # from the internet only a passkey opens the dashboard
+            auth.log_attempt(access_log, "password", False, client_ip(request), "rete pubblica")
+            return login_page(request, "Da internet si entra solo con la passkey (Face ID).", 0, 403)
         if not auth.check_password(auth_file, str(form.get("password", ""))):
             throttle.fail()
+            auth.log_attempt(access_log, "password", False, client_ip(request))
             wait = throttle.blocked_for()
             return login_page(request, "Password non corretta.", wait, 401)
         throttle.success()
+        auth.log_attempt(access_log, "password", True, client_ip(request))
         device = None
         cookie = None
         if form.get("remember") == "1":
@@ -306,6 +338,92 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
                             samesite="lax", secure=cfg.web_secure_cookies, path="/")
         return resp
 
+    # ------------------------------------------------------------------ passkeys (JSON, CSRF header)
+    def remember_cookie(resp: Response, remember: bool, request: Request) -> None:
+        if not remember:
+            return
+        cookie, rec = auth.remember(devices_file, auth.device_label(request.headers.get("user-agent", "")),
+                                    cfg.web_remember_days)
+        request.session["device"] = rec["id"]
+        resp.set_cookie(DEVICE_COOKIE, cookie, max_age=cfg.web_remember_days * 86400, httponly=True,
+                        samesite="lax", secure=cfg.web_secure_cookies, path="/")
+
+    def challenge_ok(request: Request, key: str) -> bytes | None:
+        """One-time challenge for this browser session, valid for five minutes."""
+        item = request.session.pop(key, None)
+        if not item or time.time() - item["t"] > 300:
+            return None
+        return base64.urlsafe_b64decode(item["c"] + "==")
+
+    async def passkey_login_options(request: Request) -> Response:
+        if party is None:
+            return JSONResponse({"error": "passkey non attive"}, status_code=404)
+        if not json_checked(request, {}):
+            return JSONResponse({"error": "sessione scaduta: ricarica la pagina"}, status_code=403)
+        if throttle.blocked_for() > 0:
+            return JSONResponse({"error": "troppi tentativi: riprova più tardi"}, status_code=429)
+        try:
+            opts, chal = passkeys.authentication_options(passkeys_file, party)
+        except passkeys.PasskeyError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
+        request.session["pk_login"] = {"c": base64.urlsafe_b64encode(chal).decode().rstrip("="), "t": time.time()}
+        return Response(opts, media_type="application/json")
+
+    async def passkey_login_verify(request: Request) -> Response:
+        if party is None or not json_checked(request, {}):
+            return JSONResponse({"error": "richiesta non valida"}, status_code=403)
+        if throttle.blocked_for() > 0:
+            return JSONResponse({"error": "troppi tentativi: riprova più tardi"}, status_code=429)
+        body = await request.json()
+        chal = challenge_ok(request, "pk_login")
+        try:
+            if chal is None:
+                raise passkeys.PasskeyError("richiesta scaduta: riprova")
+            cid = passkeys.authenticate(passkeys_file, party, body.get("credential") or {}, chal)
+        except passkeys.PasskeyError as exc:
+            throttle.fail()
+            auth.log_attempt(access_log, "passkey", False, client_ip(request), str(exc))
+            return JSONResponse({"error": str(exc)}, status_code=401)
+        throttle.success()
+        auth.log_attempt(access_log, "passkey", True, client_ip(request))
+        start_session(request, passkey=cid)
+        resp = JSONResponse({"ok": True, "redirect": "/"})
+        remember_cookie(resp, bool(body.get("remember")), request)
+        return resp
+
+    async def passkey_register_options(request: Request) -> Response:
+        if party is None or not json_checked(request, {}):
+            return JSONResponse({"error": "richiesta non valida"}, status_code=403)
+        if not trusted_network(request):
+            return JSONResponse({"error": "una passkey si aggiunge solo dalla rete privata (VPN)"}, status_code=403)
+        try:
+            opts, chal = passkeys.registration_options(passkeys_file, party)
+        except passkeys.PasskeyError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
+        request.session["pk_reg"] = {"c": base64.urlsafe_b64encode(chal).decode().rstrip("="), "t": time.time()}
+        return Response(opts, media_type="application/json")
+
+    async def passkey_register_verify(request: Request) -> Response:
+        if party is None or not json_checked(request, {}) or not trusted_network(request):
+            return JSONResponse({"error": "richiesta non valida"}, status_code=403)
+        body = await request.json()
+        chal = challenge_ok(request, "pk_reg")
+        label = auth.device_label(request.headers.get("user-agent", ""))
+        try:
+            if chal is None:
+                raise passkeys.PasskeyError("richiesta scaduta: riprova")
+            passkeys.register(passkeys_file, party, body.get("credential") or {}, chal, label)
+        except passkeys.PasskeyError as exc:
+            auth.log_attempt(access_log, "passkey-nuova", False, client_ip(request), str(exc))
+            return JSONResponse({"error": str(exc)}, status_code=400)
+        auth.log_attempt(access_log, "passkey-nuova", True, client_ip(request), label)
+        return JSONResponse({"ok": True})
+
+    async def service_worker(request: Request) -> Response:
+        """Served from the root so it may answer for the whole site (the offline page); public, no data."""
+        return Response((HERE / "static" / "sw.js").read_text(), media_type="text/javascript",
+                        headers={"Cache-Control": "no-cache"})
+
     async def logout(request: Request) -> Response:
         """Logging out also forgets this device (a remembered device would otherwise log straight back in)."""
         resp = RedirectResponse("/login", status_code=303)
@@ -321,6 +439,10 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         current = request.session.get("device")
         if request.method == "POST":
             form = await form_checked(request)
+            if form is not None and form.get("revoke_passkey"):
+                target = str(form["revoke_passkey"])
+                passkeys.revoke(passkeys_file, None if target == "*" else target)
+                return RedirectResponse("/accesso", status_code=303)
             if form is not None:
                 target = str(form.get("revoke", ""))
                 auth.revoke(devices_file, None if target == "*" else target)
@@ -331,7 +453,12 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
                     return resp
             return RedirectResponse("/accesso", status_code=303)
         items = auth.devices(devices_file)
-        return page(request, "accesso.html", devices=items, current=current, remember_days=cfg.web_remember_days)
+        attempts = auth.recent_attempts(access_log)
+        failed_24h = [a for a in attempts if not a["ok"] and a["at"] >= time.strftime(
+            "%Y-%m-%dT%H:%M:%S", time.localtime(time.time() - 86400))]
+        return page(request, "accesso.html", devices=items, current=current, remember_days=cfg.web_remember_days,
+                    passkeys_on=party is not None, passkey_list=passkeys.listing(passkeys_file),
+                    can_add_passkey=trusted_network(request), attempts=attempts[-10:][::-1], failed_24h=len(failed_24h))
 
     # ------------------------------------------------------------------ today
     def status_today(c, day: date) -> dict:
@@ -807,6 +934,11 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
     routes = [
         Route("/login", login, methods=["GET", "POST"]),
         Route("/logout", logout, methods=["POST"]),
+        Route("/sw.js", service_worker),
+        Route("/passkey/login/options", passkey_login_options, methods=["POST"]),
+        Route("/passkey/login/verify", passkey_login_verify, methods=["POST"]),
+        Route("/passkey/register/options", guard(passkey_register_options), methods=["POST"]),
+        Route("/passkey/register/verify", guard(passkey_register_verify), methods=["POST"]),
         Route("/", guard(oggi), methods=["GET", "POST"]),
         Route("/palestra", guard(palestra), methods=["GET", "POST"]),
         Route("/andamenti", guard(andamenti)),
@@ -826,7 +958,8 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
     app = Starlette(routes=routes, middleware=[
         Middleware(SecurityHeaders),
         Middleware(ClientAllowlist, allowed=cfg.web_allowed_clients),
-        Middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts or cfg.web_allowed_hosts),
+        Middleware(TrustedHostMiddleware, allowed_hosts=(allowed_hosts or cfg.web_allowed_hosts)
+                   + ([party.rp_id] if party else [])),
         Middleware(SessionMiddleware, secret_key=auth.session_secret(secret_file), session_cookie="askesis_session",
                    max_age=12 * 3600, same_site="strict", https_only=cfg.web_secure_cookies),
     ])
@@ -870,6 +1003,8 @@ class SecurityHeaders(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         response = await call_next(request)
         response.headers["Content-Security-Policy"] = CSP
+        if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000"  # HTTPS only from now on
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
         # Static files are versioned (?v=content hash) and contain no data: cacheable. Everything else: never stored.

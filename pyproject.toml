@@ -24,6 +24,7 @@ dashboard = [
     "python-multipart>=0.0.32",
     "starlette>=1.7.0",
     "uvicorn>=0.54.0",
+    "webauthn==2.8.0",
 ]
 
 [dependency-groups]

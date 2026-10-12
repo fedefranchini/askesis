@@ -1,0 +1,21 @@
+# Askesis HTTPS front, option "inside the VPN only": reachable only through the mesh interface (the firewall opens
+# 443 to the listed peers on nordlynx and nothing else). Certificate from Let's Encrypt through the DNS challenge
+# (certbot, renewed automatically); Caddy only serves it. The dashboard itself stays on loopback/HTTP behind it.
+{
+	auto_https off
+	admin off
+}
+
+https://__DOMAIN__:443 {
+	tls /etc/askesis/tls/fullchain.pem /etc/askesis/tls/privkey.pem
+	encode gzip
+	# requests through this site come from the VPN: never let a client claim otherwise
+	request_header -X-Askesis-Edge
+	reverse_proxy 127.0.0.1:8765 {
+		header_up X-Forwarded-Proto https
+	}
+	log {
+		output file /var/log/caddy/askesis-access.log
+		format json
+	}
+}

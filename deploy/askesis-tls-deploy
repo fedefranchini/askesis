@@ -1,0 +1,8 @@
+#!/bin/sh
+# certbot deploy hook: copy the renewed certificate where Caddy (not root) can read it, then reload Caddy.
+set -eu
+src="${RENEWED_LINEAGE:?}"
+install -d -m 0750 -o root -g caddy /etc/askesis/tls
+install -m 0644 -o root -g caddy "$src/fullchain.pem" /etc/askesis/tls/fullchain.pem
+install -m 0640 -o root -g caddy "$src/privkey.pem" /etc/askesis/tls/privkey.pem
+systemctl reload caddy 2>/dev/null || systemctl restart caddy

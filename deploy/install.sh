@@ -5,6 +5,7 @@
 #   sudo deploy/install.sh --config askesis.toml [--db askesis.db] [--peers 100.x.y.z,100.x.y.w]
 #                          [--agent-key "ssh-ed25519 …"] [--pull-key "ssh-ed25519 …"] [--with-nordvpn]
 #                          [--ref <commit|tag>] [--timezone Area/City]
+#                          [--tls-domain example.app --dns-provider cloudflare|ovh]
 #
 # --config   private configuration (never in the repository); installed as /etc/askesis/askesis.toml
 # --db       plain database restored from a sealed backup (decrypted on the athlete's own machine); refused if a
@@ -14,6 +15,9 @@
 #            internet any more.
 # --agent-key  public key allowed to run only `ak …` (forced command, see deploy/ak-gate)
 # --pull-key   public key allowed only to read sealed backups (rrsync, read-only)
+# --tls-domain HTTPS inside the VPN on a real domain (DNS record pointing to the server's VPN address): certificate from
+#              Let's Encrypt via the DNS challenge, renewed by certbot; needs the DNS API credentials file
+#              /etc/askesis/dns-<provider>.ini (0600, written by the athlete) and acceptance of the Let's Encrypt terms
 set -euo pipefail
 
 REPO_URL="https://github.com/fedefranchini/askesis.git"
@@ -26,6 +30,8 @@ AGENT_KEY=""
 PULL_KEY=""
 WITH_NORDVPN=0
 TZ_NAME=""
+TLS_DOMAIN=""
+DNS_PROVIDER=""
 UV_VERSION="0.12.6"
 
 APP=/opt/askesis
@@ -48,6 +54,8 @@ while [[ $# -gt 0 ]]; do
     --ref) REF="$2"; shift 2 ;;
     --repo) REPO_URL="$2"; shift 2 ;;
     --timezone) TZ_NAME="$2"; shift 2 ;;
+    --tls-domain) TLS_DOMAIN="$2"; shift 2 ;;
+    --dns-provider) DNS_PROVIDER="$2"; shift 2 ;;
     -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
     *) die "opzione sconosciuta: $1" ;;
   esac
@@ -63,6 +71,11 @@ for ip in ${PEERS//,/ }; do
   [[ "$ip" =~ ^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.[0-9]{1,3}\.[0-9]{1,3}$ ]] \
     || die "peer non valido (atteso un IPv4 Meshnet 100.64.0.0/10): $ip"
 done
+if [[ -n "$TLS_DOMAIN" ]]; then
+  [[ "$TLS_DOMAIN" =~ ^[a-z0-9-]+(\.[a-z0-9-]+)+$ ]] || die "dominio non valido: $TLS_DOMAIN"
+  [[ "$DNS_PROVIDER" == "cloudflare" || "$DNS_PROVIDER" == "ovh" ]] || die "--dns-provider: cloudflare oppure ovh"
+  [[ -f /etc/askesis/dns-$DNS_PROVIDER.ini ]] || die "manca /etc/askesis/dns-$DNS_PROVIDER.ini (token API del DNS)"
+fi
 START=$(date +%s)
 
 step "pacchetti di sistema"
@@ -115,6 +128,7 @@ UV_PYTHON_DOWNLOADS=never UV_CACHE_DIR=/var/cache/askesis-uv $TOOLS/bin/uv sync 
 chmod -R a+rX $APP
 
 step "configurazione"
+[[ -z "$TLS_DOMAIN" ]] || echo "$TLS_DOMAIN" > $ETC/tls-domain  # kept across later runs without --tls-domain
 [[ -z "$CONFIG" ]] || install -m 0640 -o root -g askesis "$CONFIG" $ETC/askesis.toml
 cat > $ETC/env <<EOF
 ASKESIS_CONFIG=$ETC/askesis.toml
@@ -130,6 +144,7 @@ UV_PYTHON_DOWNLOADS=never
 UV_NO_SYNC=1
 PATH=$TOOLS/bin:/usr/sbin:/usr/bin:/sbin:/bin
 EOF
+[[ ! -s $ETC/tls-domain ]] || echo "ASKESIS_WEB_ORIGIN=https://$(cat $ETC/tls-domain)" >> $ETC/env
 chmod 0640 $ETC/env && chgrp askesis $ETC/env
 [[ -f $ETC/rclone.conf ]] || install -m 0640 -o root -g askesis /dev/null $ETC/rclone.conf
 
@@ -200,6 +215,23 @@ echo "$rules" > /etc/nftables.conf
 nft -c -f /etc/nftables.conf
 systemctl enable -q --now nftables
 nft -f /etc/nftables.conf
+
+if [[ -n "$TLS_DOMAIN" ]]; then
+  step "HTTPS su $TLS_DOMAIN (solo dentro la VPN)"
+  apt-get install -y -q caddy certbot "python3-certbot-dns-$DNS_PROVIDER" >/dev/null
+  chmod 0600 "/etc/askesis/dns-$DNS_PROVIDER.ini"
+  install -m 0755 $APP/deploy/askesis-tls-deploy /usr/local/sbin/askesis-tls-deploy
+  if [[ ! -d "/etc/letsencrypt/live/$TLS_DOMAIN" ]]; then
+    certbot certonly -q --non-interactive --agree-tos --register-unsafely-without-email \
+      --"dns-$DNS_PROVIDER" --"dns-$DNS_PROVIDER-credentials" "/etc/askesis/dns-$DNS_PROVIDER.ini" \
+      -d "$TLS_DOMAIN" --deploy-hook /usr/local/sbin/askesis-tls-deploy
+  fi
+  RENEWED_LINEAGE="/etc/letsencrypt/live/$TLS_DOMAIN" /usr/local/sbin/askesis-tls-deploy
+  sed "s/__DOMAIN__/$TLS_DOMAIN/" $APP/deploy/Caddyfile.meshnet > /etc/caddy/Caddyfile
+  install -d -m 0750 -o caddy -g caddy /var/log/caddy
+  caddy validate --config /etc/caddy/Caddyfile >/dev/null
+  systemctl enable -q caddy && systemctl restart caddy
+fi
 
 step "servizi"
 install -m 0644 $APP/deploy/systemd/*.service $APP/deploy/systemd/*.timer /etc/systemd/system/
