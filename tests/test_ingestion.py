@@ -104,3 +104,11 @@ def test_staging_preserves_bitemporal_recorded_at(conn, staging_file):
     ingest(conn, records, "staging_v0")
     row = conn.execute("SELECT recorded_at FROM raw_record WHERE entity_type='body_weight'").fetchone()
     assert row["recorded_at"] == "2026-01-10T06:06:00+00:00"
+
+
+def test_readback_of_a_day_without_food_logging_is_not_zero_kcal():
+    from askesis.ingestion import readback
+
+    lines = readback.lines([{"entity_type": "nutrition_day", "local_date": "2099-01-02",
+                             "payload": {"completeness": "not_logged"}}])
+    assert lines == ["Cibo 2/1: non registrato (nessuna stima)"]  # same date style as the other read-backs

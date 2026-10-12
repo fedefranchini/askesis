@@ -47,6 +47,8 @@ def lines(records: list[dict]) -> list[str]:
             continue
         if e == "body_weight":
             out.append(f"Peso {_d(d)}: {_n(p['value_kg'], 2)} kg" + (" a digiuno" if p.get("fasted") else ""))
+        elif e == "nutrition_day" and p.get("completeness") == "not_logged":
+            out.append(f"Cibo {_d(d)}: non registrato (nessuna stima)")
         elif e == "nutrition_day":
             prot = f", {_n(p['protein_g'], 0)} g proteine" if "protein_g" in p else ""
             tag = " (giornata parziale)" if p.get("completeness") == "partial" else ""
