@@ -34,4 +34,9 @@
       f.querySelectorAll("button").forEach((b) => { b.disabled = false; });
     });
   });
+
+  // 3. Lists that open what is chosen at once (the "Apri" button stays for keyboards and without this script).
+  document.querySelectorAll("select[data-autosubmit]").forEach((sel) => {
+    sel.addEventListener("change", () => { if (sel.form.requestSubmit) sel.form.requestSubmit(); else sel.form.submit(); });
+  });
 })();

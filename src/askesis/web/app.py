@@ -667,21 +667,50 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         return RedirectResponse("/coach" + (f"?f={quote(f)}" if f else ""), status_code=303)
 
     def coach_page(request: Request, **ctx) -> HTMLResponse:
+        """Texts grouped by period (day, week, month), each period picked from a calendar or a list."""
         c = conn()
         docs = coach_mod.documents(config_mod.reports_dir(), c)
         by_name = {d.name: d for d in docs}
-        name = request.query_params.get("f")
+        q = request.query_params
+        name = q.get("f")
         current = by_name.get(name) if name else None  # only listed files: no path traversal
-        latest = []
-        for kind in ("seduta", "daily", "review", "retro"):
-            latest += [d for d in docs if d.kind == kind][:2 if kind == "review" else 1]
-        if current is None and not ctx.get("confirm"):
-            current = next((d for d in docs if d.kind == "review" and "commento" not in d.name),
-                           docs[0] if docs else None)
+        cat = q.get("cat") if q.get("cat") in coach_mod.CATEGORIES else None
+        sel, missing = None, None
+        if current is not None:
+            p = coach_mod.period_of(current.name)
+            cat, sel = (p if p else (cat or "settimana", None))
+        else:
+            if cat is None:  # default: the latest weekly review, as before
+                default = next((d for d in docs if d.kind == "review" and "commento" not in d.name),
+                               next((d for d in docs if coach_mod.period_of(d.name)), None))
+                p = coach_mod.period_of(default.name) if default else None
+                cat, sel = p if p else ("settimana", None)
+            groups = dict(coach_mod.by_period(docs, cat))
+            if q.get("v"):
+                sel = coach_mod.period_key(cat, q["v"])
+                if sel is None:
+                    missing = "Data non valida."
+                elif sel not in groups:
+                    missing = f"Nessun testo per {coach_mod.period_label(cat, sel)}."
+            elif sel is None and groups:
+                sel = next(iter(sorted(groups, reverse=True)))
+            if sel in groups and not ctx.get("confirm"):
+                current = groups[sel][0]
+        periods = coach_mod.by_period(docs, cat)
+        siblings = dict(periods).get(sel, []) if sel else []
+        others = [d for d in docs if coach_mod.period_of(d.name) is None]  # proposals and anything unclassified
+        counts = {k: len(coach_mod.by_period(docs, k)) for k in coach_mod.CATEGORIES}
+        pick = sel  # value for the calendar: the day, the Monday of the week, the month
+        if sel and cat == "settimana":
+            pick = date.fromisocalendar(int(sel[:4]), int(sel[6:]), 1).isoformat()
         t = today()
         next_review = t + timedelta(days=(7 - t.weekday()) % 7 or 7)  # the weekly review comes on Monday morning
-        return page(request, "coach.html", pending=coach_mod.pending(c), docs=docs, latest=latest, current=current,
-                    current_html=md.render(current.body) if current else None, next_review=next_review, **ctx)
+        return page(request, "coach.html", pending=coach_mod.pending(c), docs=docs, current=current,
+                    current_html=md.render(current.body) if current else None, next_review=next_review,
+                    cat=cat, categories=coach_mod.CATEGORIES, counts=counts, sel=sel, missing=missing,
+                    periods=[(k, coach_mod.period_label(cat, k), g) for k, g in periods],
+                    sel_label=coach_mod.period_label(cat, sel) if sel else None, siblings=siblings, others=others,
+                    today_iso=t.isoformat(), month_iso=t.strftime("%Y-%m"), pick=pick, **ctx)
 
     async def coach_view(request: Request) -> Response:
         return coach_page(request)

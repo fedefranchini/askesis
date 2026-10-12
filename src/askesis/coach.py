@@ -94,6 +94,71 @@ def documents(reports: Path, conn: sqlite3.Connection | None) -> list[Doc]:
     return sorted(out, key=lambda d: d.mtime, reverse=True)
 
 
+# ------------------------------------------------------------------ texts by period (day, week, month)
+CATEGORIES = {"giorno": ("Giornaliere", ("daily", "seduta")), "settimana": ("Settimanali", ("review",)),
+              "mese": ("Mensili", ("retro",))}
+_DAY = re.compile(r"^(?:daily|seduta)-(\d{4}-\d{2}-\d{2})")
+_WEEK = re.compile(r"^review-(\d{4})-W(\d{2})")
+_MONTH = re.compile(r"^retro-(\d{4})-(\d{2})")
+MONTHS = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre",
+          "novembre", "dicembre"]
+WEEKDAYS = ["lun", "mar", "mer", "gio", "ven", "sab", "dom"]
+
+
+def period_of(name: str) -> tuple[str, str] | None:
+    """(category, period key) of a text: day YYYY-MM-DD, ISO week YYYY-Www, month YYYY-MM; None for the others."""
+    if m := _DAY.match(name):
+        return "giorno", m[1]
+    if m := _WEEK.match(name):
+        return "settimana", f"{m[1]}-W{m[2]}"
+    if m := _MONTH.match(name):
+        return "mese", f"{m[1]}-{m[2]}"
+    return None
+
+
+def period_key(category: str, value: str) -> str | None:
+    """The period key for what the athlete picked: a date (any day of the wanted week), or a month YYYY-MM."""
+    try:
+        if category == "giorno":
+            return date.fromisoformat(value).isoformat()
+        if category == "settimana":
+            if re.fullmatch(r"\d{4}-W\d{2}", value):
+                return value
+            y, w, _ = date.fromisoformat(value).isocalendar()
+            return f"{y}-W{w:02d}"
+        if category == "mese" and re.fullmatch(r"\d{4}-\d{2}", value) and 1 <= int(value[5:]) <= 12:
+            return value
+    except ValueError:
+        return None
+    return None
+
+
+def period_label(category: str, key: str) -> str:
+    if category == "giorno":
+        d = date.fromisoformat(key)
+        return f"{WEEKDAYS[d.weekday()]} {d.strftime('%d/%m/%Y')}"
+    if category == "settimana":
+        y, w = int(key[:4]), int(key[6:])
+        mon = date.fromisocalendar(y, w, 1)
+        sun = mon + timedelta(days=6)
+        return f"settimana {w} · {mon.strftime('%d/%m')}–{sun.strftime('%d/%m/%Y')}"
+    return f"{MONTHS[int(key[5:]) - 1]} {key[:4]}"
+
+
+def by_period(docs: list[Doc], category: str) -> list[tuple[str, list[Doc]]]:
+    """Periods of one category, newest first, each with its texts (e.g. the evening check and the session comment
+    of the same day, or a weekly review and its comment)."""
+    groups: dict[str, list[Doc]] = {}
+    for d in docs:
+        p = period_of(d.name)
+        if p and p[0] == category:
+            groups.setdefault(p[1], []).append(d)
+    order = {"daily": 0, "seduta": 1, "review": 0, "retro": 0}  # the main text first, comments after
+    for g in groups.values():
+        g.sort(key=lambda d: (order.get(d.kind, 9), "commento" in d.name, d.name))
+    return sorted(groups.items(), key=lambda kv: kv[0], reverse=True)
+
+
 # ------------------------------------------------------------------ pending decisions
 @dataclass
 class Pending:

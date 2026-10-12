@@ -60,10 +60,63 @@
 <p class="card done">{{ icon("ok") }}Nessuna proposta in attesa.</p>
 {% endif %}
 
-{% if not current and not confirm %}
-<section class="card">
-  <h2>Testi</h2>
-  <p class="hint">Qui arrivano la review del lunedì, i commenti alle sedute e le retrospettive. La prossima review è prevista lunedì {{ next_review.strftime("%d/%m") }}.</p>
+
+{% if not confirm %}
+{% set short = {"daily": "Controllo serale", "seduta": "Commento seduta", "review": "Review", "retro": "Retrospettiva"} %}
+<section aria-labelledby="texts-title" class="texts">
+  <h2 id="texts-title" class="section-title">Testi</h2>
+  <nav class="seg" aria-label="Tipo di testo">
+    {% for k, (label, _) in categories.items() %}<a href="/coach?cat={{ k }}"{% if k == cat %} aria-current="true"{% endif %}>{{ label }}</a>{% endfor %}
+  </nav>
+  <div class="pickers">
+    <form method="get" action="/coach" class="picker">
+      <input type="hidden" name="cat" value="{{ cat }}">
+      {% if cat == "mese" %}
+      <label for="pick">Mese</label>
+      <input id="pick" type="month" name="v" value="{{ pick or month_iso }}" max="{{ month_iso }}">
+      {% else %}
+      <label for="pick">{{ "Giorno" if cat == "giorno" else "Settimana (scegli un giorno)" }}</label>
+      <input id="pick" type="date" name="v" value="{{ pick or today_iso }}" max="{{ today_iso }}">
+      {% endif %}
+      <button type="submit" class="secondary">Apri</button>
+    </form>
+    {% if periods %}
+    <form method="get" action="/coach" class="picker">
+      <input type="hidden" name="cat" value="{{ cat }}">
+      <label for="plist">Oppure dall'elenco</label>
+      <select id="plist" name="v" data-autosubmit>
+        {% for k, label, g in periods %}<option value="{{ k }}"{% if k == sel %} selected{% endif %}>{{ label|capitalize }}{% if g|rejectattr("validated")|list %} (da verificare){% endif %}</option>{% endfor %}
+      </select>
+      <button type="submit" class="secondary">Apri</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if missing %}<p class="card notice attn" role="status">{{ icon("info") }}<span>{{ missing }}{% if periods %} Scegli un periodo dall'elenco.{% endif %}</span></p>{% endif %}
+
+  {% if current %}
+  {% if sel_label %}<p class="period-title">{{ sel_label|capitalize }}</p>{% endif %}
+  {% if siblings|length > 1 %}
+  <nav class="doc-tabs" aria-label="Testi di questo periodo">
+    {% for d in siblings %}<a href="/coach?f={{ d.name|urlencode }}"{% if d.name == current.name %} aria-current="true"{% endif %}>{{ "Commento" if "commento" in d.name else short.get(d.kind, d.label) }}{% if not d.validated %} <span class="pill attn">da verificare</span>{% endif %}</a>{% endfor %}
+  </nav>
+  {% endif %}
+  <article class="card report reading{% if not current.validated %} unverified{% endif %}">
+    {% if not current.validated %}
+    <div class="verify-banner" role="note">{{ icon("warn") }}<div><strong>Da verificare</strong> — {{ current.issues|length }} {{ 'punto non supportato' if current.issues|length == 1 else 'punti non supportati' }} dal validatore. Non è un testo definitivo.
+      <details><summary>Punti non supportati</summary><ul>{% for i in current.issues %}<li>{{ i }}</li>{% endfor %}</ul></details></div></div>
+    {% endif %}
+    {{ current_html|safe }}
+  </article>
+  {% elif not missing %}
+  <p class="card hint">{% if cat == "giorno" %}Qui arrivano il controllo della sera e i commenti alle sedute.{% elif cat == "mese" %}La retrospettiva arriva all'inizio di ogni mese.{% else %}La review arriva il lunedì mattina: la prossima è prevista lunedì {{ next_review.strftime("%d/%m") }}.{% endif %}</p>
+  {% endif %}
+
+  {% if others %}
+  <details class="card others"><summary>Proposte e altri testi</summary>
+    <ul class="plain">{% for d in others %}<li><a href="/coach?f={{ d.name|urlencode }}">{{ d.label }}</a>{% if not d.validated %} <span class="pill attn">da verificare</span>{% endif %}</li>{% endfor %}</ul>
+  </details>
+  {% endif %}
 </section>
 {% endif %}
 
@@ -73,32 +126,6 @@
     <li><a href="/interventi">{{ icon("interventi") }}Interventi{{ icon("chevron") }}</a></li>
     <li><a href="/safety">{{ icon("safety") }}Safety{% if open_flags %}<span class="flagcount" aria-label="{{ open_flags }} flag aperti">{{ open_flags }}</span>{% else %}{{ icon("chevron") }}{% endif %}</a></li>
   </ul>
-</section>
-{% endif %}
-
-{% if current and not confirm %}
-<section aria-labelledby="texts-title">
-  <h2 id="texts-title" class="section-title">Testi</h2>
-  <nav class="doc-tabs" aria-label="Ultimi testi">
-    {% for d in latest %}
-    <a href="/coach?f={{ d.name|urlencode }}"{% if current and d.name == current.name %} aria-current="true"{% endif %}>
-      {{ d.label }}{% if not d.validated %} <span class="pill attn">da verificare</span>{% endif %}</a>
-    {% endfor %}
-  </nav>
-  <article class="card report reading{% if not current.validated %} unverified{% endif %}">
-    {% if not current.validated %}
-    <div class="verify-banner" role="note">{{ icon("warn") }}<div><strong>Da verificare</strong> — {{ current.issues|length }} {{ 'punto non supportato' if current.issues|length == 1 else 'punti non supportati' }} dal validatore. Non è un testo definitivo.
-      <details><summary>Punti non supportati</summary><ul>{% for i in current.issues %}<li>{{ i }}</li>{% endfor %}</ul></details></div></div>
-    {% endif %}
-    {{ current_html|safe }}
-  </article>
-  {% if docs|length > latest|length %}
-  <form method="get" action="/coach" class="row archive">
-    <label for="f">Archivio</label>
-    <select id="f" name="f">{% for d in docs %}<option value="{{ d.name }}"{% if d.name == current.name %} selected{% endif %}>{{ d.label }}{% if not d.validated %} (da verificare){% endif %}</option>{% endfor %}</select>
-    <button type="submit" class="secondary">Apri</button>
-  </form>
-  {% endif %}
 </section>
 {% endif %}
 {% endblock %}

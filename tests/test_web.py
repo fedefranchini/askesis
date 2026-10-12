@@ -435,8 +435,16 @@ def test_coach_shows_the_latest_session_comment_as_a_tab(env, tmp_path):
     reports_dir().mkdir(parents=True, exist_ok=True)
     (reports_dir() / "seduta-2025-03-24.md").write_text("# Commento seduta — 2025-03-24\n\n- Nessun record.\n")
     login(client, password)
-    page = client.get("/coach").text
-    assert 'href="/coach?f=seduta-2025-03-24.md"' in page and "Commento seduta 2025-03-24" in page
+    page = client.get("/coach").text  # no weekly review yet: opens on the newest text, in its category
+    assert "Nessun record." in page and 'href="/coach?cat=giorno" aria-current="true"' in page
+    assert '<option value="2025-03-24" selected>Lun 24/03/2025</option>' in page
+    # picking from the calendar: any day of a week opens that week; a day without texts says so
+    (reports_dir() / "review-2025-W13.md").write_text("# Review — settimana 2025-W13\n\n- Sintesi.\n")
+    week = client.get("/coach?cat=settimana&v=2025-03-27").text
+    assert "Sintesi." in week and "Settimana 13 · 24/03–30/03/2025" in week
+    none = client.get("/coach?cat=giorno&v=2025-03-20").text
+    assert "Nessun testo per gio 20/03/2025." in none
+    assert client.get("/coach?cat=mese&v=2025-13").status_code == 200  # invalid month: a message, not an error
 
 
 def test_home_screen_app_icon_and_manifest_are_local(env):
