@@ -139,6 +139,7 @@ def test_server_units_and_firewall_expose_nothing_by_default():
     assert order == ["backup", "backup verify --notify", "backup seal", "backup offsite"]  # never seal unverified
     fw = (ROOT / "deploy" / "nftables.conf").read_text()
     assert "policy drop" in fw and 'iifname "nordlynx" ip saddr @peers tcp dport { 22, 8765 } accept' in fw
+    assert "flush ruleset" not in fw and "delete table inet askesis" in fw  # never wipes the VPN client's rules
     assert "0.0.0.0" not in fw and "8765 accept" not in fw.replace("{ 22, 8765 } accept", "")
     sshd = (ROOT / "deploy" / "sshd-askesis.conf").read_text()
     for line in ("PasswordAuthentication no", "PermitRootLogin no", "AllowTcpForwarding no"):

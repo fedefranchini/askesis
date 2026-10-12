@@ -182,7 +182,9 @@ step "firewall"
 [[ -z "$PEERS" ]] || echo "${PEERS//,/$'\n'}" > $ETC/peers
 touch $ETC/peers
 elements=$(paste -sd, $ETC/peers)
-rules=$(sed "s|# elements filled by install.sh|${elements:+elements = { $elements }}|" $APP/deploy/nftables.conf)
+peers_line=""
+[[ -z "$elements" ]] || peers_line="elements = { $elements }"
+rules=$(sed "s|__PEERS__|$peers_line|" $APP/deploy/nftables.conf)
 if [[ -s $ETC/peers ]]; then
   rules=${rules//__BOOTSTRAP_SSH__/}
   echo "  SSH e dashboard solo da Meshnet: $(paste -sd' ' $ETC/peers)"
