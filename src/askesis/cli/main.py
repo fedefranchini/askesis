@@ -557,7 +557,10 @@ def backup_pull() -> None:
         typer.secho("✗ sorgente non configurata (backup_pull_from)", fg="red")
         raise typer.Exit(1)
     cfg.backup_pull_dir.mkdir(parents=True, exist_ok=True)
-    res = subprocess.run([shutil.which("rsync") or "rsync", "-a", "--include=*.db.gz.age", "--include=manifest.json",
+    # rsync 3 first: the server confines the key with rrsync, which macOS's bundled openrsync cannot talk to
+    rsync = next((p for p in ("/opt/homebrew/bin/rsync", "/usr/local/bin/rsync") if Path(p).exists()),
+                 shutil.which("rsync") or "rsync")
+    res = subprocess.run([rsync, "-a", "--include=*.db.gz.age", "--include=manifest.json",
                           "--exclude=*", cfg.backup_pull_from, f"{cfg.backup_pull_dir}/"],
                          capture_output=True, text=True, timeout=600)
     if res.returncode != 0:
