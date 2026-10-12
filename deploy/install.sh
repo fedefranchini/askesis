@@ -129,6 +129,9 @@ chmod -R a+rX $APP
 
 step "configurazione"
 [[ -z "$TLS_DOMAIN" ]] || echo "$TLS_DOMAIN" > $ETC/tls-domain  # kept across later runs without --tls-domain
+if [[ -n "$TLS_DOMAIN" && ! -s $ETC/edge-secret ]]; then  # mark of the VPN-only site of the HTTPS front
+  (umask 077; head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > $ETC/edge-secret)
+fi
 [[ -z "$CONFIG" ]] || install -m 0640 -o root -g askesis "$CONFIG" $ETC/askesis.toml
 cat > $ETC/env <<EOF
 ASKESIS_CONFIG=$ETC/askesis.toml
@@ -145,6 +148,7 @@ UV_NO_SYNC=1
 PATH=$TOOLS/bin:/usr/sbin:/usr/bin:/sbin:/bin
 EOF
 [[ ! -s $ETC/tls-domain ]] || echo "ASKESIS_WEB_ORIGIN=https://$(cat $ETC/tls-domain)" >> $ETC/env
+[[ ! -s $ETC/edge-secret ]] || echo "ASKESIS_EDGE_SECRET=$(cat $ETC/edge-secret)" >> $ETC/env
 chmod 0640 $ETC/env && chgrp askesis $ETC/env
 [[ -f $ETC/rclone.conf ]] || install -m 0640 -o root -g askesis /dev/null $ETC/rclone.conf
 
@@ -227,7 +231,9 @@ if [[ -n "$TLS_DOMAIN" ]]; then
       -d "$TLS_DOMAIN" --deploy-hook /usr/local/sbin/askesis-tls-deploy
   fi
   RENEWED_LINEAGE="/etc/letsencrypt/live/$TLS_DOMAIN" /usr/local/sbin/askesis-tls-deploy
-  sed "s/__DOMAIN__/$TLS_DOMAIN/" $APP/deploy/Caddyfile.meshnet > /etc/caddy/Caddyfile
+  sed -e "s/__DOMAIN__/$TLS_DOMAIN/" -e "s/__EDGE_SECRET__/$(cat $ETC/edge-secret)/" \
+    $APP/deploy/Caddyfile.meshnet > /etc/caddy/Caddyfile
+  chown root:caddy /etc/caddy/Caddyfile && chmod 0640 /etc/caddy/Caddyfile
   install -d -m 0750 -o caddy -g caddy /var/log/caddy
   caddy validate --config /etc/caddy/Caddyfile >/dev/null
   systemctl enable -q caddy && systemctl restart caddy

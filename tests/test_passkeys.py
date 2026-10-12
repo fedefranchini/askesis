@@ -217,3 +217,38 @@ def test_offline_page_is_static_and_registered_only_over_https(env):
     assert page.status_code == 200 and "Askesis non è raggiungibile" in page.text and "<script" not in page.text
     js = (config.ROOT / "src/askesis/web/static/app.js").read_text()
     assert 'window.isSecureContext && location.protocol === "https:"' in js
+
+
+def test_forwarded_requests_are_public_unless_marked_by_the_vpn_site(env, monkeypatch):
+    """Fail-closed behind the HTTPS front: a forwarded request without the VPN site's secret mark is public, whatever
+    it claims in X-Forwarded-For; the client-written part of that header is never trusted."""
+    cfg, password = env
+    monkeypatch.setenv("ASKESIS_EDGE_SECRET", "s3cr3t-test-mark")
+    for headers in ({"x-forwarded-for": "127.0.0.1"},  # no mark: e.g. a tunnel or a misconfigured front
+                    {"x-forwarded-for": "127.0.0.1", "x-askesis-edge": "vpn-wrong"},
+                    {"x-forwarded-for": "127.0.0.1, 198.51.100.9", "x-askesis-edge": "public"}):
+        c = client(cfg)
+        tok = csrf(c, "/login")
+        r = c.post("/login", headers=headers, data={"csrf": tok, "password": password}, follow_redirects=False)
+        assert r.status_code == 403, headers
+    c = client(cfg)
+    tok = csrf(c, "/login")
+    vpn = {"x-forwarded-for": "100.64.0.9", "x-askesis-edge": "vpn-s3cr3t-test-mark"}
+    assert c.post("/login", headers=vpn, data={"csrf": tok, "password": password},
+                  follow_redirects=False).status_code == 303
+    last = auth.recent_attempts(cfg.db_path.parent / "web_access.log")[-1]
+    assert last["ip"] == "100.64.0.9" and last["ok"] is True
+
+
+def test_a_session_without_csrf_token_accepts_no_post(env):
+    """A session just rebuilt from a remembered device has no CSRF token yet: no value, not even a guessed
+    placeholder, may pass the check."""
+    cfg, password = env
+    c = client(cfg)
+    tok = csrf(c, "/login")
+    c.post("/login", data={"csrf": tok, "password": password, "remember": "1"})
+    c.cookies.delete("askesis_session")  # the 12-hour session expired; the device cookie is still there
+    for guess in ("!", "", "None"):
+        r = c.post("/", data={"csrf": guess, "action": "save", "line": "p 240"})
+        assert "Sessione scaduta" in r.text and "Salvato" not in r.text
+

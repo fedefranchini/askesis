@@ -142,7 +142,7 @@ def test_server_units_and_firewall_expose_nothing_by_default():
     assert "flush ruleset" not in fw and "delete table inet askesis" in fw  # never wipes the VPN client's rules
     assert "0.0.0.0" not in fw and "8765 accept" not in fw.replace("{ 22, 443, 8765 } accept", "")
     caddy = (ROOT / "deploy" / "Caddyfile.meshnet").read_text()
-    assert "request_header -X-Askesis-Edge" in caddy and "reverse_proxy 127.0.0.1:8765" in caddy
+    assert 'request_header X-Askesis-Edge "vpn-__EDGE_SECRET__"' in caddy and "reverse_proxy 127.0.0.1:8765" in caddy
     assert "admin off" in caddy and "auto_https off" in caddy
     sshd = (ROOT / "deploy" / "sshd-askesis.conf").read_text()
     for line in ("PasswordAuthentication no", "PermitRootLogin no", "AllowTcpForwarding no"):

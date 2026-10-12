@@ -11,6 +11,7 @@ import base64
 import hmac
 import json
 import mimetypes
+import os
 import secrets
 import time
 from datetime import date, timedelta
@@ -202,6 +203,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
     auth_file, secret_file, devices_file = paths(cfg)
     passkeys_file, access_log = cfg.db_path.parent / "web_passkeys.json", cfg.db_path.parent / "web_access.log"
     party = passkeys.Party.from_origin(cfg.web_origin)  # None: no HTTPS domain, passkeys off
+    edge_secret = os.environ.get("ASKESIS_EDGE_SECRET", "")  # shared only with the VPN site of the HTTPS front
     if not 1 <= cfg.web_remember_days <= 90:
         raise ValueError("web_remember_days deve essere tra 1 e 90")
     throttle = auth.Throttle()
@@ -236,7 +238,8 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
 
     async def form_checked(request: Request) -> dict | None:
         form = dict(await request.form())
-        ok = hmac.compare_digest(str(form.get("csrf", "")), request.session.get("csrf", "!"))
+        expected = request.session.get("csrf")  # no token in the session (e.g. just rebuilt): nothing passes
+        ok = bool(expected) and hmac.compare_digest(str(form.get("csrf", "")), expected)
         return form if ok else None
 
     def session_valid(request: Request) -> bool:
@@ -257,21 +260,29 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         if passkey:
             request.session["passkey"] = passkey
 
-    def client_ip(request: Request) -> str:
-        """The client: the direct peer, or the address a local reverse proxy (HTTPS front) reports."""
+    def proxied(request: Request) -> bool:
         host = request.client.host if request.client else ""
-        if host in ("127.0.0.1", "::1") and request.headers.get("x-forwarded-for"):
-            return request.headers["x-forwarded-for"].split(",")[0].strip()
-        return host
+        return host in ("127.0.0.1", "::1") and "x-forwarded-for" in request.headers
+
+    def client_ip(request: Request) -> str:
+        """The client: the direct peer, or — behind the local HTTPS front — the last address it appended (the one
+        the front saw; anything to its left could have been written by the client)."""
+        if proxied(request):
+            return request.headers["x-forwarded-for"].split(",")[-1].strip()
+        return request.client.host if request.client else ""
 
     def trusted_network(request: Request) -> bool:
-        """The VPN (or this machine), never the public internet: the HTTPS front marks public requests."""
-        if request.headers.get("x-askesis-edge") == "public":
-            return False
+        """The VPN or this machine, never the internet. Fail-closed behind a proxy: a forwarded request is trusted
+        only if the VPN-only site of the front marks it with the secret it alone knows (`edge_secret`); any other
+        forwarded request — public site, misconfigured front, tunnel — counts as public."""
+        if proxied(request):
+            mark = request.headers.get("x-askesis-edge", "")
+            return bool(edge_secret) and hmac.compare_digest(mark, f"vpn-{edge_secret}")
         return client_ip(request) in ("127.0.0.1", "::1", "testclient", *cfg.web_allowed_clients)
 
     def json_checked(request: Request, body: dict) -> bool:
-        return hmac.compare_digest(str(request.headers.get("x-csrf", "")), request.session.get("csrf", "!"))
+        expected = request.session.get("csrf")
+        return bool(expected) and hmac.compare_digest(str(request.headers.get("x-csrf", "")), expected)
 
     def guard(handler):
         async def wrapped(request: Request) -> Response:

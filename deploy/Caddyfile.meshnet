@@ -9,8 +9,9 @@
 https://__DOMAIN__:443 {
 	tls /etc/askesis/tls/fullchain.pem /etc/askesis/tls/privkey.pem
 	encode gzip
-	# requests through this site come from the VPN: never let a client claim otherwise
-	request_header -X-Askesis-Edge
+	# requests through this site come from the VPN: the dashboard trusts a forwarded request only with this mark,
+	# whose secret only this file (root:caddy 0640) and the dashboard know; whatever a client sent is replaced
+	request_header X-Askesis-Edge "vpn-__EDGE_SECRET__"
 	reverse_proxy 127.0.0.1:8765 {
 		header_up X-Forwarded-Proto https
 	}
