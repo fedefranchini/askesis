@@ -26,7 +26,7 @@ from askesis.ingestion.pipeline import Receipt, ingest
 from askesis.parsers.text import Intent, ParsedExercise, ParseError, parse_gym, parse_run
 from askesis.plan import rules as plan_rules
 from askesis.plan.model import last_set
-from askesis.plan.rest import rest_label
+from askesis.plan.rest import rest_label, rest_range
 from askesis.reference import find_exercise
 from askesis.safety import rules as safety
 
@@ -55,6 +55,7 @@ class Lift:
     load_hint: str  # recommended load, shown as a placeholder only
     reps_hint: str = ""  # target range, e.g. "6–8" (placeholder only)
     rir_hint: str = ""  # target RIR (placeholder only)
+    rest_s: tuple[int, int] | None = None  # rest range in seconds, for the rest timer
     existing: dict[int, dict] = field(default_factory=dict)  # n -> current payload (note or page)
 
 
@@ -186,7 +187,8 @@ def build_sheet(conn: sqlite3.Connection, day: date, settings: dict[str, str] | 
                 planned_sets=lift["sets"], base_rows=max(lift["sets"], max(existing, default=0)),
                 bodyweight=bool(ref and ref.get("load_kind") == "bodyweight"),
                 load_hint=_n(load) if load is not None else "", existing=existing,
-                reps_hint=f"{lift['rep_range'][0]}–{lift['rep_range'][1]}", rir_hint=_n(lift["target_rir"])))
+                reps_hint=f"{lift['rep_range'][0]}–{lift['rep_range'][1]}", rir_hint=_n(lift["target_rir"]),
+                rest_s=rest_range(key)))
         if s.get("run") and not sheet.has_run:
             r = s["run"]
             sheet.has_run = True

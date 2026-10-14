@@ -40,6 +40,34 @@
   <a class="step" href="/?data={{ (D + timedelta(days=1)).isoformat() }}" aria-label="Giorno successivo">{{ icon("next") }}</a>
   {% if not is_today %}<a class="back-today" href="/">Oggi</a>{% endif %}
 </nav>
+{% set M = status.month %}
+{% set months = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"] %}
+<details class="month" id="mese"{% if cal_open %} open{% endif %}>
+  <summary>Mese: {{ months[M.first.month - 1] }} {{ M.first.year }}</summary>
+  <div class="month-nav">
+    <a href="/?data={{ M.prev.isoformat() }}&amp;cal=1#mese" aria-label="Mese precedente">{{ icon("prev") }}</a>
+    <span>{{ months[M.first.month - 1]|capitalize }} {{ M.first.year }}</span>
+    <a href="/?data={{ M.next.isoformat() }}&amp;cal=1#mese" aria-label="Mese successivo">{{ icon("next") }}</a>
+  </div>
+  <table class="cal">
+    <thead><tr>{% for w in ["lun", "mar", "mer", "gio", "ven", "sab", "dom"] %}<th scope="col">{{ w }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for week in M.weeks %}<tr>
+      {% for c in week %}
+      <td class="{{ 'out' if not c.in_month }}{{ ' sel' if c.selected }}{{ ' now' if c.today }}">
+        <a href="/?data={{ c.d.isoformat() }}" aria-label="{{ c.d.day }} {{ months[c.d.month - 1] }}{% if not c.future %}: peso {{ 'sì' if c.weight else 'no' }}, cibo {{ 'sì' if c.food else 'no' }}, allenamento {{ 'sì' if c.training else 'no' }}{% endif %}">
+          <span class="dn">{{ c.d.day }}</span>
+          {% if not c.future %}<span class="marks" aria-hidden="true"><i class="{{ 'on' if c.weight }}"></i><i class="{{ 'on' if c.food }}"></i><i class="{{ 'on t' if c.training }}"></i></span>{% endif %}
+        </a>
+      </td>
+      {% endfor %}
+    </tr>{% endfor %}
+    </tbody>
+  </table>
+  <p class="hint cal-key"><span class="marks" aria-hidden="true"><i class="on"></i><i></i><i></i></span> peso ·
+    <span class="marks" aria-hidden="true"><i></i><i class="on"></i><i></i></span> cibo ·
+    <span class="marks" aria-hidden="true"><i></i><i></i><i class="on t"></i></span> allenamento. Tocca un giorno per aprirlo.</p>
+</details>
 {% if future %}<p class="hint">Giorno futuro: qui c'è solo quello che prevede il piano.</p>
 {% elif not is_today %}<p class="hint">Giorno passato: vedi quello che è registrato e puoi completare ciò che manca.</p>{% endif %}
 
@@ -137,7 +165,7 @@
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <input type="hidden" name="day" value="{{ status.day.isoformat() }}">
       <input type="hidden" name="line" value="">
-      {% if need_w %}<label>Peso {{ "di oggi" if is_today else "del giorno" }}<span class="unit-in"><input name="peso" inputmode="decimal" autocomplete="off" aria-label="Peso, kg"><i>kg</i></span></label>{% endif %}
+      {% if need_w %}<label>Peso {{ "di oggi" if is_today else "del giorno" }}<span class="unit-in"><input id="peso" name="peso" inputmode="decimal" autocomplete="off" aria-label="Peso, kg"><i>kg</i></span></label>{% endif %}
       {% if need_f %}<fieldset class="food"><legend>{% if is_today %}Cibo di ieri{% else %}Cibo del giorno prima ({{ (D - timedelta(days=1)).strftime("%d/%m") }}){% endif %}</legend>
         <span class="unit-in"><input name="kcal" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="Energia di ieri, kcal"><i>kcal</i></span>
         <span class="unit-in"><input name="proteine" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="Proteine di ieri, g"><i>g proteine</i></span>
@@ -222,7 +250,8 @@
         {% for k in ("pesi", "corsa") %}<input type="radio" id="sd_kind-{{ k }}" name="sd_kind" value="{{ k }}"{% if K.kind == k %} checked{% endif %}><label for="sd_kind-{{ k }}">{{ k|capitalize }}</label>{% endfor %}
       </fieldset>
       {% for it in K.post %}{{ scale(it, "sd_", K.current_post.get(it.field)) }}{% endfor %}
-      <label class="minutes">Durata (minuti)<input name="sd_min" inputmode="numeric" pattern="[0-9]*" value="{{ K.minutes if K.minutes else '' }}"></label>
+      <label class="minutes">Durata (minuti)<input name="sd_min" inputmode="numeric" pattern="[0-9]*" value="{{ K.minutes if K.minutes else '' }}"{% if K.kind == "pesi" and not K.current_post.get("session_minutes") %} data-measure="{{ status.day.isoformat() }}"{% endif %}></label>
+      <p class="hint measured" hidden></p>
       <p class="hint">La durata è precompilata dalla stima del piano o dalla corsa registrata: correggila se serve.</p>
       <button type="submit" name="action" value="save">Salva</button>
     </form>
@@ -245,24 +274,33 @@
   <p class="hint">Cibo e passi si riferiscono al giorno prima. Pesi e corsa si salvano solo dopo l'anteprima.</p>
 
   <details class="fields">
-    <summary>Campi pronti</summary>
-    <div class="grid">
+    <summary>Altro</summary>
+    <p class="hint">Niente qui è obbligatorio: ogni giorno bastano peso, kcal e proteine (in «Da fare»). I campi compilati
+      diventano la stessa riga del giorno: lascia vuota la riga sopra per usarli.</p>
+    <fieldset class="grid"><legend>Peso e cibo (per correggere o completare)</legend>
       <label>Peso (kg)<input name="peso" inputmode="decimal"></label>
       <label>Energia di ieri (kcal)<input name="kcal" inputmode="numeric"></label>
       <label>Proteine di ieri (g)<input name="proteine" inputmode="numeric"></label>
-      <label class="check"><input type="checkbox" name="parziale" value="1"> Giornata incompleta</label>
+    </fieldset>
+    <fieldset class="grid"><legend>Pasto fuori casa</legend>
       <label>Pasto libero (kcal stimate)<input name="libero_kcal" inputmode="numeric"></label>
       <label>Pasto libero (proteine)<input name="libero_prot" inputmode="numeric"></label>
+      <label class="check wide"><input type="checkbox" name="parziale" value="1"> Cibo di ieri registrato solo in parte</label>
+      <p class="hint wide">Per un pasto fuori basta il pasto libero. Spunta la casella solo se mancano pasti che non sai
+        stimare: quel giorno resta fuori dai calcoli.</p>
+    </fieldset>
+    <fieldset class="grid"><legend>Misure (quando servono)</legend>
       <label>Vita, lettura 1 (cm)<input name="vita1" inputmode="decimal"></label>
       <label>Vita, lettura 2 (cm)<input name="vita2" inputmode="decimal"></label>
       <label>Vita, lettura 3 (cm)<input name="vita3" inputmode="decimal"></label>
       <label>Sonno (es. 7h30)<input name="sonno"></label>
       <label>Passi di ieri<input name="passi" inputmode="numeric"></label>
       <label>FC a riposo<input name="fcr" inputmode="numeric"></label>
+    </fieldset>
+    <fieldset class="grid"><legend>Allenamento (meglio la scheda della palestra)</legend>
       <label class="wide">Pesi (es. panca 50x8 r2, 50x7 r1 · rematore 40x10 r2)<textarea name="pesi" rows="2"></textarea></label>
       <label class="wide">Corsa (es. 5km 31:40 fc140)<input name="corsa"></label>
-    </div>
-    <p class="hint">I campi compilati diventano la stessa riga del giorno: lascia vuota la riga sopra per usarli.</p>
+    </fieldset>
   </details>
 </form>
 </section>

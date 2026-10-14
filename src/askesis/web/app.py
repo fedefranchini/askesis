@@ -484,7 +484,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
                 "flags": [dict(f) | {"actions": json.loads(f["actions"])} for f in safety.open_flags(c)],
                 "summary": (s := today_mod.summary(c, day)), "spark": sparkline(c, day),
                 "checkin": checkin_ctx(c, day, s), "illness": illness_log.open_episode(c, day),
-                "symptoms": illness_log.SYMPTOMS}
+                "symptoms": illness_log.SYMPTOMS, "month": today_mod.month_grid(c, day, today())}
 
     def illness_action(c, form: dict) -> dict:
         """'Non sto bene' (new episode), symptom update, 'Sto meglio' (episode closed). Saved at once with a
@@ -575,7 +575,8 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
             except ValueError:
                 error = "Data non valida: mostro oggi."
         ctx: dict = {"status": status_today(c, view), "line": "", "day_value": min(view, t).isoformat(),
-                     "preview": None, "saved": None, "error": error, "today": t}
+                     "preview": None, "saved": None, "error": error, "today": t,
+                     "cal_open": request.query_params.get("cal") == "1"}
         if request.method == "POST":
             form = await form_checked(request)
             if form is None:

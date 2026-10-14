@@ -77,6 +77,27 @@ h3 { font-size: var(--fs-b); margin: 16px 0 4px; font-weight: 600; }
 .daynav .pick { display: flex; gap: 8px; flex: 1 1 160px; min-width: 0; }
 .daynav .pick input { flex: 1; min-width: 0; }
 .daynav .back-today { font-weight: 600; padding: 0 8px; min-height: 44px; display: inline-flex; align-items: center; }
+.month { margin: -6px 0 16px; }
+.month > summary { cursor: pointer; color: var(--text-2); font-size: var(--fs-s); font-weight: 600; min-height: 44px; display: inline-flex; align-items: center; }
+.month-nav { display: flex; align-items: center; justify-content: space-between; max-width: 420px; margin: 4px 0 6px; font-weight: 600; }
+.month-nav a { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; color: var(--text); }
+.month-nav .ico { width: 20px; height: 20px; }
+.cal { width: 100%; max-width: 420px; border-collapse: separate; border-spacing: 3px; table-layout: fixed; }
+.cal th { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; padding: 0 0 2px; }
+.cal td { padding: 0; }
+.cal a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 46px;
+  border-radius: 10px; background: var(--card); color: var(--text); text-decoration: none; font-variant-numeric: tabular-nums; }
+.cal .out a { background: transparent; color: var(--text-3); }
+.cal .now a { box-shadow: inset 0 0 0 1px var(--accent); }
+.cal .sel a { background: var(--accent); color: #fff; }
+.marks { display: inline-flex; gap: 2px; }
+.marks i { width: 6px; height: 6px; border-radius: 2px; border: 1px solid var(--text-3); }
+.marks i.on { background: var(--text-2); border-color: var(--text-2); }
+.marks i.on.t { background: var(--s3); border-color: var(--s3); }
+.cal .sel .marks i { border-color: #FFFFFFB3; }
+.cal .sel .marks i.on { background: #fff; border-color: #fff; }
+.cal-key { margin-top: 8px; }
+.cal-key .marks { vertical-align: middle; margin-right: 2px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 18px 20px; }
 .main > * + * { margin-top: 12px; }
 .main > .pagehead + * { margin-top: 0; }
@@ -167,6 +188,9 @@ button.link { border: 0; background: none; color: var(--text-2); padding: 0; min
 .grid label.check { flex-direction: row; align-items: center; color: var(--text); min-height: 44px; }
 .grid label.check input { width: 20px; height: 20px; accent-color: var(--accent); }
 .grid .wide { grid-column: 1 / -1; }
+fieldset.grid { border: 0; border-top: 1px solid var(--line); padding: 12px 0 0; margin: 12px 0 0; min-width: 0; }
+fieldset.grid legend { grid-column: 1 / -1; float: left; width: 100%; padding: 0; font-size: var(--fs-s); font-weight: 700; color: var(--text); }
+fieldset.grid .hint { margin: 0; }
 
 .receipt { border-left: 3px solid var(--accent); }
 .receipt.saved { border-left-color: var(--ok); }
@@ -523,7 +547,15 @@ button.danger-soft { background: transparent; border-color: var(--warn); color: 
 .stepbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .stepcount { color: var(--text-2); font-size: var(--fs-s); font-weight: 600; margin-right: auto; }
 .stepbar button[disabled] { opacity: 0.4; }
-.gym-submit { position: sticky; bottom: 12px; z-index: 5; display: flex; justify-content: flex-end; padding: 10px 0 0; }
+.gym-submit { position: sticky; bottom: 12px; z-index: 5; display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding: 10px 0 0; }
+.rest-timer { margin-right: auto; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 14px; border-radius: 999px;
+  background: var(--card-2); border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); font-size: var(--fs-s); color: var(--text-2); }
+.rest-timer[hidden] { display: none; }
+.rest-timer .rt-clock { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 18px; color: var(--text); }
+.rest-timer.ready .rt-clock { color: var(--warn); }
+.rest-timer.go .rt-clock { color: var(--ok); }
+.rest-timer .rt-stop { min-height: 36px; padding: 4px 12px; box-shadow: none; }
+@media (max-width: 420px) { .rest-timer .rt-goal { display: none; } }
 .gym-submit button { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45); }
 @media (max-width: 760px) { .gym-submit { bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 10px); } }
 .gym-other summary { color: var(--text-2); font-size: var(--fs-s); font-weight: 600; cursor: pointer; min-height: 44px; display: inline-flex; align-items: center; }

@@ -215,3 +215,29 @@ def summary(conn: sqlite3.Connection, day: date, inp: engine.Inputs | None = Non
     return {"day": day.isoformat(), "tiles": [asdict(t) for t in tiles], "phase": phase_progress(conn, inp, day),
             "todo": todo(conn, day), "session": plan_rules.next_session(conn, day, record=False),
             "session_done": any(x.day == day and x.set_type != "warmup" for x in inp.sets)}
+
+
+def month_grid(conn: sqlite3.Connection, day: date, today: date) -> dict:
+    """The month of `day`, Monday to Sunday: for every date whether a weigh-in, that day's food and a training session
+    (working sets or a run) are recorded. Future dates carry no marks."""
+    first = day.replace(day=1)
+    nxt = (first + timedelta(days=32)).replace(day=1)
+    start, end = first - timedelta(days=first.weekday()), nxt + timedelta(days=(7 - nxt.weekday()) % 7)
+    rows = conn.execute(
+        "SELECT entity_type, local_date FROM v_current WHERE local_date >= ? AND local_date < ? AND ("
+        "entity_type IN ('body_weight', 'nutrition_day', 'running_session') OR (entity_type = 'set_record' "
+        "AND coalesce(json_extract(payload, '$.set_type'), 'working') != 'warmup')) GROUP BY entity_type, local_date",
+        (start.isoformat(), end.isoformat())).fetchall()
+    have = {(r["entity_type"], r["local_date"]) for r in rows}
+    weeks, d = [], start
+    while d < end:
+        week = []
+        for _ in range(7):
+            k = d.isoformat()
+            week.append({"d": d, "in_month": d.month == first.month, "future": d > today, "today": d == today,
+                         "selected": d == day, "weight": ("body_weight", k) in have,
+                         "food": ("nutrition_day", k) in have,
+                         "training": ("set_record", k) in have or ("running_session", k) in have})
+            d += timedelta(days=1)
+        weeks.append(week)
+    return {"first": first, "prev": (first - timedelta(days=1)).replace(day=1), "next": nxt, "weeks": weeks}

@@ -509,3 +509,33 @@ def test_days_can_be_browsed_and_a_past_day_completed(env):
                                                           "line": "p 240", "action": "save"})
     assert "giorno futuro" in r.text and count(cfg) == before + 1
     assert "Data non valida" in client.get("/?data=2026-99-99").text
+
+
+def test_month_calendar_marks_recorded_days_and_links_to_them(env):
+    """The month under the day picker: one cell per date, linked to that day, with marks for weight, food and
+    training read from the database; future dates carry none; month arrows keep the calendar open."""
+    from datetime import date, timedelta
+
+    client, cfg, password = env
+    login(client, password)
+    t = date.fromisoformat(re.search(r'name="data" value="([0-9-]+)"', client.get("/").text).group(1))
+    past = t - timedelta(days=40)
+    page = client.get(f"/?data={past.isoformat()}").text
+    client.post(f"/?data={past.isoformat()}", data={"csrf": csrf_of(page), "day": past.isoformat(), "line": "",
+                                                    "peso": "240,5", "action": "save"})
+    page = client.get(f"/?data={past.isoformat()}").text
+    assert '<details class="month" id="mese">' in page  # closed unless asked
+    cell = re.search(rf'<a href="/\?data={past.isoformat()}" aria-label="([^"]+)"', page).group(1)
+    assert cell.endswith("peso sì, cibo no, allenamento no")
+    fut = t + timedelta(days=1)
+    page = client.get(f"/?data={fut.isoformat()}&cal=1").text
+    assert '<details class="month" id="mese" open>' in page
+    assert re.search(rf'<a href="/\?data={fut.isoformat()}" aria-label="\d+ [a-z]+">', page)
+
+
+def test_today_keeps_the_extra_fields_folded_and_explains_the_partial_day(env):
+    client, cfg, password = env
+    login(client, password)
+    html = client.get("/").text
+    assert "<summary>Altro</summary>" in html and "Campi pronti" not in html
+    assert "Per un pasto fuori basta il pasto libero" in html and 'id="peso"' in html

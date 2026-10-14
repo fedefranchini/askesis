@@ -85,7 +85,7 @@
   <input type="hidden" name="day" value="{{ day.isoformat() }}">
   <button type="submit" name="action" value="preview" class="defaultsubmit" tabindex="-1" aria-hidden="true">Anteprima</button>
   {% for lift in sheet.lifts %}{% set i = loop.index0 %}
-  <section class="card gym-lift" aria-labelledby="lift-{{ i }}">
+  <section class="card gym-lift" aria-labelledby="lift-{{ i }}"{% if lift.rest_s %} data-rest="{{ lift.rest_s[0] }}-{{ lift.rest_s[1] }}"{% endif %}>
     <h2 id="lift-{{ i }}">{{ lift.name }}</h2>
     {% if lift.prescription %}<p class="meta">{{ lift.prescription }}</p>{% endif %}
     {% if lift.rest %}<p class="meta">{{ lift.rest }}</p>{% endif %}
@@ -98,7 +98,7 @@
       {% for row in values.rows[i] %}{% set j = loop.index0 %}
       <span class="n">{{ loop.index }}</span>
       <input name="kg_{{ i }}_{{ j }}" value="{{ row.kg }}" inputmode="decimal" placeholder="{{ lift.load_hint }}" data-lift="{{ i }}" data-set="{{ j }}" aria-label="{{ lift.name }}, serie {{ loop.index }}, kg">
-      <input name="reps_{{ i }}_{{ j }}" value="{{ row.reps }}" inputmode="numeric" pattern="[0-9]*" placeholder="{{ lift.reps_hint }}" aria-label="{{ lift.name }}, serie {{ loop.index }}, ripetizioni">
+      <input name="reps_{{ i }}_{{ j }}" value="{{ row.reps }}" data-reps inputmode="numeric" pattern="[0-9]*" placeholder="{{ lift.reps_hint }}" aria-label="{{ lift.name }}, serie {{ loop.index }}, ripetizioni">
       <input name="rir_{{ i }}_{{ j }}" value="{{ row.rir }}" inputmode="decimal" placeholder="{{ lift.rir_hint }}" aria-label="{{ lift.name }}, serie {{ loop.index }}, RIR">
       {% endfor %}
     </div>
@@ -114,9 +114,15 @@
     {% else %}<input type="hidden" name="run" value="">{% endif %}
     <label>Note
       <textarea name="notes" rows="2">{{ values.notes }}</textarea></label>
-    <p class="hint">Conta una serie solo se ha le ripetizioni. Il carico consigliato è un suggerimento: scrivi quello usato. Puoi usare anche la nota della palestra: nessun doppione.</p>
+    <p class="hint">Quando scrivi le ripetizioni di una serie parte il recupero, con l'intervallo del piano. Conta una serie solo se ha le ripetizioni. Il carico consigliato è un suggerimento: scrivi quello usato. Puoi usare anche la nota della palestra: nessun doppione.</p>
   </section>
-  <div class="gym-submit"><button type="submit" name="action" value="preview">Mostra anteprima</button></div>
+  <div class="gym-submit">
+    <div class="rest-timer" data-day="{{ day.isoformat() }}" role="timer" hidden>
+      <span class="rt-clock">0:00</span><span class="rt-goal"></span>
+      <button type="button" class="secondary rt-stop" aria-label="Ferma il recupero">Stop</button>
+    </div>
+    <button type="submit" name="action" value="preview">Mostra anteprima</button>
+  </div>
 </form>
 {% endif %}
 {% endblock %}

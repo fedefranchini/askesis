@@ -54,3 +54,31 @@
   window.addEventListener("hashchange", () => { if (location.hash === "#checkin") openCheckin(); });
   if (location.hash === "#checkin") openCheckin();
 })();
+
+// Session length measured by the gym sheet (first to last set, kept in this browser only): offered in place of the
+// plan's estimate while nothing has been saved. Under 15 minutes it is not a measure (the sheet was filled at the end).
+(function () {
+  "use strict";
+  const inp = document.querySelector("input[data-measure]");
+  if (!inp) return;
+  let span = null;
+  try { span = JSON.parse(localStorage.getItem("gym-" + inp.dataset.measure)); } catch (e) { return; }
+  if (!span || !span.first || !span.last) return;
+  const min = Math.round((span.last - span.first) / 60000);
+  if (min < 15 || min > 300) return;
+  const hm = (t) => new Date(t).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  inp.value = String(min);
+  const note = inp.closest("form").querySelector(".measured");
+  if (note) {
+    note.textContent = `Misurata dalla scheda della palestra: prima serie alle ${hm(span.first)}, ultima alle ${hm(span.last)}.`;
+    note.hidden = false;
+  }
+})();
+
+// "#peso" (e.g. a morning reminder that opens the dashboard): straight to the weight field, if it is still missing.
+(function () {
+  "use strict";
+  if (location.hash !== "#peso") return;
+  const w = document.getElementById("peso");
+  if (w) { w.scrollIntoView({ block: "center" }); w.focus(); }
+})();

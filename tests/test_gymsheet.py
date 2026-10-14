@@ -78,6 +78,7 @@ def test_get_shows_the_plan_and_writes_nothing(env):
     r = client.get(f"/palestra?data={D}")
     assert r.status_code == 200 and "Panca piana" in r.text
     assert "3 × 6–8 · RIR 2 · carico da calibrare" in r.text and "recupero 2–3 min" in r.text
+    assert 'data-rest="120-180"' in r.text and "data-reps" in r.text and 'class="rest-timer"' in r.text
     assert "macchina: sedile sintetico 9" in r.text
     assert 'inputmode="decimal"' in r.text and 'inputmode="numeric"' in r.text
     assert 'value=""' in r.text and "Risultati già registrati" not in r.text
