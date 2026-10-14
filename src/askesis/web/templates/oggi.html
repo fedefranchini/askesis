@@ -9,10 +9,15 @@
 {% set S = status.summary %}
 {% set T = {} %}{% for t in S.tiles %}{% set _ = T.update({t.key: t}) %}{% endfor %}
 {% set weekdays = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"] %}
+{% set D = status.day %}
+{% set is_today = D == today %}
+{% set future = D > today %}
+{% set here = "/" if is_today else "/?data=" ~ D.isoformat() %}
+{% set rel = "Oggi" if is_today else ("Ieri" if (today - D).days == 1 else ("Domani" if (D - today).days == 1 else weekdays[D.weekday()]|capitalize)) %}
 <header class="pagehead">
   <div>
-    <span class="eyebrow">{{ weekdays[status.day.weekday()]|capitalize }} {{ status.day.strftime("%d/%m") }}</span>
-    <h1>Oggi</h1>
+    <span class="eyebrow">{{ weekdays[D.weekday()]|capitalize }} {{ D.strftime("%d/%m/%Y" if D.year != today.year else "%d/%m") }}</span>
+    <h1>{{ rel }}</h1>
   </div>
   {% if S.phase %}
   <div class="phase">
@@ -26,6 +31,17 @@
   </div>
   {% endif %}
 </header>
+<nav class="daynav" aria-label="Scegli il giorno">
+  <a class="step" href="/?data={{ (D - timedelta(days=1)).isoformat() }}" aria-label="Giorno precedente">{{ icon("prev") }}</a>
+  <form method="get" action="/" class="pick">
+    <input type="date" name="data" value="{{ D.isoformat() }}" aria-label="Data" data-autosubmit>
+    <button type="submit" class="secondary js-hide">Vai</button>
+  </form>
+  <a class="step" href="/?data={{ (D + timedelta(days=1)).isoformat() }}" aria-label="Giorno successivo">{{ icon("next") }}</a>
+  {% if not is_today %}<a class="back-today" href="/">Oggi</a>{% endif %}
+</nav>
+{% if future %}<p class="hint">Giorno futuro: qui c'è solo quello che prevede il piano.</p>
+{% elif not is_today %}<p class="hint">Giorno passato: vedi quello che è registrato e puoi completare ciò che manca.</p>{% endif %}
 
 {% set ILL = status.illness %}
 {% macro symptom_boxes(selected=[]) -%}
@@ -37,7 +53,10 @@
 <label class="ill-note">Altro (facoltativo)<input name="ill_note" maxlength="200" autocomplete="off"></label>
 {%- endmacro %}
 
-{% if ILL %}
+{% if ILL and not is_today and not future %}
+{% set row, ep = ILL %}
+<section class="card illness"><h2>{{ icon("alert") }}Giorno di malessere</h2><p>{{ ep.description or "senza dettagli" }}: le sedute di questo giorno non contano come saltate.</p></section>
+{% elif ILL and is_today %}
 {% set row, ep = ILL %}
 <section class="card illness" aria-labelledby="ill-title">
   <h2 id="ill-title">{{ icon("alert") }}Malessere dal {{ ep.start.strftime("%d/%m") }}</h2>
@@ -60,7 +79,7 @@
 </section>
 {% endif %}
 
-{% for f in status.flags if not (ILL and f.rule_id == "safety.illness@1") %}
+{% for f in status.flags if is_today and not (ILL and f.rule_id == "safety.illness@1") %}
 <section class="flag tier-{{ f.tier }}" role="alert">
   {{ icon("alert") }}
   <p><strong>{{ f.message }}</strong></p>
@@ -68,6 +87,7 @@
 </section>
 {% endfor %}
 
+{% if not future %}
 {% set w = T.weight %}
 <section class="card hero" aria-label="Peso di tendenza">
   <div>
@@ -92,7 +112,8 @@
 </section>
 
 {# Rings only for values that exist: an empty ring says nothing and pushes the day's tasks down. #}
-{% set rings = [(T.energy, 0, "kcal", "energia di ieri"), (T.protein, 0, "g", "proteine di ieri"),
+{% set prev = "di ieri" if is_today else "del giorno prima" %}
+{% set rings = [(T.energy, 0, "kcal", "energia " ~ prev), (T.protein, 0, "g", "proteine " ~ prev),
                 (T.sleep, 1, "ore", "sonno"), (T.sessions, 0, T.sessions.unit, "sedute"), (T.steps, 0, "passi", "passi")] %}
 {% set shown = rings|selectattr("0.value", "ne", none)|list %}
 {% set missing = rings|selectattr("0.value", "none")|map(attribute="3")|list %}
@@ -102,20 +123,22 @@
 </div>
 {% endif %}
 {% if missing %}<p class="hint nodata">Ancora senza dati: {{ missing|join(", ") }}.</p>{% endif %}
+{% endif %}
 
 <div class="split">
+  {% if not future %}
   <section class="card">
     <h2>Da fare</h2>
     {% if S.todo %}
     {% set need_w = "Pesata di oggi" in S.todo %}
     {% set need_f = "Cibo di ieri" in S.todo %}
     {% if need_w or need_f %}
-    <form method="post" action="/" class="quicklog" data-busy>
+    <form method="post" action="{{ here }}" class="quicklog" data-busy>
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <input type="hidden" name="day" value="{{ status.day.isoformat() }}">
       <input type="hidden" name="line" value="">
-      {% if need_w %}<label>Peso di oggi<span class="unit-in"><input name="peso" inputmode="decimal" autocomplete="off" aria-label="Peso di oggi, kg"><i>kg</i></span></label>{% endif %}
-      {% if need_f %}<fieldset class="food"><legend>Cibo di ieri</legend>
+      {% if need_w %}<label>Peso {{ "di oggi" if is_today else "del giorno" }}<span class="unit-in"><input name="peso" inputmode="decimal" autocomplete="off" aria-label="Peso, kg"><i>kg</i></span></label>{% endif %}
+      {% if need_f %}<fieldset class="food"><legend>{% if is_today %}Cibo di ieri{% else %}Cibo del giorno prima ({{ (D - timedelta(days=1)).strftime("%d/%m") }}){% endif %}</legend>
         <span class="unit-in"><input name="kcal" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="Energia di ieri, kcal"><i>kcal</i></span>
         <span class="unit-in"><input name="proteine" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="Proteine di ieri, g"><i>g proteine</i></span>
       </fieldset>{% endif %}
@@ -127,7 +150,7 @@
     {% else %}
     <p class="done">{{ icon("ok") }}Pesata, cibo di ieri e check-in registrati.</p>
     {% endif %}
-    {% if not ILL %}
+    {% if not ILL and is_today %}
     <details class="ill-report"><summary>Non sto bene oggi</summary>
       <form method="post" action="/" class="ill-form">
         <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -140,11 +163,13 @@
     </details>
     {% endif %}
   </section>
+  {% endif %}
   <section class="card">
     {% set nx = S.session %}
+    {% set sess_title = "Seduta di oggi" if is_today else "Seduta del giorno" %}
     {% if nx.status == "session" %}
       {% for s in nx.sessions %}
-      <h2>Seduta di oggi · {{ s.name }}{% if nx.deload %} · scarico{% endif %}{% if S.session_done %} <span class="status st-done">{{ icon("ok") }}registrata</span>{% endif %}</h2>
+      <h2>{{ sess_title }} · {{ s.name }}{% if nx.deload %} · scarico{% endif %}{% if S.session_done %} <span class="status st-done">{{ icon("ok") }}registrata</span>{% endif %}</h2>
       <ul class="lifts">
         {% for l in s.lifts %}
         <li><span class="ex">{{ l.exercise|exercise }}</span>
@@ -153,23 +178,25 @@
         {% endfor %}
       </ul>
       {% endfor %}
+      {% if not future %}<p><a href="/palestra?data={{ D.isoformat() }}">Apri la scheda della palestra</a></p>{% endif %}
     {% elif nx.status == "blocked_by_safety" %}
-      <h2>Seduta di oggi</h2><p class="alert-text">Nessuna prescrizione: c'è un flag di safety aperto.</p>
+      <h2>{{ sess_title }}</h2><p class="alert-text">Nessuna prescrizione: c'è un flag di safety aperto.</p>
     {% elif nx.status == "rest_day" %}
-      <h2>Seduta di oggi</h2><p class="hint">Oggi non è prevista una seduta di pesi.</p>
+      <h2>{{ sess_title }}</h2><p class="hint">{{ "Oggi non è prevista" if is_today else "Non è prevista" }} una seduta di pesi.</p>
     {% else %}
-      <h2>Seduta di oggi</h2><p class="hint">Nessun programma attivo.</p>
+      <h2>{{ sess_title }}</h2><p class="hint">Nessun programma attivo.</p>
     {% endif %}
   </section>
 </div>
 
+{% if not future %}
 {% set K = status.checkin %}
 <section class="card checkin" id="checkin" aria-labelledby="ck-title">
   <details>
     <summary><h2 id="ck-title">Check-in del mattino</h2>
       {% if K.answers.morning %}<span class="ck-state">{{ icon("ok") }}{{ K.n_morning }} {{ 'risposta' if K.n_morning == 1 else 'risposte' }}, modifica</span>
       {% else %}<span class="ck-go">Inizia</span><span class="ck-state ck-sub">{{ K.morning|length }} domande, circa 30 secondi</span>{% endif %}</summary>
-    <form method="post" action="/" class="ck-form" data-stepper>
+    <form method="post" action="{{ here }}" class="ck-form" data-stepper>
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <input type="hidden" name="day" value="{{ status.day.isoformat() }}">
       {% for it in K.morning %}{{ scale(it, "ck_", K.answers.morning.get(it.field)) }}{% endfor %}
@@ -187,7 +214,7 @@
   <details{% if K.post_open %} open{% endif %}>
     <summary><h2 id="sd-title">{% if training_day %}Dopo l'allenamento{% else %}Allenamento fuori programma?{% endif %}</h2>
       <span class="ck-state">{% if K.current_post %}{{ icon("ok") }}registrato · modifica{% else %}circa 30 minuti dopo la seduta{% endif %}</span></summary>
-    <form method="post" action="/" class="ck-form">
+    <form method="post" action="{{ here }}" class="ck-form">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <input type="hidden" name="day" value="{{ status.day.isoformat() }}">
       <fieldset class="kind">
@@ -203,7 +230,7 @@
 </section>
 
 <section class="card entry-card">
-<form method="post" action="/" class="entry">
+<form method="post" action="{{ here }}" class="entry">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <label for="line" class="lead">Riga del giorno</label>
   <textarea id="line" name="line" rows="2" spellcheck="false" autocapitalize="off"
@@ -240,13 +267,15 @@
 </form>
 </section>
 
+{% endif %}
+
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 
 {% if preview %}
 <section class="card receipt" aria-live="polite">
   <h2>Anteprima: nulla è stato salvato</h2>
   <ul>{% for l in preview.lines %}<li>{{ l }}</li>{% endfor %}</ul>
-  <form method="post" action="/">
+  <form method="post" action="{{ here }}">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <input type="hidden" name="line" value="{{ line }}">
     <input type="hidden" name="day" value="{{ day_value }}">

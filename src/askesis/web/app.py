@@ -212,6 +212,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
     env.filters["num"] = fmt_num
     env.filters["date"] = fmt_date
     env.globals["md"] = md.render
+    env.globals["timedelta"] = timedelta
     env.filters["exercise"] = exercise_name
     env.filters["rest"] = rest_label
     env.filters["last_set"] = last_set
@@ -563,9 +564,18 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
                 "post_open": bool(summary["session_done"] or run or current)}
 
     async def oggi(request: Request) -> Response:
+        """Today, or another day chosen with ?data=YYYY-MM-DD (arrows and calendar). A past day shows what was
+        recorded and can be completed with the same forms; a future day shows only the planned session."""
         c = conn()
-        ctx: dict = {"status": status_today(c, today()), "line": "", "day_value": today().isoformat(),
-                     "preview": None, "saved": None, "error": None}
+        t = today()
+        view, error = t, None
+        if raw := request.query_params.get("data"):
+            try:
+                view = date.fromisoformat(raw)
+            except ValueError:
+                error = "Data non valida: mostro oggi."
+        ctx: dict = {"status": status_today(c, view), "line": "", "day_value": min(view, t).isoformat(),
+                     "preview": None, "saved": None, "error": error, "today": t}
         if request.method == "POST":
             form = await form_checked(request)
             if form is None:
@@ -578,6 +588,9 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
             try:
                 day = date.fromisoformat(str(form.get("day") or today().isoformat()))
                 ctx["day_value"] = day.isoformat()
+                if day > t:
+                    raise ValueError("non si registrano dati di un giorno futuro")
+                ctx["status"] = status_today(c, day)
                 if not line:
                     raise ParseError("scrivi una riga oppure compila almeno un campo")
                 records = services.prepare(c, services.build_day(line, cfg, day))
@@ -588,7 +601,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
             confirmed = form.get("confirmed") == "1"
             if form.get("action") == "save" and (confirmed or not pv.needs_confirmation):
                 saved = services.save(c, records, "web_day")
-                ctx |= {"saved": saved, "line": "", "status": status_today(c, today())}
+                ctx |= {"saved": saved, "line": "", "status": status_today(c, day)}
             else:
                 ctx["preview"] = pv
         return page(request, "oggi.html", **ctx)

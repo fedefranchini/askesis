@@ -36,7 +36,8 @@
   });
 
   // 3. Lists that open what is chosen at once (the "Apri" button stays for keyboards and without this script).
-  document.querySelectorAll("select[data-autosubmit]").forEach((sel) => {
+  document.querySelectorAll(".js-hide").forEach((el) => { el.hidden = true; });  // buttons the script replaces
+  document.querySelectorAll("select[data-autosubmit], input[data-autosubmit]").forEach((sel) => {
     sel.addEventListener("change", () => { if (sel.form.requestSubmit) sel.form.requestSubmit(); else sel.form.submit(); });
   });
 

@@ -70,6 +70,13 @@ h3 { font-size: var(--fs-b); margin: 16px 0 4px; font-weight: 600; }
 .pagehead .eyebrow { display: block; margin-bottom: 2px; }
 
 /* ------------------------------------------------------------------ cards */
+/* Day navigation (Oggi): previous/next day, calendar picker, back to today */
+.daynav { display: flex; align-items: center; gap: 8px; margin: -8px 0 16px; flex-wrap: wrap; }
+.daynav .step { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
+.daynav .step .ico { width: 20px; height: 20px; }
+.daynav .pick { display: flex; gap: 8px; flex: 1 1 160px; min-width: 0; }
+.daynav .pick input { flex: 1; min-width: 0; }
+.daynav .back-today { font-weight: 600; padding: 0 8px; min-height: 44px; display: inline-flex; align-items: center; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 18px 20px; }
 .main > * + * { margin-top: 12px; }
 .main > .pagehead + * { margin-top: 0; }

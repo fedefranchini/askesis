@@ -479,3 +479,33 @@ def test_quick_weight_and_food_from_the_to_do_list(env):
                                "proteine": "300", "action": "save"})
     assert "Salvato" in r.text and "240,5" in r.text
     assert 'class="quicklog"' not in client.get("/").text
+
+
+def test_days_can_be_browsed_and_a_past_day_completed(env):
+    """Arrows and calendar move through days (?data=); a past day keeps its forms and saves on that day, a future
+    day shows only the plan and accepts nothing; an invalid date falls back to today."""
+    from datetime import date, timedelta
+
+    client, cfg, password = env
+    login(client, password)
+    html = client.get("/").text
+    assert 'name="data"' in html and 'aria-label="Giorno precedente"' in html and "back-today" not in html
+    t = date.fromisoformat(re.search(r'name="data" value="([0-9-]+)"', html).group(1))
+    past = t - timedelta(days=30)
+    page = client.get(f"/?data={past.isoformat()}").text
+    assert 'class="back-today"' in page and f'action="/?data={past.isoformat()}" class="quicklog"' in page
+    assert "Non sto bene oggi" not in page
+    before = count(cfg)
+    r = client.post(f"/?data={past.isoformat()}", data={"csrf": csrf_of(page), "day": past.isoformat(), "line": "",
+                                                        "peso": "240,5", "action": "save"})
+    assert "Salvato" in r.text and count(cfg) == before + 1
+    w = connect(cfg.db_path).execute("SELECT local_date FROM v_current WHERE entity_type = 'body_weight' "
+                                     "ORDER BY recorded_at DESC LIMIT 1").fetchone()[0]
+    assert w == past.isoformat()
+    future = t + timedelta(days=3)
+    page = client.get(f"/?data={future.isoformat()}").text
+    assert "Giorno futuro" in page and 'class="quicklog"' not in page and "Riga del giorno" not in page
+    r = client.post(f"/?data={future.isoformat()}", data={"csrf": csrf_of(page), "day": future.isoformat(),
+                                                          "line": "p 240", "action": "save"})
+    assert "giorno futuro" in r.text and count(cfg) == before + 1
+    assert "Data non valida" in client.get("/?data=2026-99-99").text
