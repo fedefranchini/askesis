@@ -25,7 +25,7 @@ def catalog() -> dict:
 def _alias_index() -> dict[str, dict]:
     index = {}
     for ex in catalog()["exercises"]:
-        for key in [ex["id"], ex["name"], *ex.get("aliases", [])]:
+        for key in [ex["id"], ex["name"], *([ex["name_it"]] if ex.get("name_it") else []), *ex.get("aliases", [])]:
             index[normalize(key)] = ex
     return index
 

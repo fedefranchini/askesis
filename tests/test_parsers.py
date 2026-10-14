@@ -83,3 +83,12 @@ def test_free_meal_estimate_is_added_and_kept_apart():
     (food,) = parse_day("cibo 1850 115 +600/30")
     assert food.data["energy_kcal"] == 1850 and food.data["free_meal_kcal"] == 600
     assert food.data["free_meal_protein_g"] == 30
+
+
+def test_italian_display_names_are_recognised_when_dictated():
+    """The names printed on the gym note (catalog name_it) work in the dictation line too."""
+    from askesis.reference import catalog, find_exercise
+
+    for ex in catalog()["exercises"]:
+        if ex.get("name_it"):
+            assert find_exercise(ex["name_it"])["id"] == ex["id"], ex["name_it"]
