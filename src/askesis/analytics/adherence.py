@@ -19,6 +19,8 @@ from datetime import date, timedelta
 import numpy as np
 from scipy import stats
 
+from askesis.plan.model import planned_weekday
+
 from .base import MetricValue
 from .params import p
 
@@ -86,9 +88,10 @@ def planned_on(plans, day: date) -> int | None:
     prog = plan_on(plans, "programme", day)
     if prog is None:
         return None
-    minimal = any(pp.get("modifiers", {}).get("use_minimal_week") for pp in _periods_on(plans, day))
+    periods = _periods_on(plans, day)
+    minimal = any(pp.get("modifiers", {}).get("use_minimal_week") for pp in periods)
     week = prog.get("minimal_week" if minimal else "microcycle", [])
-    return sum(1 for s in week if s["day"] == WEEKDAYS[day.weekday()] and s.get("lifts"))
+    return sum(1 for s in week if s["day"] == planned_weekday(day, periods) and s.get("lifts"))
 
 
 def sessions_vs_plan(sets, plans, start: date, end: date, ill_days=frozenset()) -> MetricValue | None:

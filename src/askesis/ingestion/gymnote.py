@@ -25,6 +25,7 @@ from datetime import date
 
 from askesis.model.entities import payload_model
 from askesis.parsers.text import ParsedExercise, ParseError, parse_gym
+from askesis.plan.model import last_set
 from askesis.plan.rest import rest_label
 from askesis.reference import find_exercise
 
@@ -54,7 +55,8 @@ def render(day: date, session: dict, last: dict[str, str], settings: dict[str, s
         load = f"consigliato {_n(lift['load_kg'])} kg" if lift["load_kg"] is not None else "carico da calibrare"
         lines += [
             f"{name} [{key}]",
-            f"{lift['sets']} × {lift['rep_range'][0]}–{lift['rep_range'][1]} · RIR {_n(lift['target_rir'])} · {load}",
+            f"{lift['sets']} × {lift['rep_range'][0]}–{lift['rep_range'][1]} "
+            f"· RIR {_n(lift['target_rir'])}{last_set(lift)} · {load}",
             rest_label(key),
         ]
         if key in last:

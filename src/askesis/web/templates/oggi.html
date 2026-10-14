@@ -149,7 +149,7 @@
         {% for l in s.lifts %}
         <li><span class="ex">{{ l.exercise|exercise }}</span>
             <span class="rx">{{ l.sets }} × {{ l.rep_target }}{% if l.load_kg %} · {{ l.load_kg|num(1) if l.load_kg % 1 else l.load_kg|num }} kg{% endif %}</span>
-            <span class="why">RIR {{ "%g"|format(l.target_rir) }} · {{ l.reason }}</span></li>
+            <span class="why">RIR {{ "%g"|format(l.target_rir) }}{{ l|last_set }} · {{ l.reason }}</span></li>
         {% endfor %}
       </ul>
       {% endfor %}

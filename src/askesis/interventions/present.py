@@ -38,8 +38,9 @@ def _ex_name(ex_id: str) -> str:
 def _lift(it: dict) -> str:
     lo, hi = it["rep_range"]
     rir = it["target_rir"]
+    rir_last = f", ultima {it['last_set_rir']:g}" if it.get("last_set_rir") is not None else ""
     note = f" ({it['note']})" if it.get("note") else ""
-    return f"{_ex_name(it['exercise'])}: {it['sets']} × {lo}–{hi} @RIR {rir:g}{note}"
+    return f"{_ex_name(it['exercise'])}: {it['sets']} × {lo}–{hi} @RIR {rir:g}{rir_last}{note}"
 
 
 def _run(r: dict) -> str:

@@ -118,6 +118,15 @@ def test_double_progression_holds_when_effort_too_high():
     assert rx.load_kg == 50 and rx.rep_target == 8
 
 
+
+def test_double_progression_accepts_a_last_set_to_failure_when_planned():
+    item = LiftItem(exercise="bench_press", sets=3, rep_range=(6, 8), target_rir=2, last_set_rir=0)
+    h = [ex(D0, [50] * 3, [8, 8, 8], [2, 2, 0]), ex(D0 + timedelta(days=7), [50] * 3, [8, 8, 8], [2, 2, 0])]
+    assert rules.double_progression(item, h).load_kg == 52.5
+    early = [ex(D0, [50] * 3, [8, 8, 8], [2, 0, 0]), ex(D0 + timedelta(days=7), [50] * 3, [8, 8, 8], [2, 0, 0])]
+    assert rules.double_progression(item, early).load_kg == 50  # only the last set may go to failure
+    assert rules.double_progression(ITEM, h).load_kg == 50  # without last_set_rir: unchanged rule
+
 def test_double_progression_adds_reps_and_handles_missing_rir():
     assert rules.double_progression(ITEM, [ex(D0, [50] * 3, [7, 6, 6], [2, 2, 2])]).rep_target == 8
     rx = rules.double_progression(ITEM, [ex(D0, [50] * 3, [8, 8, 8], [None, None, None])])
@@ -157,6 +166,20 @@ def test_scheduled_period_switches_to_minimal_week(conn):
     assert out["minimal_week"] and out["sessions"][0]["lifts"][0]["sets"] == 2
     assert rules.next_session(conn, D0 + timedelta(days=9))["status"] == "rest_day"  # Wed run not in minimal week
 
+
+
+def test_scheduled_period_with_day_offset_runs_the_week_one_day_late(conn):
+    store.add_version(conn, "programme", "base", programme(), D0, None)
+    store.add_version(conn, "scheduled_period", "slittamento",
+                      {"label": "settimana spostata di un giorno", "start": "2025-03-11", "end": "2025-03-16",
+                       "modifiers": {"day_offset": 1}}, D0, None)
+    conn.commit()
+    week = D0 + timedelta(days=7)  # Monday 2025-03-10, before the period: plan as usual
+    assert rules.next_session(conn, week, record=False)["sessions"][0]["name"] == "A"
+    assert rules.next_session(conn, week + timedelta(days=1), record=False)["sessions"][0]["name"] == "A"
+    assert rules.next_session(conn, week + timedelta(days=2), record=False)["status"] == "rest_day"
+    assert rules.next_session(conn, week + timedelta(days=3), record=False)["sessions"][0]["name"] == "Run"
+    assert rules.next_session(conn, week + timedelta(days=7), record=False)["sessions"][0]["name"] == "A"  # back
 
 # ------------------------------------------------------------------ safety
 def health(day, **payload):

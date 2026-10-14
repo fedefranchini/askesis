@@ -25,7 +25,9 @@ from datetime import date
 
 import numpy as np
 
-from .adherence import WEEKDAYS, plan_on
+from askesis.plan.model import planned_weekday
+
+from .adherence import _periods_on, plan_on
 from .base import MetricValue
 from .params import p
 from .training import RunRow
@@ -44,7 +46,8 @@ def _plan_easy(plans, day: date) -> bool:
     prog = plan_on(plans, "programme", day)
     if prog is None:
         return False
-    return any(s.get("day") == WEEKDAYS[day.weekday()] and (s.get("run") or {}).get("kind") == "easy"
+    weekday = planned_weekday(day, _periods_on(plans, day))
+    return any(s.get("day") == weekday and (s.get("run") or {}).get("kind") == "easy"
                for s in prog.get("microcycle", []))
 
 

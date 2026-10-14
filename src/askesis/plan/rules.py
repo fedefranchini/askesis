@@ -20,7 +20,7 @@ from askesis.core.timeutil import iso, now_utc
 from askesis.reference import catalog, find_exercise
 
 from . import store
-from .model import WEEKDAYS, LiftItem, PainGate, Programme
+from .model import LiftItem, PainGate, Programme, planned_weekday
 
 RULE_DP = "double_progression@1"
 
@@ -44,6 +44,7 @@ class Prescription:
     rep_range: tuple[int, int]
     target_rir: float
     reason: str
+    last_set_rir: float | None = None  # planned effort of the last working set, when it differs
 
 
 def _increment(exercise: str, load: float) -> float:
@@ -65,8 +66,11 @@ def double_progression(item: LiftItem, history: list[Exposure]) -> Prescription:
 
     def topped(e: Exposure) -> bool:
         working = [(r, q) for r, q, ld in zip(e.reps, e.rirs, e.loads, strict=True) if ld == max(e.loads)]
+        need = [item.target_rir] * len(working)
+        if item.last_set_rir is not None and need:
+            need[-1] = item.last_set_rir
         return (len(working) >= item.sets
-                and all(r >= hi and q is not None and q >= item.target_rir for r, q in working))
+                and all(r >= hi and q is not None and q >= n for (r, q), n in zip(working, need, strict=True)))
 
     if len(recent) == needed and all(topped(e) for e in recent):
         inc = _increment(item.exercise, load)
@@ -148,7 +152,7 @@ def next_session(conn: sqlite3.Connection, on: date, record: bool = True) -> dic
     periods = store.periods_on(conn, on)
     use_minimal = any(pp["modifiers"].get("use_minimal_week") for pp in periods)
     week = prog.minimal_week if use_minimal else prog.microcycle
-    planned = [s for s in week if s.day == WEEKDAYS[on.weekday()]]
+    planned = [s for s in week if s.day == planned_weekday(on, periods)]
     monday = on - timedelta(days=on.weekday())
     deload = monday in prog.deload_weeks
     volume_factor = min([pp["modifiers"].get("volume_factor", 1.0) for pp in periods] or [1.0])
@@ -159,6 +163,7 @@ def next_session(conn: sqlite3.Connection, on: date, record: bool = True) -> dic
         for item in s.lifts:
             hist = exposures(conn, item.exercise, on)
             rx = double_progression(item, hist)
+            rx.last_set_rir = item.last_set_rir
             if prog.pain_gate and _pattern(item.exercise) in prog.pain_gate.patterns and hist:
                 hits = pain_hits(conn, on, prog.pain_gate)
                 last_load = max(hist[-1].loads)

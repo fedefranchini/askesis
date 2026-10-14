@@ -14,6 +14,7 @@ from askesis import config as config_mod
 from askesis.interventions import registry as reg
 from askesis.plan import rules as plan_rules
 from askesis.plan import store as plan_store
+from askesis.plan.model import last_set
 from askesis.safety import rules as safety
 from askesis.store.db import connect
 
@@ -131,7 +132,8 @@ def plan_next(date_: DateOpt = None, no_record: Annotated[bool, typer.Option("--
             load = f"{lift['load_kg']:g} kg" if lift["load_kg"] is not None else "carico da calibrare"
             typer.echo(
                 f"- {lift['exercise']}: {lift['sets']}×{lift['rep_target']} "
-                f"(range {lift['rep_range'][0]}–{lift['rep_range'][1]}) @ RIR {lift['target_rir']:g} · {load}"
+                f"(range {lift['rep_range'][0]}–{lift['rep_range'][1]}) "
+                f"@ RIR {lift['target_rir']:g}{last_set(lift)} · {load}"
                 f" — {lift['reason']}"
             )
         if s["run"]:

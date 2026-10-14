@@ -2,13 +2,28 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 Weekday = Literal["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 WEEKDAYS: list[str] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+
+
+def last_set(lift: dict) -> str:
+    """Suffix for the RIR of a prescription whose last working set has its own target (", ultima a cedimento")."""
+    v = lift.get("last_set_rir")
+    if v is None:
+        return ""
+    return ", ultima a cedimento" if v == 0 else f", ultima RIR {v:g}"
+
+
+def planned_weekday(on: date, periods: list[dict]) -> str:
+    """Microcycle day whose sessions fall on `on`: a scheduled period with `day_offset: n` runs the week n days late
+    (on `on` comes the session planned for `on - n`)."""
+    offset = sum(int(pp.get("modifiers", {}).get("day_offset", 0)) for pp in periods)
+    return WEEKDAYS[(on - timedelta(days=offset)).weekday()]
 
 
 class _M(BaseModel):
@@ -20,6 +35,7 @@ class LiftItem(_M):
     sets: int = Field(ge=1, le=10)
     rep_range: tuple[int, int]
     target_rir: float = Field(ge=0, le=5)
+    last_set_rir: float | None = Field(default=None, ge=0, le=5)  # last working set (e.g. 0 = to failure)
     note: str | None = None
 
     @model_validator(mode="after")
@@ -96,7 +112,7 @@ class ScheduledPeriod(_M):
     label: str
     start: date
     end: date
-    modifiers: dict  # e.g. {"energy": "maintenance", "volume_factor": 0.6, "use_minimal_week": true}
+    modifiers: dict  # e.g. {"energy": "maintenance", "volume_factor": 0.6, "use_minimal_week": true, "day_offset": 1}
 
 
 SCHEMAS: dict[str, type[BaseModel]] = {

@@ -25,6 +25,7 @@ from askesis.ingestion import gymnote, manual
 from askesis.ingestion.pipeline import Receipt, ingest
 from askesis.parsers.text import Intent, ParsedExercise, ParseError, parse_gym, parse_run
 from askesis.plan import rules as plan_rules
+from askesis.plan.model import last_set
 from askesis.plan.rest import rest_label
 from askesis.reference import find_exercise
 from askesis.safety import rules as safety
@@ -175,7 +176,8 @@ def build_sheet(conn: sqlite3.Connection, day: date, settings: dict[str, str] | 
             key = ref["id"] if ref else lift["exercise"]
             planned_keys.add(key)
             load = lift["load_kg"]
-            presc = (f"{lift['sets']} × {lift['rep_range'][0]}–{lift['rep_range'][1]} · RIR {_n(lift['target_rir'])}"
+            presc = (f"{lift['sets']} × {lift['rep_range'][0]}–{lift['rep_range'][1]} "
+                     f"· RIR {_n(lift['target_rir'])}{last_set(lift)}"
                      f" · {'consigliato ' + _n(load) + ' kg' if load is not None else 'carico da calibrare'}")
             existing = sets.get(key, {})
             sheet.lifts.append(Lift(

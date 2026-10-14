@@ -24,7 +24,7 @@
 {% for s in nxt.sessions %}
 <section class="card">
   <h2>Seduta di oggi · {{ s.name }}</h2>
-  <ul class="lifts">{% for l in s.lifts %}<li><span class="ex">{{ l.exercise|exercise }}</span><span class="rx">{{ l.sets }} × {{ l.rep_target }}{% if l.load_kg %} · {{ "%g"|format(l.load_kg) }} kg{% endif %}</span><span class="why">RIR {{ "%g"|format(l.target_rir) }} · {{ l.exercise|rest }} · {{ l.reason }}</span></li>{% endfor %}</ul>
+  <ul class="lifts">{% for l in s.lifts %}<li><span class="ex">{{ l.exercise|exercise }}</span><span class="rx">{{ l.sets }} × {{ l.rep_target }}{% if l.load_kg %} · {{ "%g"|format(l.load_kg) }} kg{% endif %}</span><span class="why">RIR {{ "%g"|format(l.target_rir) }}{{ l|last_set }} · {{ l.exercise|rest }} · {{ l.reason }}</span></li>{% endfor %}</ul>
   <p class="hint">Recuperi: oltre 2 minuti aiutano la forza; per la massa muscolare oltre 90 secondi cambia poco. Evidenza di bassa certezza.</p>
   <details class="sources"><summary>Fonti</summary><p class="hint">rt.rest_strength · rt.rest_hypertrophy</p></details>
   {% if s.run %}<p class="hint">Corsa: {{ s.run.kind }}{% if s.run.duration_min %}, {{ "%g"|format(s.run.duration_min) }} min{% endif %}</p>{% endif %}

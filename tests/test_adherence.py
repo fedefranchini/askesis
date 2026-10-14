@@ -50,6 +50,18 @@ def test_sessions_vs_plan_counts_lifting_sessions_and_minimal_week():
     assert ad.sessions_vs_plan(sets, plans() + [period], MON, SUN).detail["planned"] == 1
 
 
+
+def test_day_offset_moves_planned_sessions_and_easy_runs_within_the_week():
+    from askesis.analytics import running
+    period = (MON, "2025-01-01", "scheduled_period",
+              {"label": "x", "start": (MON + timedelta(days=1)).isoformat(), "end": SUN.isoformat(),
+               "modifiers": {"day_offset": 1}})
+    shifted = plans() + [period]
+    assert [ad.planned_on(shifted, MON + timedelta(days=i)) for i in range(7)] == [1, 1, 0, 1, 0, 1, 0]
+    assert ad.sessions_vs_plan([], shifted, MON, SUN).detail["planned"] == 4
+    assert running._plan_easy(shifted, SUN) and not running._plan_easy(shifted, MON + timedelta(days=5))
+    assert running._plan_easy(plans(), MON + timedelta(days=5))  # without the period: Saturday as written
+
 def test_waist_change_noise_needs_enough_repeated_sessions():
     w = [(MON - timedelta(days=21), [80.0, 80.4]), (MON - timedelta(days=14), [79.8, 80.2]),
          (MON - timedelta(days=7), [79.6, 80.0]), (MON, [78.0, 78.4])]
