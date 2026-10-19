@@ -95,18 +95,59 @@ def html_to_lines(body: str) -> list[str]:
     return [line.rstrip() for line in text.split("\n")]
 
 
-def normalize_sets(text: str) -> str:
-    """Tolerate autocorrect and natural variants: '80 × 8 @RIR 2; 80kg x7 R1' → '80x8 r2, 80x7 r1'."""
+_LOADED = re.compile(r"^(?:w)?(bw(?:[+-]\d+(?:[.,]\d+)?)?|\d+(?:[.,]\d+)?)x\d+", re.I)
+_GROUP_RIR = re.compile(r"\s*\br(\d+(?:\s*,\s*\d+)+)\s*$")
+
+
+def normalize_sets(text: str, bodyweight: bool = False) -> str:
+    """Tolerate autocorrect and natural variants: '80 × 8 @RIR 2; 80kg x7 R1' → '80x8 r2, 80x7 r1'.
+
+    Shorthand of the gym note: a set written as reps only keeps the load of the set before ('65x8/7' → '65x8, 65x7');
+    on a bodyweight exercise reps alone are bodyweight sets ('5/5/4'); one RIR per set may be grouped at the end
+    ('70x8/7 rir0,0'). A RIR group that does not match the number of sets is left as written and reported."""
     t = text.strip()
     t = re.sub(r"(?i)(\d)\s*kg\b", r"\1", t)  # 80kg → 80 (before the × rule: "80kg x 7")
     t = re.sub(r"(\d)\s*[×xX*]\s*(\d)", r"\1x\2", t)  # 80 × 8 → 80x8
     t = re.sub(r"(?i)@?\s*rir\s*(\d)", r" r\1", t)  # @RIR 2 / rir2 → r2
     t = re.sub(r"(?i)\bR(\d)", r"r\1", t)
     t = re.sub(r"(?i)@\s*rpe\s*(\d)", r" @\1", t)
+    group = None
+    if g := _GROUP_RIR.search(t):
+        group, t = [x.strip() for x in g[1].split(",")], t[:g.start()]
     t = re.sub(r"\s*[;/|]\s*", ", ", t)  # other separators → ", "
     # a comma separates sets only right after the end of a set (reps, RIR or RPE): "12,5x10" stays a decimal
     t = re.sub(r"((?:x\d+)|(?:\br\d+(?:[.,]5)?)|(?:@\d+(?:[.,]5)?)),(?=\S)", r"\1, ", t)
-    return re.sub(r"\s+", " ", t).strip(" ,")
+    sets = [c for c in (re.sub(r"\s+", " ", x).strip() for x in t.split(", ")) if c and c != ","]
+    load = "bw" if bodyweight else None
+    for i, chunk in enumerate(sets):
+        head, _, rest = chunk.partition(" ")
+        if m := _LOADED.match(head):
+            load = m[1]
+        elif re.fullmatch(r"\d{1,3}", head) and load is not None:
+            sets[i] = f"{load}x{head}" + (f" {rest}" if rest else "")
+    if group is not None:
+        if len(group) == len(sets) and not any(re.search(r"\br\d", c) for c in sets):
+            sets = [f"{c} r{v}" for c, v in zip(sets, group, strict=True)]
+        else:
+            sets[-1:] = [f"{sets[-1] if sets else ''} r{','.join(group)}".strip()]
+    return ", ".join(sets).strip(" ,")
+
+
+_FIRST_SET = re.compile(r"(?i)\b(?:w)?(?:bw(?:[+-]\d+(?:[.,]\d+)?)?|\d+(?:[.,]\d+)?)\s*(?:kg)?\s*[×xX*]\s*\d")
+_SET_END = re.compile(r"(?i)(?:x\s*\d+(?:\*\d+)?|\br(?:ir)?\s*\d+(?:[.,]\d+)*"
+                      r"|@\s*(?:rpe\s*)?\d+(?:[.,]5)?|[/;|,]\s*\d+)")
+
+
+def split_comment(content: str) -> tuple[str, str]:
+    """Words written before the first set or after the last one are a comment, not data ('fatto dopo il curl
+    15x11/8', '13x10 seduto con gomiti appoggiati'). Words between sets stay and are reported as unreadable."""
+    first = _FIRST_SET.search(content)
+    if first is None:
+        return content, ""
+    ends = list(_SET_END.finditer(content, first.start()))
+    end = ends[-1].end() if ends else len(content)
+    before, after = content[:first.start()].strip(" ,:-"), content[end:].strip(" ,:-/")
+    return content[first.start():end], "; ".join(x for x in (before, after) if x)
 
 
 @dataclass
@@ -131,7 +172,7 @@ def parse_note(lines: list[str]) -> NoteResult:
             continue
         nm = re.match(r"(?i)^note\s*(?:→|->|>|=>)\s*(.*)$", line)
         if nm:
-            res.notes = nm.group(1).strip() or None
+            res.notes = "; ".join(filter(None, [nm.group(1).strip(), res.notes])) or None
             continue
         r = RESULT.match(line)
         if not r or current is None:
@@ -145,7 +186,13 @@ def parse_note(lines: list[str]) -> NoteResult:
             res.run_text = content
         else:
             try:
-                sets = parse_gym(f"{current} {normalize_sets(content)}")[0].sets
+                ref = find_exercise(current)
+                bw = bool(ref and ref.get("load_kind") == "bodyweight")
+                written, comment = split_comment(content)
+                sets = parse_gym(f"{current} {normalize_sets(written, bw)}")[0].sets
+                if comment:
+                    label = (ref.get("name_it") or ref["name"]) if ref else current
+                    res.notes = "; ".join(filter(None, [res.notes, f"{label}: {comment}"]))
                 res.exercises.append(ParsedExercise(current, sets))
             except ParseError as exc:
                 res.errors.append((current, f"{content!r}: {exc}"))

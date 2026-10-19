@@ -60,6 +60,11 @@ def test_rest_between_sets_from_evidence_parameters():
     ("52.5 × 8 @RIR 2; 52.5kg x 7 R1", [(52.5, 8, 2), (52.5, 7, 1)]),
     ("50X8 rir2,50x8 r2", [(50, 8, 2), (50, 8, 2)]),
     ("50x8*3 r2", [(50, 8, 2)] * 3),
+    ("65x8/7 rir0,0", [(65, 8, 0), (65, 7, 0)]),  # reps only: same load as the set before; one RIR per set
+    ("30x8/7rir0,0", [(30, 8, 0), (30, 7, 0)]),
+    ("26x3/22x7 r0", [(26, 3, None), (22, 7, 0)]),
+    ("20x9/", [(20, 9, None)]),
+    ("12,5x10/8", [(12.5, 10, None), (12.5, 8, None)]),
 ])
 def test_tolerant_parsing(written, expected):
     res = gymnote.parse_note(note({"bench_press": written}))
@@ -163,3 +168,20 @@ def test_import_writes_a_validated_session_comment(cli):
     again = run("session-comment", "--for", day.isoformat())
     assert again.exit_code == 0 and "validata e salvata" in again.output
     assert run("session-comment", "--for", (day + timedelta(days=1)).isoformat()).exit_code == 1
+
+
+def test_bodyweight_reps_and_mismatched_rir_group():
+    res = gymnote.parse_note(note({"bench_press": "60x8/7 rir0,0,0"}))  # three RIR for two sets: not guessed
+    assert not res.exercises and res.errors
+    from askesis.ingestion.gymnote import normalize_sets
+    assert normalize_sets("5/5/4", bodyweight=True) == "bwx5, bwx5, bwx4"
+    assert normalize_sets("5/5/4") == "5, 5, 4"  # an external load is never assumed
+
+
+def test_words_around_the_sets_become_a_note_not_an_error():
+    res = gymnote.parse_note(note({"bench_press": "fatto dopo le croci 50x11/8", "leg_press": "100x10 piedi alti"}))
+    assert not res.errors
+    assert [(s.load_kg, s.reps) for s in res.exercises[0].sets] == [(50, 11), (50, 8)]
+    assert "fatto dopo le croci" in res.notes and "piedi alti" in res.notes
+    res = gymnote.parse_note(note({"bench_press": "50x8 poi 50x7"}))  # words between sets: reported, not guessed
+    assert res.errors and not res.exercises
