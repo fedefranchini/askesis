@@ -64,6 +64,9 @@ def test_rest_between_sets_from_evidence_parameters():
     ("30x8/7rir0,0", [(30, 8, 0), (30, 7, 0)]),
     ("26x3/22x7 r0", [(26, 3, None), (22, 7, 0)]),
     ("20x9/", [(20, 9, None)]),
+    ("26x8 rir0, 28x6rir0", [(26, 8, 0), (28, 6, 0)]),
+    ("30x10/8 rir 1/1", [(30, 10, 1), (30, 8, 1)]),
+    ("10x9 rir 2, 10x9 rir1, 10x7rir0", [(10, 9, 2), (10, 9, 1), (10, 7, 0)]),
     ("12,5x10/8", [(12.5, 10, None), (12.5, 8, None)]),
 ])
 def test_tolerant_parsing(written, expected):

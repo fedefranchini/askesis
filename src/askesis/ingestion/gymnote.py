@@ -96,7 +96,7 @@ def html_to_lines(body: str) -> list[str]:
 
 
 _LOADED = re.compile(r"^(?:w)?(bw(?:[+-]\d+(?:[.,]\d+)?)?|\d+(?:[.,]\d+)?)x\d+", re.I)
-_GROUP_RIR = re.compile(r"\s*\br(\d+(?:\s*,\s*\d+)+)\s*$")
+_GROUP_RIR = re.compile(r"\s*\br(\d+(?:\s*[,/]\s*\d+)+)\s*$")
 
 
 def normalize_sets(text: str, bodyweight: bool = False) -> str:
@@ -113,7 +113,7 @@ def normalize_sets(text: str, bodyweight: bool = False) -> str:
     t = re.sub(r"(?i)@\s*rpe\s*(\d)", r" @\1", t)
     group = None
     if g := _GROUP_RIR.search(t):
-        group, t = [x.strip() for x in g[1].split(",")], t[:g.start()]
+        group, t = [x.strip() for x in re.split(r"[,/]", g[1])], t[:g.start()]
     t = re.sub(r"\s*[;/|]\s*", ", ", t)  # other separators → ", "
     # a comma separates sets only right after the end of a set (reps, RIR or RPE): "12,5x10" stays a decimal
     t = re.sub(r"((?:x\d+)|(?:\br\d+(?:[.,]5)?)|(?:@\d+(?:[.,]5)?)),(?=\S)", r"\1, ", t)
@@ -134,7 +134,7 @@ def normalize_sets(text: str, bodyweight: bool = False) -> str:
 
 
 _FIRST_SET = re.compile(r"(?i)\b(?:w)?(?:bw(?:[+-]\d+(?:[.,]\d+)?)?|\d+(?:[.,]\d+)?)\s*(?:kg)?\s*[×xX*]\s*\d")
-_SET_END = re.compile(r"(?i)(?:x\s*\d+(?:\*\d+)?|\br(?:ir)?\s*\d+(?:[.,]\d+)*"
+_SET_END = re.compile(r"(?i)(?:x\s*\d+(?:\*\d+)?|(?:\b|(?<=\d))r(?:ir)?\s*\d+(?:[.,]\d+)*"
                       r"|@\s*(?:rpe\s*)?\d+(?:[.,]5)?|[/;|,]\s*\d+)")
 
 
