@@ -9,20 +9,18 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-import os
 import secrets
 import time
 from pathlib import Path
+
+from askesis.store import state
 
 SCRYPT = {"n": 2**15, "r": 8, "p": 1, "maxmem": 64 * 1024 * 1024, "dklen": 32}
 MIN_LENGTH = 12
 
 
 def _write_private(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as fh:
-        fh.write(text)
+    state.write_private(path, text)
 
 
 def set_password(path: Path, password: str) -> None:
@@ -34,17 +32,17 @@ def set_password(path: Path, password: str) -> None:
 
 
 def check_password(path: Path, password: str) -> bool:
-    if not path.exists():
+    if not state.exists(path):
         return False
-    data = json.loads(path.read_text())
+    data = json.loads(state.read_text(path))
     digest = hashlib.scrypt(password.encode(), salt=bytes.fromhex(data["salt"]), **data["params"])
     return hmac.compare_digest(digest.hex(), data["hash"])
 
 
 def session_secret(path: Path) -> str:
-    if not path.exists():
+    if not state.exists(path):
         _write_private(path, secrets.token_hex(32))
-    return path.read_text().strip()
+    return state.read_text(path).strip()
 
 
 class Throttle:
@@ -72,13 +70,13 @@ class Throttle:
 
 def credential_epoch(auth_file: Path) -> str:
     """Changes whenever the password changes: sessions created before are no longer valid."""
-    if not auth_file.exists():
+    if not state.exists(auth_file):
         return ""
-    return hashlib.sha256(auth_file.read_bytes()).hexdigest()[:16]
+    return hashlib.sha256(state.read_bytes(auth_file)).hexdigest()[:16]
 
 
 def _load_devices(path: Path) -> dict:
-    return json.loads(path.read_text()) if path.exists() else {}
+    return json.loads(state.read_text(path)) if state.exists(path) else {}
 
 
 def remember(path: Path, label: str, days: int, now: float | None = None) -> tuple[str, dict]:
@@ -145,17 +143,12 @@ def log_attempt(path: Path, method: str, ok: bool, ip: str, detail: str = "") ->
     """One JSON line per login attempt (password or passkey): who tried from where, never what was typed."""
     line = json.dumps({"at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "method": method, "ok": ok, "ip": ip,
                        "detail": detail[:80]}, ensure_ascii=False)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
-    with os.fdopen(fd, "a") as fh:
-        fh.write(line + "\n")
+    state.append_line(path, line)
 
 
 def recent_attempts(path: Path, limit: int = 2000) -> list[dict]:
-    if not path.exists():
-        return []
     out = []
-    for line in path.read_text(errors="replace").splitlines()[-limit:]:
+    for line in state.tail_lines(path, limit):
         try:
             out.append(json.loads(line))
         except ValueError:

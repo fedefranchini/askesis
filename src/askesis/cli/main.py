@@ -44,7 +44,7 @@ DateOpt = Annotated[str | None, typer.Option("--date", "-d", help="Data YYYY-MM-
 
 def _ctx():
     cfg = config_mod.load()
-    return cfg, connect(cfg.db_path)
+    return cfg, connect(cfg.db_target, cfg.db_token)
 
 
 def _day(value: str | None, cfg) -> date:
@@ -715,11 +715,7 @@ def _save_validated(md: str, out: Path, conn, echo: bool = True) -> None:
     """Generated reports pass the validator too: on failure the final file is not written (DA VERIFICARE)."""
     from askesis.validation import textcheck
 
-    out.parent.mkdir(parents=True, exist_ok=True)
-    draft = out.with_name(f".{out.name}.draft")
-    draft.write_text(md + "\n")
-    res, target = textcheck.finalize(draft, out, conn)
-    draft.unlink()
+    res, target = textcheck.finalize_text(md + "\n", out, conn)
     if echo:
         typer.echo(md)
     if res.ok:
@@ -775,8 +771,9 @@ def review_cmd(
         typer.echo(md)
         if not stdout_only:
             first = md.split("— ")[1][:7]
-            _save_validated(md, config_mod.reports_dir() / f"retro-{first}.md", connect(config_mod.load().db_path),
-                            echo=False)
+            cfg_now = config_mod.load()
+            _save_validated(md, config_mod.reports_dir() / f"retro-{first}.md",
+                            connect(cfg_now.db_target, cfg_now.db_token), echo=False)
         return
     cfg, conn = _ctx()
     d = date.fromisoformat(date_) if date_ else _day(None, cfg) - timedelta(days=7)

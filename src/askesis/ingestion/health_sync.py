@@ -76,7 +76,9 @@ def tokens_path(cfg: Config) -> Path:
 
 
 def _load(path: Path) -> dict:
-    return json.loads(path.read_text()) if path.exists() else {}
+    from askesis.store import state
+
+    return json.loads(state.read_text(path)) if state.exists(path) else {}
 
 
 def _save(path: Path, data: dict) -> None:

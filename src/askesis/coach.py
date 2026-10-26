@@ -26,6 +26,7 @@ from askesis.interventions import present
 from askesis.interventions import registry as reg
 from askesis.plan import calorie_rule
 from askesis.safety import rules as safety
+from askesis.store import state
 from askesis.validation import textcheck
 
 NAME = re.compile(r"^(daily|review|retro|proposta|seduta)[\w.-]*\.md$")
@@ -66,18 +67,16 @@ def _label(name: str) -> str:
 
 def documents(reports: Path, conn: sqlite3.Connection | None) -> list[Doc]:
     """All coach texts, newest first, each re-validated now."""
-    if not reports.exists():
-        return []
-    files = {p.name: p for p in reports.glob("*.md") if NAME.match(p.name)}
+    files = {p.name: p for p in state.listing(reports, "*.md") if NAME.match(p.name)}
     out = []
     for name, path in files.items():
         if name.endswith(PENDING_SUFFIX):
             final = files.get(name.removesuffix(PENDING_SUFFIX) + ".md")
-            if final is not None and final.stat().st_mtime >= path.stat().st_mtime:
+            if final is not None and state.mtime(final) >= state.mtime(path):
                 continue  # superseded by a validated final version
-            body = _strip_pending_header(path.read_text())
+            body = _strip_pending_header(state.read_text(path))
         else:
-            body = path.read_text()
+            body = state.read_text(path)
         m = re.match(r"^proposta-intervento-(\d+)\.md$", name)
         row = reg.get(conn, int(m[1])) if m and conn is not None else None
         if row is not None:  # a proposal is shown from the registry and checked like at registration
@@ -90,7 +89,7 @@ def documents(reports: Path, conn: sqlite3.Connection | None) -> list[Doc]:
         issues = [i.render().removeprefix("- ") for i in res.issues]
         if name.endswith(PENDING_SUFFIX) and not issues:
             issues = ["testo mai convalidato: rigenerarlo o validarlo con bin/ak validate"]
-        out.append(Doc(name, name.split("-", 1)[0], _label(name), validated, issues, body, path.stat().st_mtime))
+        out.append(Doc(name, name.split("-", 1)[0], _label(name), validated, issues, body, state.mtime(path)))
     return sorted(out, key=lambda d: d.mtime, reverse=True)
 
 

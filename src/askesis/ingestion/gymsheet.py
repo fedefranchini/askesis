@@ -413,13 +413,7 @@ def write_comment(conn: sqlite3.Connection, day: date) -> tuple[str | None, bool
     if md is None:
         return None, True
     out = config_mod.reports_dir() / f"seduta-{day.isoformat()}.md"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    draft = out.with_name(f".{out.name}.draft")
-    draft.write_text(md + "\n")
-    try:
-        res, target = textcheck.finalize(draft, out, conn)
-    finally:
-        draft.unlink(missing_ok=True)
+    res, target = textcheck.finalize_text(md + "\n", out, conn)
     return Path(target).name, res.ok
 
 

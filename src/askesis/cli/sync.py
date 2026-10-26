@@ -16,7 +16,7 @@ sync_app = typer.Typer(no_args_is_help=True, help="Sincronizzazione quotidiana d
 
 def _ctx():
     cfg = config_mod.load()
-    return cfg, connect(cfg.db_path)
+    return cfg, connect(cfg.db_target, cfg.db_token)
 
 
 def _when(ts: float | None) -> str:

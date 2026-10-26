@@ -9,7 +9,6 @@ one from the internet. Passkeys need HTTPS on a real domain: without `web_origin
 from __future__ import annotations
 
 import json
-import os
 import secrets
 import time
 from dataclasses import dataclass
@@ -30,6 +29,8 @@ from webauthn.helpers.structs import (
     ResidentKeyRequirement,
     UserVerificationRequirement,
 )
+
+from askesis.store import state
 
 RP_NAME = "Askesis"
 USER_NAME = "atleta"
@@ -56,16 +57,11 @@ class Party:
 
 
 def _write_private(path: Path, data: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f".{path.name}.tmp")
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as fh:
-        fh.write(json.dumps(data, indent=1))
-    os.replace(tmp, path)
+    state.write_private(path, json.dumps(data, indent=1))
 
 
 def _load(path: Path) -> dict:
-    data = json.loads(path.read_text()) if path.exists() else {}
+    data = json.loads(state.read_text(path)) if state.exists(path) else {}
     data.setdefault("user_id", bytes_to_base64url(secrets.token_bytes(16)))
     data.setdefault("credentials", {})
     return data

@@ -27,7 +27,7 @@ DateOpt = Annotated[str | None, typer.Option("--date", "-d", help="Data YYYY-MM-
 
 def _ctx():
     cfg = config_mod.load()
-    return cfg, connect(cfg.db_path)
+    return cfg, connect(cfg.db_target, cfg.db_token)
 
 
 def _today(cfg) -> date:
@@ -272,8 +272,9 @@ def iv_render(
             error = str(exc)
     md = present.render_proposal(title, data, preview, error)
     if out:
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(md)
+        from askesis.store import state
+
+        state.write_private(out, md)
         typer.echo(f"✓ proposta salvata in {out}")
     else:
         typer.echo(md)

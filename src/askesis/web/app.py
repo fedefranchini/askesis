@@ -48,6 +48,7 @@ from askesis.plan import store as plan_store
 from askesis.plan.model import last_set
 from askesis.plan.rest import rest_label
 from askesis.safety import rules as safety
+from askesis.store import state
 from askesis.store.db import connect
 
 from . import auth, md, passkeys
@@ -201,6 +202,8 @@ def paths(cfg: config_mod.Config) -> tuple[Path, Path]:
 
 def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | None = None) -> Starlette:
     cfg = cfg or config_mod.load()
+    if cfg.hosted:  # bind the private files to the hosted database before the session key is read
+        connect(cfg.db_target, cfg.db_token)
     auth_file, secret_file, devices_file = paths(cfg)
     passkeys_file, access_log = cfg.db_path.parent / "web_passkeys.json", cfg.db_path.parent / "web_access.log"
     party = passkeys.Party.from_origin(cfg.web_origin)  # None: no HTTPS domain, passkeys off
@@ -224,7 +227,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         return now_utc().astimezone(ZoneInfo(cfg.timezone)).date()
 
     def conn():
-        return connect(cfg.db_path)
+        return connect(cfg.db_target, cfg.db_token)
 
     def csrf(request: Request) -> str:
         if "csrf" not in request.session:
@@ -310,7 +313,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         return r
 
     async def login(request: Request) -> Response:
-        if not auth_file.exists():
+        if not state.exists(auth_file):
             return login_page(request, "Password non impostata. Nel terminale: bin/ak web set-password")
         if request.method == "GET":
             if session_valid(request):

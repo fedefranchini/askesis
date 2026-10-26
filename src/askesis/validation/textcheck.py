@@ -96,10 +96,12 @@ def _load_yaml(path: Path) -> dict:
 def _kb() -> tuple[dict[str, dict], dict[str, dict]]:
     """(claims by id, sources by id), public KB plus private evidence files if present."""
     claims, sources = {}, {}
-    files = [ROOT / "knowledge/evidence/claims.yaml", ROOT / "knowledge/evidence/sources.yaml",
-             *sorted((ROOT / "private/evidence").glob("*.yaml"))]
-    for f in files:
-        data = _load_yaml(f)
+    from askesis.store import state
+
+    files = [ROOT / "knowledge/evidence/claims.yaml", ROOT / "knowledge/evidence/sources.yaml"]
+    private = state.listing(ROOT / "private/evidence", "*.yaml")  # on disk, or in the hosted database
+    for f in files + private:
+        data = _load_yaml(f) if f in files else (yaml.safe_load(state.read_text(f)) or {})
         for c in data.get("claims", []) or []:
             claims[c["id"]] = c
         for s in data.get("sources", []) or []:
@@ -430,13 +432,18 @@ def pending_path(out: Path) -> Path:
 def finalize(draft: Path, out: Path, conn: sqlite3.Connection | None) -> tuple[Result, Path]:
     """Validate a draft. Pass → written as the final file. Fail → the final file is NOT written: the text goes to
     `<name>.DA-VERIFICARE.md` with a header and the list of unsupported points."""
-    text = draft.read_text()
+    return finalize_text(draft.read_text(), out, conn)
+
+
+def finalize_text(text: str, out: Path, conn: sqlite3.Connection | None) -> tuple[Result, Path]:
+    """`finalize` for a text already in memory (the hosted dashboard has no writable folder for drafts)."""
+    from askesis.store import state
+
     res = validate(text, conn)
-    out.parent.mkdir(parents=True, exist_ok=True)
     if res.ok:
-        out.write_text(text)
+        state.write_private(out, text)
         return res, out
     target = pending_path(out)
     issues = "\n".join(f"> {i.render()}" for i in res.issues)
-    target.write_text(f"{HEADER}>\n> Punti non supportati:\n{issues}\n\n{text}")
+    state.write_private(target, f"{HEADER}>\n> Punti non supportati:\n{issues}\n\n{text}")
     return res, target

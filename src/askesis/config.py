@@ -47,6 +47,19 @@ class Config:
     backup_pull_from: str = ""  # rsync source of sealed copies on the server (development machine side)
     backup_pull_dir: Path | None = None
     backup_identity: str = ""  # private key for restore tests: a file path or "keychain:<service>" (macOS)
+    # Hosted database (Turso): when set, every interface uses it instead of db_path, and the app state that lived
+    # in files next to the database (password hash, devices, passkeys, tokens, access log, coach texts) lives in
+    # the database too. The token is never in a file: environment (hosting) or the macOS Keychain (development).
+    db_url: str = ""
+    db_token: str = "env:ASKESIS_DB_TOKEN"  # "env:<NAME>" or "keychain:<service>"
+
+    @property
+    def db_target(self) -> Path | str:
+        return self.db_url or self.db_path
+
+    @property
+    def hosted(self) -> bool:
+        return bool(self.db_url)
 
 
 def _read(path: Path) -> dict:
@@ -87,4 +100,6 @@ def load(private: Path | None = None) -> Config:
         backup_pull_from=str(data.get("backup_pull_from", "")),
         backup_pull_dir=path("backup_pull_dir"),
         backup_identity=str(data.get("backup_identity", "")),
+        db_url=str(os.environ.get("ASKESIS_DB_URL", data.get("db_url", ""))),
+        db_token=str(os.environ.get("ASKESIS_DB_TOKEN_SOURCE", data.get("db_token", "env:ASKESIS_DB_TOKEN"))),
     )
