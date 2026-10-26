@@ -12,7 +12,7 @@ import sqlite3
 
 import pytest
 
-pytest.importorskip("libsql")  # driver of the hosted database (extra "cloud")
+pytest.importorskip("libsql")  # driver of the hosted database
 import synthetic as syn
 from starlette.testclient import TestClient
 from test_f3 import programme

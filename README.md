@@ -93,7 +93,7 @@ bin/ak backup
 Local dashboard (optional, this Mac only):
 
 ```bash
-uv sync --extra dashboard
+uv sync
 bin/ak web set-password      # stored only as an scrypt hash under data/
 bin/ak web serve             # http://127.0.0.1:8765 — same core and checks as the CLI
 ```

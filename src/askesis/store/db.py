@@ -9,7 +9,7 @@ from pathlib import Path
 
 from askesis.core.timeutil import iso, now_utc
 
-MIGRATIONS_DIR = Path(__file__).resolve().parents[3] / "migrations"
+MIGRATIONS_DIR = Path(os.environ.get("ASKESIS_ROOT", Path(__file__).resolve().parents[3])) / "migrations"
 
 
 REMOTE = ("libsql://", "https://", "wss://")

@@ -124,7 +124,7 @@ fi
 git -C $APP checkout -q --detach "${REF:-origin/main}"
 chown -R root:root $APP
 cd $APP
-UV_PYTHON_DOWNLOADS=never UV_CACHE_DIR=/var/cache/askesis-uv $TOOLS/bin/uv sync -q --frozen --no-dev --extra dashboard
+UV_PYTHON_DOWNLOADS=never UV_CACHE_DIR=/var/cache/askesis-uv $TOOLS/bin/uv sync -q --frozen --no-dev
 chmod -R a+rX $APP
 
 step "configurazione"
