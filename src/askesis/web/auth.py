@@ -46,21 +46,65 @@ def session_secret(path: Path) -> str:
 
 
 class Throttle:
-    """Exponential delay after failed logins (in memory, single local process)."""
+    """Exponential delay after failed logins. In memory for the single local process; with `path` (hosted: several
+    instances serve the same site) the counter is shared through the private store."""
 
-    def __init__(self) -> None:
+    def __init__(self, path: Path | None = None) -> None:
+        self.path = path
         self.failures = 0
         self.until = 0.0
 
+    def _now(self) -> float:
+        return time.time() if self.path else time.monotonic()
+
+    def _load(self) -> None:
+        if self.path and state.exists(self.path):
+            data = json.loads(state.read_text(self.path))
+            self.failures, self.until = int(data["failures"]), float(data["until"])
+
+    def _save(self) -> None:
+        if self.path:
+            _write_private(self.path, json.dumps({"failures": self.failures, "until": self.until}))
+
     def blocked_for(self) -> float:
-        return max(0.0, self.until - time.monotonic())
+        self._load()
+        return max(0.0, self.until - self._now())
 
     def fail(self) -> None:
+        self._load()
         self.failures += 1
-        self.until = time.monotonic() + min(2 ** self.failures, 300)
+        self.until = self._now() + min(2 ** self.failures, 300)
+        self._save()
 
     def success(self) -> None:
         self.failures, self.until = 0, 0.0
+        self._save()
+
+
+# ------------------------------------------------------------------ invitations (hosted: first access of a device)
+# From the internet the password alone never opens the dashboard: it must come with a single-use code created on the
+# Mac (`bin/ak web invite`), valid a few minutes. The session it opens may register a passkey, nothing more special.
+
+def create_invite(path: Path, minutes: int = 10, now: float | None = None) -> str:
+    now = time.time() if now is None else now
+    code = "-".join(secrets.token_hex(3) for _ in range(3))
+    _write_private(path, json.dumps({"hash": hashlib.sha256(code.encode()).hexdigest(), "expires": now + minutes * 60}))
+    return code
+
+
+def use_invite(path: Path, code: str, now: float | None = None) -> bool:
+    """True once for a valid, unexpired code; the code is consumed (and an expired one removed)."""
+    now = time.time() if now is None else now
+    if not code or not state.exists(path):
+        return False
+    data = json.loads(state.read_text(path))
+    if data["expires"] <= now:
+        state.delete(path)
+        return False
+    if not hmac.compare_digest(hashlib.sha256(code.strip().lower().encode()).hexdigest(), data["hash"]):
+        return False
+    state.delete(path)
+    return True
 
 
 # ------------------------------------------------------------------ remembered devices
@@ -79,11 +123,12 @@ def _load_devices(path: Path) -> dict:
     return json.loads(state.read_text(path)) if state.exists(path) else {}
 
 
-def remember(path: Path, label: str, days: int, now: float | None = None) -> tuple[str, dict]:
-    """New remembered device: returns the cookie value (shown to the browser once) and the stored record."""
+def remember(path: Path, label: str, days: int, now: float | None = None, via: str = "password") -> tuple[str, dict]:
+    """New remembered device: returns the cookie value (shown to the browser once) and the stored record. `via` is
+    the login that remembered it ("password" or "passkey"): a password device is honoured only from the VPN."""
     now = time.time() if now is None else now
     did, token = secrets.token_hex(4), secrets.token_urlsafe(32)
-    rec = {"label": label, "created": now, "expires": now + days * 86400, "last_used": now,
+    rec = {"label": label, "created": now, "expires": now + days * 86400, "last_used": now, "via": via,
            "hash": hashlib.sha256(token.encode()).hexdigest()}
     devices = {k: v for k, v in _load_devices(path).items() if v["expires"] > now}  # drop expired ones
     devices[did] = rec

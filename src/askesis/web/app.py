@@ -208,9 +208,15 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
     passkeys_file, access_log = cfg.db_path.parent / "web_passkeys.json", cfg.db_path.parent / "web_access.log"
     party = passkeys.Party.from_origin(cfg.web_origin)  # None: no HTTPS domain, passkeys off
     edge_secret = os.environ.get("ASKESIS_EDGE_SECRET", "")  # shared only with the VPN site of the HTTPS front
+    # HTTPS on a real domain (or hosting): cookies only over HTTPS and with the __Host- prefix (no Domain, Path=/,
+    # Secure), so a sibling subdomain or a plain-HTTP page can neither set nor read them.
+    secure = cfg.web_secure_cookies or party is not None or cfg.hosted
+    device_cookie = ("__Host-" if secure else "") + DEVICE_COOKIE
+    session_cookie = ("__Host-" if secure else "") + "askesis_session"
+    invite_file = cfg.db_path.parent / "web_invite.json"
     if not 1 <= cfg.web_remember_days <= 90:
         raise ValueError("web_remember_days deve essere tra 1 e 90")
-    throttle = auth.Throttle()
+    throttle = auth.Throttle(cfg.db_path.parent / "web_throttle.json" if cfg.hosted else None)
     env = Environment(loader=FileSystemLoader(HERE / "templates"), autoescape=select_autoescape(["html"]))
     env.filters["num"] = fmt_num
     env.filters["date"] = fmt_date
@@ -270,9 +276,16 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         host = request.client.host if request.client else ""
         return host in ("127.0.0.1", "::1") and "x-forwarded-for" in request.headers
 
+    def hosted_ip(request: Request) -> str:
+        """Hosting: the platform's edge overwrites x-forwarded-for with the address it saw (a client-written value
+        never reaches the app); used only for the access log, never to grant trust."""
+        return (request.headers.get("x-real-ip") or request.headers.get("x-forwarded-for", "")).split(",")[0].strip()
+
     def client_ip(request: Request) -> str:
         """The client: the direct peer, or — behind the local HTTPS front — the last address it appended (the one
         the front saw; anything to its left could have been written by the client)."""
+        if cfg.hosted:
+            return hosted_ip(request)
         if proxied(request):
             return request.headers["x-forwarded-for"].split(",")[-1].strip()
         return request.client.host if request.client else ""
@@ -280,7 +293,10 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
     def trusted_network(request: Request) -> bool:
         """The VPN or this machine, never the internet. Fail-closed behind a proxy: a forwarded request is trusted
         only if the VPN-only site of the front marks it with the secret it alone knows (`edge_secret`); any other
-        forwarded request — public site, misconfigured front, tunnel — counts as public."""
+        forwarded request — public site, misconfigured front, tunnel — counts as public. Hosting has no VPN:
+        everything is the internet."""
+        if cfg.hosted:
+            return False
         if proxied(request):
             mark = request.headers.get("x-askesis-edge", "")
             return bool(edge_secret) and hmac.compare_digest(mark, f"vpn-{edge_secret}")
@@ -290,10 +306,27 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         expected = request.session.get("csrf")
         return bool(expected) and hmac.compare_digest(str(request.headers.get("x-csrf", "")), expected)
 
+    def remembered(request: Request) -> dict | None:
+        """The remembered device of this browser. A device remembered after a password login counts only from the VPN
+        (from the internet only a passkey opens the dashboard); every re-entry without a login is logged."""
+        dev = auth.device_for(devices_file, request.cookies.get(device_cookie), touch=True)
+        if dev is None:
+            return None
+        if dev.get("via") != "passkey" and not trusted_network(request):
+            auth.log_attempt(access_log, "dispositivo", False, client_ip(request),
+                             "ricordato con password: serve la VPN")
+            return None
+        auth.log_attempt(access_log, "dispositivo", True, client_ip(request), dev.get("label", ""))
+        return dev
+
+    def may_add_passkey(request: Request) -> bool:
+        """From the VPN, or within 15 minutes of an invitation login (hosting: the first passkey of a device)."""
+        return trusted_network(request) or time.time() - float(request.session.get("invited", 0)) < 900
+
     def guard(handler):
         async def wrapped(request: Request) -> Response:
             if not session_valid(request):
-                dev = auth.device_for(devices_file, request.cookies.get(DEVICE_COOKIE), touch=True)
+                dev = remembered(request)
                 if dev is None:
                     request.session.clear()
                     if request.url.path.startswith("/api/"):
@@ -308,7 +341,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         r = page(request, "login.html", error=error, wait=int(wait + 0.999),
                  wait_text=seconds(wait) if wait > 0 else "", remember_days=cfg.web_remember_days,
                  passkey_login=party is not None and bool(passkeys.listing(passkeys_file)),
-                 password_login=trusted_network(request))
+                 password_login=trusted_network(request), invite_login=not trusted_network(request))
         r.status_code = status
         return r
 
@@ -318,7 +351,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         if request.method == "GET":
             if session_valid(request):
                 return RedirectResponse("/", status_code=303)
-            dev = auth.device_for(devices_file, request.cookies.get(DEVICE_COOKIE), touch=True)
+            dev = remembered(request)
             if dev is not None:  # a bookmark of the login page on a remembered device
                 start_session(request, dev["id"])
                 return RedirectResponse("/", status_code=303)
@@ -330,21 +363,29 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         if wait > 0:
             auth.log_attempt(access_log, "password", False, client_ip(request), "in attesa")
             return login_page(request, "Troppi tentativi con la password sbagliata.", wait, 429)
-        if not trusted_network(request):  # from the internet only a passkey opens the dashboard
-            auth.log_attempt(access_log, "password", False, client_ip(request), "rete pubblica")
-            return login_page(request, "Da internet si entra solo con la passkey (Face ID).", 0, 403)
-        if not auth.check_password(auth_file, str(form.get("password", ""))):
+        public = not trusted_network(request)
+        if public and not str(form.get("invite", "")).strip():  # from the internet: passkey, or password + invite
+            auth.log_attempt(access_log, "password", False, client_ip(request), "rete pubblica senza invito")
+            return login_page(request, "Da internet si entra con Face ID; la password serve solo con un codice "
+                                       "d'invito.", 0, 403)
+        if not auth.check_password(auth_file, str(form.get("password", ""))) or (
+                public and not auth.use_invite(invite_file, str(form.get("invite", "")))):
             throttle.fail()
             auth.log_attempt(access_log, "password", False, client_ip(request))
             wait = throttle.blocked_for()
-            return login_page(request, "Password non corretta.", wait, 401)
+            return login_page(request, "Password o codice d'invito non corretti." if public
+                              else "Password non corretta.", wait, 401)
         throttle.success()
-        auth.log_attempt(access_log, "password", True, client_ip(request))
+        auth.log_attempt(access_log, "password+invito" if public else "password", True, client_ip(request))
+        if public:  # an invitation opens one session that may register this device's passkey, nothing more
+            start_session(request)
+            request.session["invited"] = time.time()
+            return RedirectResponse("/accesso", status_code=303)
         device = None
         cookie = None
         if form.get("remember") == "1":
             cookie, rec = auth.remember(devices_file, auth.device_label(request.headers.get("user-agent", "")),
-                                        cfg.web_remember_days)
+                                        cfg.web_remember_days, via="password")
             device = rec["id"]
         start_session(request, device)
         resp = RedirectResponse("/", status_code=303)
@@ -352,8 +393,8 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
             # Lax, not Strict: Safari withholds Strict cookies when the dashboard is opened from a link in another
             # app (a cross-site navigation), so the device was never recognised. Lax is sent only on top-level GET
             # navigations, which change nothing; form posts still need the session (Strict) and the CSRF token.
-            resp.set_cookie(DEVICE_COOKIE, cookie, max_age=cfg.web_remember_days * 86400, httponly=True,
-                            samesite="lax", secure=cfg.web_secure_cookies, path="/")
+            resp.set_cookie(device_cookie, cookie, max_age=cfg.web_remember_days * 86400, httponly=True,
+                            samesite="lax", secure=secure, path="/")
         return resp
 
     # ------------------------------------------------------------------ passkeys (JSON, CSRF header)
@@ -361,10 +402,10 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         if not remember:
             return
         cookie, rec = auth.remember(devices_file, auth.device_label(request.headers.get("user-agent", "")),
-                                    cfg.web_remember_days)
+                                    cfg.web_remember_days, via="passkey")
         request.session["device"] = rec["id"]
-        resp.set_cookie(DEVICE_COOKIE, cookie, max_age=cfg.web_remember_days * 86400, httponly=True,
-                        samesite="lax", secure=cfg.web_secure_cookies, path="/")
+        resp.set_cookie(device_cookie, cookie, max_age=cfg.web_remember_days * 86400, httponly=True,
+                        samesite="lax", secure=secure, path="/")
 
     def challenge_ok(request: Request, key: str) -> bytes | None:
         """One-time challenge for this browser session, valid for five minutes."""
@@ -412,8 +453,9 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
     async def passkey_register_options(request: Request) -> Response:
         if party is None or not json_checked(request, {}):
             return JSONResponse({"error": "richiesta non valida"}, status_code=403)
-        if not trusted_network(request):
-            return JSONResponse({"error": "una passkey si aggiunge solo dalla rete privata (VPN)"}, status_code=403)
+        if not may_add_passkey(request):
+            return JSONResponse({"error": "una passkey si aggiunge dalla rete privata o subito dopo un accesso con "
+                                          "codice d'invito"}, status_code=403)
         try:
             opts, chal = passkeys.registration_options(passkeys_file, party)
         except passkeys.PasskeyError as exc:
@@ -422,7 +464,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         return Response(opts, media_type="application/json")
 
     async def passkey_register_verify(request: Request) -> Response:
-        if party is None or not json_checked(request, {}) or not trusted_network(request):
+        if party is None or not json_checked(request, {}) or not may_add_passkey(request):
             return JSONResponse({"error": "richiesta non valida"}, status_code=403)
         body = await request.json()
         chal = challenge_ok(request, "pk_reg")
@@ -446,11 +488,11 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
         """Logging out also forgets this device (a remembered device would otherwise log straight back in)."""
         resp = RedirectResponse("/login", status_code=303)
         if request.method == "POST" and await form_checked(request) is not None:
-            dev = auth.device_for(devices_file, request.cookies.get(DEVICE_COOKIE))
+            dev = auth.device_for(devices_file, request.cookies.get(device_cookie))
             if dev:
                 auth.revoke(devices_file, dev["id"])
             request.session.clear()
-            resp.delete_cookie(DEVICE_COOKIE, path="/")
+            resp.delete_cookie(device_cookie, path="/")
         return resp
 
     async def accesso(request: Request) -> Response:
@@ -466,7 +508,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
                 auth.revoke(devices_file, None if target == "*" else target)
                 if target in ("*", current):
                     resp = RedirectResponse("/login", status_code=303)
-                    resp.delete_cookie(DEVICE_COOKIE, path="/")
+                    resp.delete_cookie(device_cookie, path="/")
                     request.session.clear()
                     return resp
             return RedirectResponse("/accesso", status_code=303)
@@ -674,6 +716,9 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
     async def api_health_sync(request: Request) -> Response:
         """POST from the Shortcut with a device token (not the session: the Shortcut has no cookies). The client
         allowlist and host check still apply. The answer holds counts only, never values."""
+        if not cfg.hosted and not trusted_network(request):  # local: VPN only; hosting: the token over HTTPS
+            return JSONResponse({"ok": False, "message": "Sincronizzazione solo dalla rete privata (VPN)."},
+                                status_code=403)
         tpath = health_sync.tokens_path(cfg)
         tid = health_sync.check_token(tpath, request.headers.get("authorization"))
         if tid is None:
@@ -1002,11 +1047,11 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
     ]
     app = Starlette(routes=routes, middleware=[
         Middleware(SecurityHeaders),
-        Middleware(ClientAllowlist, allowed=cfg.web_allowed_clients),
+        *([] if cfg.hosted else [Middleware(ClientAllowlist, allowed=cfg.web_allowed_clients)]),
         Middleware(TrustedHostMiddleware, allowed_hosts=(allowed_hosts or cfg.web_allowed_hosts)
                    + ([party.rp_id] if party else [])),
-        Middleware(SessionMiddleware, secret_key=auth.session_secret(secret_file), session_cookie="askesis_session",
-                   max_age=12 * 3600, same_site="strict", https_only=cfg.web_secure_cookies),
+        Middleware(SessionMiddleware, secret_key=auth.session_secret(secret_file), session_cookie=session_cookie,
+                   max_age=12 * 3600, same_site="strict", https_only=secure),
     ])
     return app
 

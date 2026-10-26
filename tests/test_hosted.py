@@ -54,7 +54,7 @@ def hosted(tmp_path, monkeypatch):
     conn.commit()
     password = secrets.token_urlsafe(16)  # generated test credential
     auth.set_password(paths(cfg)[0], password)
-    client = TestClient(create_app(cfg), base_url="http://127.0.0.1")
+    client = TestClient(create_app(cfg), base_url="https://127.0.0.1")  # hosting: HTTPS-only cookies
     yield client, cfg, password, tmp_path, seen
     state.use_database(None)
 
@@ -74,7 +74,14 @@ def test_rows_read_like_sqlite_rows(tmp_path):
 def test_the_app_runs_on_libsql_and_keeps_private_files_in_the_database(hosted):
     client, cfg, password, tmp_path, seen = hosted
     assert seen and all(t == "synthetic-token" for _, t in seen)
-    assert login(client, password).status_code == 303
+    assert login(client, password).status_code == 403  # hosting is the internet: the password alone never enters
+    code = auth.create_invite(paths(cfg)[0].parent / "web_invite.json")
+    token = csrf_of(client.get("/login").text)
+    r = client.post("/login", data={"csrf": token, "password": password, "invite": code}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/accesso"
+    again = TestClient(client.app, base_url="https://127.0.0.1")
+    r = again.post("/login", data={"csrf": csrf_of(again.get("/login").text), "password": password, "invite": code})
+    assert r.status_code == 401  # single use
     page = client.get("/").text
     r = client.post("/", data={"csrf": csrf_of(page), "day": syn.START.isoformat(), "line": "", "peso": "240,5",
                                "action": "save"})
@@ -83,7 +90,8 @@ def test_the_app_runs_on_libsql_and_keeps_private_files_in_the_database(hosted):
     assert "Salvato" in r.text
     tid = health_sync.create_token(health_sync.tokens_path(cfg), "iPhone")[0]
     assert health_sync.check_token(health_sync.tokens_path(cfg), f"Bearer {tid}")
-    assert auth.recent_attempts(paths(cfg)[0].parent / "web_access.log")[-1]["ok"] is True
+    log = auth.recent_attempts(paths(cfg)[0].parent / "web_access.log")
+    assert {"method": "password+invito", "ok": True}.items() <= log[-2].items() and log[-1]["ok"] is False
     disk = tmp_path / "disk"
     assert not disk.exists() or not any(disk.rglob("*")), "nothing may be written on disk in hosted mode"
     keys = {r[0] for r in connect(cfg.db_target, cfg.db_token).execute("SELECT key FROM app_state")}

@@ -827,13 +827,21 @@ web_app = typer.Typer(no_args_is_help=True, help="Dashboard locale (solo questo 
 app.add_typer(web_app, name="web")
 
 
+def _web_cfg() -> config_mod.Config:
+    """Configuration for the web commands; with the hosted database the private files live there (bind them)."""
+    cfg = config_mod.load()
+    if cfg.hosted:
+        connect(cfg.db_target, cfg.db_token)
+    return cfg
+
+
 @web_app.command("set-password")
 def web_set_password() -> None:
     """Imposta la password della dashboard (salvata solo come hash, in data/)."""
     from askesis.web import auth
     from askesis.web.app import paths
 
-    cfg = config_mod.load()
+    cfg = _web_cfg()
     pw = typer.prompt("Nuova password", hide_input=True, confirmation_prompt=True)
     try:
         auth.set_password(paths(cfg)[0], pw)
@@ -841,6 +849,18 @@ def web_set_password() -> None:
         raise typer.BadParameter(str(exc)) from exc
     n = auth.revoke(paths(cfg)[2])
     typer.echo(f"✓ password impostata · sessioni aperte chiuse · dispositivi ricordati revocati: {n}")
+
+
+@web_app.command("invite")
+def web_invite(minutes: Annotated[int, typer.Option("--minuti", min=1, max=30)] = 10) -> None:
+    """Codice d'invito monouso per il primo accesso di un dispositivo da internet (password + codice, poi Face ID).
+    Il codice compare solo qui: si digita sull'iPhone, non si manda in chat."""
+    from askesis.web import auth
+    from askesis.web.app import paths
+
+    cfg = _web_cfg()
+    code = auth.create_invite(paths(cfg)[0].parent / "web_invite.json", minutes)
+    typer.echo(f"Codice d'invito: {code}  (vale {minutes} minuti, una volta sola)")
 
 
 @web_app.command("devices")
@@ -852,7 +872,7 @@ def web_devices(
     from askesis.web import auth
     from askesis.web.app import fmt_date, paths
 
-    path = paths(config_mod.load())[2]
+    path = paths(_web_cfg())[2]
     if revoke_all or revoke:
         n = auth.revoke(path, None if revoke_all else revoke)
         typer.echo(f"✓ revocati: {n}" if n else "nessun dispositivo con quell'ID")

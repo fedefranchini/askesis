@@ -120,12 +120,12 @@ def test_register_then_login_with_the_passkey_only(env):
 
     pub = client(cfg)  # another browser, from the internet
     page = pub.get("/login", headers=PUBLIC).text
-    assert "Accedi con Face ID" in page and 'name="password"' not in page  # no password form from the internet
+    assert "Accedi con Face ID" in page and 'name="invite"' in page  # from the internet: password only with invite
     r = passkey_login(pub, a, PUBLIC, remember=True)
     assert r.status_code == 200 and r.json()["redirect"] == "/"
     assert pub.get("/", headers=PUBLIC).status_code == 200
-    device = next(x for x in pub.cookies.jar if x.name == "askesis_device")
-    assert device.secure  # HTTPS: cookies only over HTTPS
+    device = next(x for x in pub.cookies.jar if x.name == "__Host-askesis_device")
+    assert device.secure  # HTTPS: cookies only over HTTPS, __Host- prefix
     log = auth.recent_attempts(cfg.db_path.parent / "web_access.log")
     assert {"method": "passkey", "ok": True, "ip": "198.51.100.7"}.items() <= log[-1].items()
 
@@ -134,12 +134,12 @@ def test_password_is_refused_from_the_internet_and_logged(env):
     cfg, password = env
     c = client(cfg)
     page = c.get("/login", headers=PUBLIC).text
-    assert 'name="password"' not in page and "solo con una passkey" in page
+    assert 'name="invite"' in page and "Primo accesso su questo dispositivo" in page
     tok = csrf(c, "/login")  # same browser session, token from the trusted page
     r = c.post("/login", headers=PUBLIC, data={"csrf": tok, "password": password}, follow_redirects=False)
-    assert r.status_code == 403 and "solo con la passkey" in r.text
+    assert r.status_code == 403 and "codice d&#39;invito" in r.text
     last = auth.recent_attempts(cfg.db_path.parent / "web_access.log")[-1]
-    assert last["ok"] is False and last["detail"] == "rete pubblica" and password not in json.dumps(last)
+    assert last["ok"] is False and last["detail"] == "rete pubblica senza invito" and password not in json.dumps(last)
 
 
 def test_a_passkey_is_added_only_from_the_trusted_network(env):
@@ -152,7 +152,7 @@ def test_a_passkey_is_added_only_from_the_trusted_network(env):
     assert passkey_login(pub, a, PUBLIC).status_code == 200
     tok = csrf(pub, "/accesso", PUBLIC)
     r = pub.post("/passkey/register/options", headers=PUBLIC | {"x-csrf": tok}, json={})
-    assert r.status_code == 403 and "VPN" in r.json()["error"]
+    assert r.status_code == 403 and "rete privata" in r.json()["error"]
 
 
 def test_wrong_origin_replayed_counter_and_missing_csrf_are_refused(env):
@@ -247,7 +247,7 @@ def test_a_session_without_csrf_token_accepts_no_post(env):
     c = client(cfg)
     tok = csrf(c, "/login")
     c.post("/login", data={"csrf": tok, "password": password, "remember": "1"})
-    c.cookies.delete("askesis_session")  # the 12-hour session expired; the device cookie is still there
+    c.cookies.delete("__Host-askesis_session")  # the 12-hour session expired; the device cookie is still there
     for guess in ("!", "", "None"):
         r = c.post("/", data={"csrf": guess, "action": "save", "line": "p 240"})
         assert "Sessione scaduta" in r.text and "Salvato" not in r.text

@@ -69,7 +69,9 @@ def _read(path: Path) -> dict:
 def load(private: Path | None = None) -> Config:
     data = _read(DEFAULT_FILE)
     override_path = private or Path(os.environ.get("ASKESIS_CONFIG", PRIVATE_FILE))
-    override = _read(override_path)
+    # Hosting has no private folder: the private override arrives as text in an environment variable instead.
+    inline = os.environ.get("ASKESIS_CONFIG_TOML", "")
+    override = tomllib.loads(inline) if inline and private is None else _read(override_path)
     aliases = dict(data.get("context_aliases", {})) | dict(override.pop("context_aliases", {}))
     data.update(override)
 
