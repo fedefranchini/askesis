@@ -63,3 +63,23 @@ Si sbloccano: passkey (Face ID), pagina «non raggiungibile» per l'app sulla sc
   con la passkey. Revocare una passkey chiude le sessioni aperte con essa.
 - **Registro degli accessi** (`web_access.log`, solo sul server): metodo, esito, indirizzo, mai ciò che è stato
   digitato; gli ultimi tentativi e quelli falliti nelle 24 ore sono nella pagina Accesso.
+
+## Hosting senza server proprio (Vercel + Turso)
+
+Alternativa gratuita al server: la dashboard gira su Vercel (`app.py`, regione in `vercel.json`) e i dati stanno in
+un database Turso (libSQL, stesso dialetto di SQLite). Nessuna cartella privata sul server: i file privati
+(hash della password, chiave di sessione, dispositivi, passkey, token, testi del coach) stanno nelle tabelle
+`app_state`/`app_log` dello stesso database (`store/state.py`).
+
+Variabili d'ambiente (Production):
+
+| Nome | Contenuto |
+|---|---|
+| `ASKESIS_DB_URL` | `libsql://<database>.turso.io` |
+| `ASKESIS_DB_TOKEN` | token del database (mai nella repo; sul Mac sta nel Portachiavi) |
+| `ASKESIS_WEB_ORIGIN` | `https://<progetto>.vercel.app`: abilita host, HTTPS e passkey |
+| `ASKESIS_CONFIG_TOML` | le impostazioni private in formato TOML (es. il fuso orario) |
+
+Accesso da internet: passkey (Face ID); la password vale solo insieme a un codice d'invito monouso creato con
+`bin/ak web invite` (10 minuti), che apre una sessione in cui aggiungere la passkey del dispositivo.
+Le variabili valgono solo per i deploy successivi: dopo una modifica serve un nuovo deploy.
