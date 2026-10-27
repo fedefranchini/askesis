@@ -124,3 +124,32 @@ def test_backup_copies_everything_into_a_local_sqlite_file(hosted, tmp_path):
     with pytest.raises(sqlite3.DatabaseError):
         dest.execute("DELETE FROM raw_record")
     assert re.match(r"^[0-9a-f-]+$", conn.execute("SELECT id FROM raw_record LIMIT 1").fetchone()[0])
+
+
+def test_transfer_copies_every_row_identically_and_keeps_the_hosted_login(hosted, tmp_path):
+    """Local SQLite → hosted: the synthetic rehearsal is cleared, every table is copied and verified row by row,
+    the hosted private files (password, passkeys) stay, and a destination with real data is refused."""
+    from askesis.store import transfer
+
+    _, cfg, _, _, _ = hosted
+    dst = connect(cfg.db_target, cfg.db_token)
+    src = sqlite3.connect(str(tmp_path / "mac.db"))
+    src.row_factory = sqlite3.Row
+    from askesis.store.db import migrate
+
+    migrate(src)
+    mac = [r | {"source_id": "manual_cli"} for r in syn.linear_weights(30)]  # as if typed on the Mac
+    ingest(src, syn.athlete() + mac, "manual_cli")
+    src.commit()
+    auth_before = dst.execute("SELECT content FROM app_state WHERE key LIKE '%web_auth.json'").fetchone()[0]
+    pl = transfer.plan(src, dst)
+    assert pl["synthetic_to_clear"] > 0 and pl["tables"].index("source") < pl["tables"].index("raw_record")
+    transfer.clear_synthetic(dst)
+    transfer.copy(src, dst, pl["tables"])
+    res = transfer.verify(src, dst, pl["tables"])
+    assert all(r["identical"] for r in res.values()) and res["raw_record"]["rows"] == 33
+    assert dst.execute("SELECT content FROM app_state WHERE key LIKE '%web_auth.json'").fetchone()[0] == auth_before
+    with pytest.raises(ValueError, match="append-only"):  # triggers restored after the clear
+        dst.execute("DELETE FROM raw_record")
+    with pytest.raises(transfer.TransferError, match="non sintetici"):
+        transfer.plan(src, dst)
