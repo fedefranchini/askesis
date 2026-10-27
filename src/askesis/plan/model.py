@@ -21,7 +21,13 @@ def last_set(lift: dict) -> str:
 
 def planned_weekday(on: date, periods: list[dict]) -> str:
     """Microcycle day whose sessions fall on `on`: a scheduled period with `day_offset: n` runs the week n days late
-    (on `on` comes the session planned for `on - n`)."""
+    (on `on` comes the session planned for `on - n`); one with `day_map` names, for some weekdays, the microcycle day
+    to do instead (e.g. {"wed": "thu", "thu": "fri", "fri": "rest"}; "rest" = nothing planned that day)."""
+    own = WEEKDAYS[on.weekday()]
+    for pp in periods:
+        mapped = pp.get("modifiers", {}).get("day_map", {}).get(own)
+        if mapped:
+            return mapped
     offset = sum(int(pp.get("modifiers", {}).get("day_offset", 0)) for pp in periods)
     return WEEKDAYS[(on - timedelta(days=offset)).weekday()]
 

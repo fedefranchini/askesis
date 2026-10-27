@@ -62,6 +62,18 @@ def test_day_offset_moves_planned_sessions_and_easy_runs_within_the_week():
     assert running._plan_easy(shifted, SUN) and not running._plan_easy(shifted, MON + timedelta(days=5))
     assert running._plan_easy(plans(), MON + timedelta(days=5))  # without the period: Saturday as written
 
+def test_day_map_swaps_days_of_one_week_and_rest_cancels_the_session():
+    from askesis.analytics import running
+    period = (MON, "2025-01-01", "scheduled_period",
+              {"label": "x", "start": MON.isoformat(), "end": SUN.isoformat(),
+               "modifiers": {"day_map": {"tue": "wed", "wed": "fri", "fri": "rest", "sat": "rest"}}})
+    week = plans() + [period]  # lifts written on mon, wed, fri; easy run on sat
+    assert [ad.planned_on(week, MON + timedelta(days=i)) for i in range(7)] == [1, 1, 1, 0, 0, 0, 0]
+    assert not any(running._plan_easy(week, MON + timedelta(days=i)) for i in range(7))
+    after = SUN + timedelta(days=1)
+    assert ad.planned_on(week, after) == ad.planned_on(plans(), after)  # the next week is untouched
+
+
 def test_waist_change_noise_needs_enough_repeated_sessions():
     w = [(MON - timedelta(days=21), [80.0, 80.4]), (MON - timedelta(days=14), [79.8, 80.2]),
          (MON - timedelta(days=7), [79.6, 80.0]), (MON, [78.0, 78.4])]
