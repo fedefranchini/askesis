@@ -147,7 +147,7 @@ def full_tunnel_vpns(nc_list: str | None = None, flags: dict[str, bool] | None =
     """Connected VPNs that force all traffic through the tunnel. Observed (NordVPN, Kill Switch on): the phone's
     request reaches the Mac but macOS drops the reply before any interface, so connections opened by the phone never
     complete; with the VPN connected and the kill switch off, they do."""
-    if _linux():
+    if nc_list is None and _linux():  # the live check is macOS-only; a given listing is parsed anywhere
         return []
     flags = include_all_networks() if flags is None else flags
     return [n for n in connected_vpns(nc_list) if flags.get(n)]
@@ -155,7 +155,7 @@ def full_tunnel_vpns(nc_list: str | None = None, flags: dict[str, bool] | None =
 
 def half_open(port: int, clients: list[str], netstat_text: str | None = None) -> list[str]:
     """Allowed clients with connections stuck in SYN_RCVD: their request arrives, the reply never completes."""
-    if _linux():
+    if netstat_text is None and _linux():  # live check on the server; a given netstat listing is parsed anywhere
         return [p for p in parse_ss_syn_recv(_run(["ss", "-tnH", "state", "syn-recv"]), port) if p in clients]
     if netstat_text is None:
         netstat_text = _run(["/usr/sbin/netstat", "-an", "-p", "tcp"])
