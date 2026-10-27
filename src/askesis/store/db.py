@@ -18,8 +18,8 @@ REMOTE = ("libsql://", "https://", "wss://")
 def resolve_token(source: str) -> str:
     """The Turso token from the environment ("env:NAME") or the macOS Keychain ("keychain:service"); never a file."""
     kind, _, name = source.partition(":")
-    if kind == "env" and os.environ.get(name):
-        return os.environ[name]
+    if kind == "env" and os.environ.get(name, "").strip():
+        return os.environ[name].strip()  # a pasted token often carries a trailing newline (invalid in a header)
     if kind == "keychain":
         res = subprocess.run(["security", "find-generic-password", "-s", name, "-w"], capture_output=True,
                              text=True, check=False)
