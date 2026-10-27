@@ -522,6 +522,32 @@ def backup_cmd(ctx: typer.Context) -> None:
     typer.echo(f"✓ backup {path.name} · rimossi {len(removed)} vecchi backup")
 
 
+@backup_app.command("nightly")
+def backup_nightly(notify: Annotated[bool, typer.Option("--notify", help="Notifica se un passo fallisce")] = False,
+                   ) -> None:
+    """Backup notturno completo: copia (anche dal database online), test di ripristino, copia cifrata e copia
+    esterna (se configurate). Si ferma al primo passo che fallisce."""
+    import subprocess
+    import sys
+
+    steps = [["backup"], ["backup", "verify"]]
+    cfg = config_mod.load()
+    if cfg.backup_age_recipients:
+        steps.append(["backup", "seal"])
+        if cfg.backup_offsite:
+            steps.append(["backup", "offsite"])
+    for step in steps:
+        res = subprocess.run([sys.executable, "-m", "askesis", *step], check=False)
+        if res.returncode != 0:
+            typer.secho(f"✗ backup notturno fermo a: {' '.join(step)}", fg="red")
+            if notify:
+                from askesis import notify as notify_mod
+
+                notify_mod.send("Backup notturno non riuscito")
+            raise typer.Exit(1)
+    typer.echo(f"✓ backup notturno completo ({len(steps)} passi)")
+
+
 @backup_app.command("verify")
 def backup_verify(
     snapshot: Annotated[Path | None, typer.Argument(help="Backup da verificare (default: il più recente)")] = None,

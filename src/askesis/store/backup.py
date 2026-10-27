@@ -94,12 +94,13 @@ def verify(live: sqlite3.Connection, snapshot: Path, workdir: Path) -> dict:
 
 
 def launch_agents(root: Path, uv: str, log_dir: Path) -> dict[str, str]:
-    """launchd agents (plist XML by label): daily backup and weekly restore test. Nothing is written here."""
+    """launchd agents (plist XML by label): nightly backup (copy, restore test, sealed and offsite copies when
+    configured; launchd runs a missed time at the next wake) and weekly restore test. Nothing is written here."""
     from askesis import launchd
 
     ak, path_env = str(root / "bin" / "ak"), str(Path(uv).parent)
     return {
-        "local.askesis.backup": launchd.plist("local.askesis.backup", [ak, "backup"], path_env,
+        "local.askesis.backup": launchd.plist("local.askesis.backup", [ak, "backup", "nightly", "--notify"], path_env,
                                               log_dir / "local.askesis.backup.log", calendar={"Hour": 2, "Minute": 30}),
         "local.askesis.restore-test": launchd.plist(
             "local.askesis.restore-test", [ak, "backup", "verify", "--notify"], path_env,
