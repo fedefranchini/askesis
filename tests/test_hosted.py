@@ -38,6 +38,7 @@ def hosted(tmp_path, monkeypatch):
     monkeypatch.setenv("ASKESIS_REPORTS_DIR", str(tmp_path / "disk" / "reports"))
     monkeypatch.setenv("ASKESIS_DB_URL", "libsql://synthetic.example")
     monkeypatch.setenv("ASKESIS_DB_TOKEN", "synthetic-token")
+    monkeypatch.setenv("ASKESIS_WEB_ORIGIN", "https://askesis.example")
     engine_file = str(tmp_path / "turso.db")
     seen = []
 
@@ -54,7 +55,7 @@ def hosted(tmp_path, monkeypatch):
     conn.commit()
     password = secrets.token_urlsafe(16)  # generated test credential
     auth.set_password(paths(cfg)[0], password)
-    client = TestClient(create_app(cfg), base_url="https://127.0.0.1")  # hosting: HTTPS-only cookies
+    client = TestClient(create_app(cfg), base_url="https://askesis.example")  # hosting: HTTPS-only cookies
     yield client, cfg, password, tmp_path, seen
     state.use_database(None)
 
@@ -79,7 +80,8 @@ def test_the_app_runs_on_libsql_and_keeps_private_files_in_the_database(hosted):
     token = csrf_of(client.get("/login").text)
     r = client.post("/login", data={"csrf": token, "password": password, "invite": code}, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/accesso"
-    again = TestClient(client.app, base_url="https://127.0.0.1")
+    assert 'id="passkey-add"' in client.get("/accesso").text  # the invited session may add this device's passkey
+    again = TestClient(client.app, base_url="https://askesis.example")
     r = again.post("/login", data={"csrf": csrf_of(again.get("/login").text), "password": password, "invite": code})
     assert r.status_code == 401  # single use
     page = client.get("/").text

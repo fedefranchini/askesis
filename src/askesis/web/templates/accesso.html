@@ -43,7 +43,8 @@
   {% if can_add_passkey %}
   <button type="button" id="passkey-add" hidden>Aggiungi una passkey su questo dispositivo</button>
   <p class="error" id="passkey-error" role="alert" hidden></p>
-  {% else %}<p class="hint">Una nuova passkey si aggiunge solo collegati alla VPN.</p>{% endif %}
+  {% else %}<p class="hint">Una nuova passkey si aggiunge dalla VPN, oppure subito dopo un accesso con codice d'invito
+    (bin/ak web invite sul Mac).</p>{% endif %}
 </section>
 {% endif %}
 <section class="card">

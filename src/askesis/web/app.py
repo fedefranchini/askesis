@@ -518,7 +518,7 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
             "%Y-%m-%dT%H:%M:%S", time.localtime(time.time() - 86400))]
         return page(request, "accesso.html", devices=items, current=current, remember_days=cfg.web_remember_days,
                     passkeys_on=party is not None, passkey_list=passkeys.listing(passkeys_file),
-                    can_add_passkey=trusted_network(request), attempts=attempts[-10:][::-1], failed_24h=len(failed_24h))
+                    can_add_passkey=may_add_passkey(request), attempts=attempts[-10:][::-1], failed_24h=len(failed_24h))
 
     # ------------------------------------------------------------------ today
     def status_today(c, day: date) -> dict:
