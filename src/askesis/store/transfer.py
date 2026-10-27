@@ -103,9 +103,11 @@ def copy(src: sqlite3.Connection, dst: Any, tables: list[str]) -> None:
             names = ", ".join(f'"{c}"' for c in cols)
             marks = ", ".join("?" * len(cols))
             rows = src.execute(f'SELECT {names} FROM "{table}" ORDER BY rowid').fetchall()
-            for i in range(0, len(rows), CHUNK):
-                dst.executemany(f'INSERT INTO "{table}" ({names}) VALUES ({marks})',
-                                [tuple(r) for r in rows[i:i + CHUNK]])
+            per = max(1, min(CHUNK, 30000 // len(cols)))  # one statement per chunk: one round trip, not one per row
+            for i in range(0, len(rows), per):
+                part = rows[i:i + per]
+                values = ", ".join(f"({marks})" for _ in part)
+                dst.execute(f'INSERT INTO "{table}" ({names}) VALUES {values}', [v for r in part for v in r])
 
 
 def verify(src: sqlite3.Connection, dst: Any, tables: list[str]) -> dict[str, dict]:
