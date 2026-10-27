@@ -59,9 +59,31 @@ def push(
     for t, r in res.items():
         typer.echo(f"  {'✓' if r['identical'] else '✗'} {t}: {r['rows']} righe")
     if bad:
+        for t in bad:
+            typer.echo(f"  prima differenza in {t}: {transfer.first_difference(src, dst, t)}")
         typer.secho(f"✗ copia NON identica in: {', '.join(bad)}", fg="red")
         raise typer.Exit(1)
-    typer.echo(f"✓ trasferimento completo e identico: {total} righe in {len(res)} tabelle")
+    typer.echo(f"✓ trasferimento completo e identico: {total} righe in {len(res)} tabelle "
+               "(numeri decimali a 12 cifre significative)")
+
+
+@cloud_app.command("check")
+def check(to: Annotated[str | None, typer.Option("--to")] = None) -> None:
+    """Confronta ogni tabella del Mac con quella online (sola lettura)."""
+    from askesis.store import transfer
+    from askesis.store.db import connect
+
+    cfg = config_mod.load()
+    src, dst = connect(cfg.db_path), _dest(to, cfg)
+    tables = transfer.ordered(src, transfer.data_tables(src))
+    res = transfer.verify(src, dst, tables)
+    for t, r in res.items():
+        typer.echo(f"  {'✓' if r['identical'] else '✗'} {t}: {r['rows']} righe")
+        if not r["identical"]:
+            typer.echo(f"    prima differenza: {transfer.first_difference(src, dst, t)}")
+    if not all(r["identical"] for r in res.values()):
+        raise typer.Exit(1)
+    typer.echo("✓ identici (numeri decimali confrontati a 12 cifre significative)")
 
 
 @cloud_app.command("push-files")

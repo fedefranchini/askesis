@@ -49,6 +49,12 @@ def _columns(conn: Any, table: str) -> list[str]:
     return [r[1] for r in conn.execute(f'PRAGMA table_info("{table}")').fetchall()]
 
 
+def _norm(v: Any) -> Any:
+    """Decimal numbers compared to 12 significant digits: the network transport of the hosted database may change
+    the last bit of a double (e.g. …7213 → …7217); texts, integers and ids are compared exactly."""
+    return float(f"{v:.12g}") if isinstance(v, float) else v
+
+
 def digest(conn: Any, table: str) -> tuple[int, str]:
     """Row count and SHA-256 of every row (all columns, in a fixed order), independent of storage order."""
     cols = _columns(conn, table)
@@ -56,7 +62,7 @@ def digest(conn: Any, table: str) -> tuple[int, str]:
     h = hashlib.sha256()
     n = 0
     for row in conn.execute(f'SELECT {order} FROM "{table}" ORDER BY {order}').fetchall():
-        h.update(json.dumps(list(row), ensure_ascii=False, default=str).encode())
+        h.update(json.dumps([_norm(v) for v in row], ensure_ascii=False, default=str).encode())
         h.update(b"\n")
         n += 1
     return n, h.hexdigest()
@@ -116,3 +122,17 @@ def verify(src: sqlite3.Connection, dst: Any, tables: list[str]) -> dict[str, di
         a, b = digest(src, t), digest(dst, t)
         out[t] = {"rows": a[0], "identical": a == b}
     return out
+
+
+def first_difference(src: sqlite3.Connection, dst: Any, table: str) -> dict | None:
+    """The first row (in a fixed order) that differs, column by column with the value types: for diagnosis."""
+    cols = _columns(src, table)
+    order = ", ".join(f'"{c}"' for c in cols)
+    a = src.execute(f'SELECT {order} FROM "{table}" ORDER BY {order}').fetchall()
+    b = dst.execute(f'SELECT {order} FROM "{table}" ORDER BY {order}').fetchall()
+    for ra, rb in zip(a, b, strict=False):
+        if [_norm(v) for v in ra] != [_norm(v) for v in rb]:
+            return {c: (repr(x), type(x).__name__, repr(y), type(y).__name__)
+                    for c, x, y in zip(cols, ra, rb, strict=True) if _norm(x) != _norm(y) or type(x) is not type(y)}
+    return None
+
