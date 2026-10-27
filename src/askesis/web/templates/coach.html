@@ -75,12 +75,12 @@
       <input type="hidden" name="cat" value="{{ cat }}">
       {% if cat == "mese" %}
       <label for="pick">Mese</label>
-      <input id="pick" type="month" name="v" value="{{ pick or month_iso }}" max="{{ month_iso }}">
+      <input id="pick" type="month" name="v" value="{{ pick or month_iso }}" max="{{ month_iso }}" data-autosubmit>
       {% else %}
       <label for="pick">{{ "Giorno" if cat == "giorno" else "Settimana (scegli un giorno)" }}</label>
-      <input id="pick" type="date" name="v" value="{{ pick or today_iso }}" max="{{ today_iso }}">
+      <input id="pick" type="date" name="v" value="{{ pick or today_iso }}" max="{{ today_iso }}" data-autosubmit>
       {% endif %}
-      <button type="submit" class="secondary">Apri</button>
+      <button type="submit" class="secondary js-hide">Apri</button>
     </form>
     {% if periods %}
     <form method="get" action="/coach" class="picker">
@@ -89,7 +89,7 @@
       <select id="plist" name="v" data-autosubmit>
         {% for k, label, g in periods %}<option value="{{ k }}"{% if k == sel %} selected{% endif %}>{{ label|capitalize }}{% if g|rejectattr("validated")|list %} (da verificare){% endif %}</option>{% endfor %}
       </select>
-      <button type="submit" class="secondary">Apri</button>
+      <button type="submit" class="secondary js-hide">Apri</button>
     </form>
     {% endif %}
   </div>

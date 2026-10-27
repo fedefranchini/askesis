@@ -80,7 +80,8 @@ def test_login_log_and_charts_without_console_errors(server):
         page.fill("#password", password)
         page.click("button[type=submit]")
         page.wait_for_load_state("networkidle")
-        page.fill("#line", "p 66.2")
+        page.click("#altri summary")  # the extra fields are folded in "Altri dati"
+        page.fill("form.entry input[name=peso]", "66,2")
         page.fill("#day", "2025-03-31")
         page.click("form.entry button[value=save]")
         page.wait_for_load_state("networkidle")

@@ -14,6 +14,25 @@ def _synthetic_reports(tmp_path, monkeypatch):
     monkeypatch.setenv("ASKESIS_REPORTS_DIR", str(tmp_path / "reports"))
 
 
+@pytest.fixture(autouse=True)
+def _never_the_real_configuration_or_database(tmp_path, monkeypatch):
+    """Tests never read the private configuration (it points to the hosted database with the real data) and can
+    never open a hosted database: a test that needs one replaces `remote.connect` with a local libSQL file."""
+    from askesis.store import remote, state
+
+    monkeypatch.setenv("ASKESIS_CONFIG", str(tmp_path / "no-private-config.toml"))
+    for var in ("ASKESIS_DB_URL", "ASKESIS_DB_TOKEN", "ASKESIS_DB_TOKEN_SOURCE", "ASKESIS_CONFIG_TOML",
+                "ASKESIS_WEB_ORIGIN"):
+        monkeypatch.delenv(var, raising=False)
+
+    def refuse(url, token):
+        raise RuntimeError(f"test: connessione a un database online rifiutata ({url})")
+
+    monkeypatch.setattr(remote, "connect", refuse)
+    yield
+    state.use_database(None)
+
+
 @pytest.fixture
 def conn(tmp_path):
     c = connect(tmp_path / "test.db")

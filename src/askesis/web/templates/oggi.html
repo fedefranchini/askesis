@@ -174,7 +174,7 @@
     </form>
     {% endif %}
     {% set rest = S.todo|reject("in", ["Pesata di oggi", "Cibo di ieri"])|list %}
-    {% if rest %}<ul class="chips todo">{% for x in rest %}<li><a href="{{ '#checkin' if 'heck-in' in x else '#line' }}">{{ x }}</a></li>{% endfor %}</ul>{% endif %}
+    {% if rest %}<ul class="chips todo">{% for x in rest %}<li><a href="{{ '#checkin' if 'heck-in' in x else '#altri' }}">{{ x }}</a></li>{% endfor %}</ul>{% endif %}
     {% else %}
     <p class="done">{{ icon("ok") }}Pesata, cibo di ieri e check-in registrati.</p>
     {% endif %}
@@ -258,25 +258,14 @@
   </details>
 </section>
 
-<section class="card entry-card">
-<form method="post" action="{{ here }}" class="entry">
-  <input type="hidden" name="csrf" value="{{ csrf }}">
-  <label for="line" class="lead">Riga del giorno</label>
-  <textarea id="line" name="line" rows="2" spellcheck="false" autocapitalize="off"
-            placeholder="p 68.4 · cibo 1850 115 · pesi: panca 50x8 r2, 50x7 r1">{{ line }}</textarea>
-  <div class="row">
-    <label for="day">Data</label>
-    <input id="day" name="day" type="date" value="{{ day_value }}">
-    <span class="grow"></span>
-    <button type="submit" name="action" value="preview" class="secondary">Mostra anteprima</button>
-    <button type="submit" name="action" value="save">Salva</button>
-  </div>
-  <p class="hint">Cibo e passi si riferiscono al giorno prima. Pesi e corsa si salvano solo dopo l'anteprima.</p>
-
-  <details class="fields">
-    <summary>Altro</summary>
-    <p class="hint">Niente qui è obbligatorio: ogni giorno bastano peso, kcal e proteine (in «Da fare»). I campi compilati
-      diventano la stessa riga del giorno: lascia vuota la riga sopra per usarli.</p>
+<section class="card entry-card" id="altri">
+<details class="fields"{% if line or error or preview %} open{% endif %}>
+  <summary>Altri dati</summary>
+  <form method="post" action="{{ here }}" class="entry">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="line" value="">
+    <p class="hint">Niente qui è obbligatorio: ogni giorno bastano peso, kcal e proteine (in «Da fare»). Cibo e passi si
+      riferiscono al giorno prima; pesi e corsa si salvano solo dopo l'anteprima.</p>
     <fieldset class="grid"><legend>Peso e cibo (per correggere o completare)</legend>
       <label>Peso (kg)<input name="peso" inputmode="decimal"></label>
       <label>Energia di ieri (kcal)<input name="kcal" inputmode="numeric"></label>
@@ -301,8 +290,15 @@
       <label class="wide">Pesi (es. panca 50x8 r2, 50x7 r1 · rematore 40x10 r2)<textarea name="pesi" rows="2"></textarea></label>
       <label class="wide">Corsa (es. 5km 31:40 fc140)<input name="corsa"></label>
     </fieldset>
-  </details>
-</form>
+    <div class="row">
+      <label for="day">Data</label>
+      <input id="day" name="day" type="date" value="{{ day_value }}">
+      <span class="grow"></span>
+      <button type="submit" name="action" value="preview" class="secondary">Mostra anteprima</button>
+      <button type="submit" name="action" value="save">Salva</button>
+    </div>
+  </form>
+</details>
 </section>
 
 {% endif %}

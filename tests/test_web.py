@@ -58,7 +58,7 @@ def test_pages_require_login_and_wrong_password_fails(env):
     client = TestClient(create_app(cfg), base_url="http://127.0.0.1")  # fresh process: no pending delay
     ok = login(client, password)
     assert ok.status_code == 303 and ok.headers["location"] == "/"
-    assert "Riga del giorno" in client.get("/").text
+    assert "Altri dati" in client.get("/").text
 
 
 def test_password_file_holds_only_a_hash(env):
@@ -504,7 +504,7 @@ def test_days_can_be_browsed_and_a_past_day_completed(env):
     assert w == past.isoformat()
     future = t + timedelta(days=3)
     page = client.get(f"/?data={future.isoformat()}").text
-    assert "Giorno futuro" in page and 'class="quicklog"' not in page and "Riga del giorno" not in page
+    assert "Giorno futuro" in page and 'class="quicklog"' not in page and "Altri dati" not in page
     r = client.post(f"/?data={future.isoformat()}", data={"csrf": csrf_of(page), "day": future.isoformat(),
                                                           "line": "p 240", "action": "save"})
     assert "giorno futuro" in r.text and count(cfg) == before + 1
@@ -537,5 +537,17 @@ def test_today_keeps_the_extra_fields_folded_and_explains_the_partial_day(env):
     client, cfg, password = env
     login(client, password)
     html = client.get("/").text
-    assert "<summary>Altro</summary>" in html and "Campi pronti" not in html
+    assert "<summary>Altri dati</summary>" in html and "Riga del giorno" not in html
     assert "Per un pasto fuori basta il pasto libero" in html and 'id="peso"' in html
+
+
+def test_unanswered_questions_are_kept_privately(env):
+    from askesis.store import state
+
+    client, cfg, password = env
+    login(client, password)
+    page = client.get("/chiedi").text
+    r = client.post("/chiedi", data={"csrf": csrf_of(page), "q": "che tempo fa domani sulla luna"})
+    assert "Non lo so" in r.text
+    lines = state.tail_lines(paths(cfg)[0].parent / "ask_unanswered.log", 10)
+    assert len(lines) == 1 and "luna" in json.loads(lines[0])["q"]

@@ -171,6 +171,11 @@ input, select, textarea { font: inherit; color: var(--text); }
 textarea, input:not([type="checkbox"]), select { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 44px; }
 textarea:focus, input:focus, select:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px rgba(57, 135, 229, 0.25); }
 input[type="date"] { color-scheme: dark; }
+/* Safari on iPhone gives date and month fields an intrinsic width that overflows their column (they ended up under
+   the next button): without the native appearance they take the width of their column like any other field. */
+input[type="date"], input[type="month"] { -webkit-appearance: none; appearance: none; display: block; min-width: 0;
+  max-width: 100%; box-sizing: border-box; text-align: left; }
+input[type="date"]::-webkit-date-and-time-value, input[type="month"]::-webkit-date-and-time-value { text-align: left; }
 .entry textarea#line { width: 100%; font-size: 20px; line-height: 1.35; resize: vertical; }
 textarea::placeholder, input::placeholder { color: var(--text-3); }
 .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
@@ -182,6 +187,7 @@ button.secondary { background: transparent; color: var(--text); border-color: va
 button.secondary:hover { border-color: var(--text-3); }
 button.link { border: 0; background: none; color: var(--text-2); padding: 0; min-height: 44px; font-weight: 600; }
 .fields { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.entry-card .fields { margin-top: 0; border-top: 0; padding-top: 0; }
 .fields summary { cursor: pointer; font-weight: 600; color: var(--text-2); min-height: 44px; display: flex; align-items: center; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin-top: 8px; }
 .grid label { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-s); color: var(--text-2); font-weight: 600; }

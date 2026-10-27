@@ -82,3 +82,11 @@
   const w = document.getElementById("peso");
   if (w) { w.scrollIntoView({ block: "center" }); w.focus(); }
 })();
+
+// "#altri" (the "Da fare" chips): open the folded "Altri dati" form.
+(function () {
+  "use strict";
+  function openOther() { const d = document.querySelector("#altri details"); if (d) d.open = true; }
+  document.querySelectorAll('a[href="#altri"]').forEach((a) => a.addEventListener("click", openOther));
+  if (location.hash === "#altri") openOther();
+})();

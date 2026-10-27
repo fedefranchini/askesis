@@ -879,6 +879,20 @@ def web_set_password() -> None:
     typer.echo(f"✓ password impostata · sessioni aperte chiuse · dispositivi ricordati revocati: {n}")
 
 
+@web_app.command("domande")
+def web_questions(limit: Annotated[int, typer.Option("--ultime", min=1, max=500)] = 50) -> None:
+    """Domande di «Chiedi ai dati» senza risposta (per aggiungere quelle che mancano). Solo lettura."""
+    from askesis.store import state
+    from askesis.web.app import paths
+
+    cfg = _web_cfg()
+    rows = [json.loads(x) for x in state.tail_lines(paths(cfg)[0].parent / "ask_unanswered.log", limit)]
+    if not rows:
+        typer.echo("Nessuna domanda senza risposta.")
+    for r in rows:
+        typer.echo(f"{r['at'][:16]}  {r['q']}")
+
+
 @web_app.command("invite")
 def web_invite(minutes: Annotated[int, typer.Option("--minuti", min=1, max=30)] = 10) -> None:
     """Codice d'invito monouso per il primo accesso di un dispositivo da internet (password + codice, poi Face ID).

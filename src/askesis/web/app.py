@@ -956,6 +956,10 @@ def create_app(cfg: config_mod.Config | None = None, allowed_hosts: list[str] | 
                         error="Sessione scaduta: ricarica la pagina.")
         question = str(form.get("q", ""))[:300]
         ans = ask_mod.ask(conn(), question, today())
+        if ans.intent == "unknown" and question.strip():  # kept privately, to add the answers that are missing
+            state.append_line(cfg.db_path.parent / "ask_unanswered.log",
+                              json.dumps({"at": now_utc().isoformat(timespec="seconds"), "q": question},
+                                         ensure_ascii=False))
         return page(request, "chiedi.html", helps=ask_mod.HELP, question=question, answer=ans,
                     answer_html=md.render(ask_mod.display(ans.text)))
 
