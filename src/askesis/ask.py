@@ -165,14 +165,13 @@ EXERCISE_WORDS = ("panca", "squat", "stacc", "rematore", "lento", "military", "t
 
 
 def _exercise_in(q: str) -> dict | None:
-    for w in sorted(q.split(), key=len, reverse=True):
-        e = find_exercise(w)
-        if e:
-            return e
-    for i in range(len(q.split()) - 1):
-        e = find_exercise(" ".join(q.split()[i:i + 2]))
-        if e:
-            return e
+    """The exercise named in the question, longest name first: «panca inclinata manubri» is not «panca», «stacco
+    rumeno» is not «stacco»."""
+    words = q.split()
+    for n in range(min(5, len(words)), 0, -1):
+        hits = [e for i in range(len(words) - n + 1) if (e := find_exercise(" ".join(words[i:i + n])))]
+        if hits:
+            return hits[0]
     return None
 
 

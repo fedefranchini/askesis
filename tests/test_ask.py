@@ -143,3 +143,11 @@ def test_the_page_takes_questions_only_by_post(tmp_path, monkeypatch):
     r = client.post("/chiedi", data={"csrf": tok, "q": "quanto peso adesso?"})
     assert "Peso di tendenza" in r.text and "[dati:" not in r.text  # references become the sources row
     assert client.post("/chiedi", data={"csrf": "x", "q": "peso"}).text.count("Sessione scaduta") == 1
+
+
+def test_the_longest_exercise_name_in_the_question_wins():
+    from askesis.ask import _exercise_in, norm
+
+    assert _exercise_in(norm("come va lo stacco rumeno?"))["id"] == "romanian_deadlift"
+    assert _exercise_in(norm("la panca inclinata manubri migliora?"))["id"] == "incline_db_press"
+    assert _exercise_in(norm("la panca sta migliorando?"))["id"] == "bench_press"
