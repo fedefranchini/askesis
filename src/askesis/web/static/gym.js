@@ -64,3 +64,39 @@
   if (store.get("rest")) tick = setInterval(render, 1000);
   render();
 })();
+
+// Draft kept on the phone: every value typed in the sheet is copied to this browser's storage at once, and restored
+// into empty fields when the page comes back (Safari may discard a page left in the background during the session).
+// The draft is removed once the sheet is saved ("Salvato") and is never sent anywhere by itself.
+(function () {
+  "use strict";
+  const form = document.querySelector("form.gymform");
+  const day = document.querySelector(".rest-timer")?.dataset.day || form?.querySelector("input[name=day]")?.value;
+  if (!day) return;
+  const key = "gym-draft-" + day;
+  const store = {
+    get() { try { return JSON.parse(localStorage.getItem(key)) || {}; } catch (e) { return {}; } },
+    set(v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* private mode: no draft */ } },
+    del() { try { localStorage.removeItem(key); } catch (e) { /* nothing to do */ } },
+  };
+  if (document.querySelector(".receipt.saved")) { store.del(); return; }
+  if (!form) return;
+  const fields = () => form.querySelectorAll("input[name^=kg_], input[name^=reps_], input[name^=rir_], " +
+                                              "input[name=run], textarea[name=notes]");
+  const draft = store.get();
+  let restored = 0;
+  fields().forEach((f) => {
+    if (!f.value && draft[f.name]) { f.value = draft[f.name]; restored += 1; }
+  });
+  if (restored) {
+    const note = document.createElement("p");
+    note.className = "hint draft-note";
+    note.textContent = `Ripresi ${restored} valori scritti prima sul telefono (non ancora salvati).`;
+    form.prepend(note);
+  }
+  form.addEventListener("input", () => {
+    const d = store.get();
+    fields().forEach((f) => { if (f.value) d[f.name] = f.value; else delete d[f.name]; });
+    store.set(d);
+  });
+})();
